@@ -13,14 +13,12 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import colors from '@/configs/colors';
 import LinearGradient from 'react-native-linear-gradient';
-import { AppImage, AppText, AppView } from '@/components';
+import { AppView } from '@/components';
 import Size from '@/Utils/useResponsiveSize';
 import Caurosel from './Caurosel';
-import { Rect, Svg } from 'react-native-svg';
-import { HeroSliderDataProps, LiveSliderDataProps } from '@/types/data.types';
+import { Svg } from 'react-native-svg';
 import Carousel from 'react-native-reanimated-carousel';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
-import { selectSponsoredEvents } from '@/store/slices/liveEvents/sponsoredSlice';
 import { IDownloadData, ILiveContent, IVODContent } from '@/types/api/content.types';
 import { generateGradientColors } from '@/Utils/contentUtils';
 import { useCurrencyByIP } from '@/Hooks/useCurrencyByIP';
@@ -28,12 +26,9 @@ import { selectPremiumCost, setSelectedPremiumCost } from '@/store/slices/banner
 
 const SLIDER_HEIGHT =
   Platform.OS === 'ios' ? Size.getHeight() * 0.59 : Size.getHeight() * 0.62;
-const SLIDER_HEIGHT_L =
-  Platform.OS === 'ios' ? Size.getHeight() * 0.65 : Size.getHeight() * 0.62;
 const ITEM_WIDTH = Size.getWidth() * 0.88;
 const WIDTH = Dimensions.get('window').width;
 
-const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 
 interface SliderProps {
   data: (IVODContent | ILiveContent)[];
@@ -47,28 +42,10 @@ type MyFlatList = FlatList<any>;
 
 const Slider = ({ data, live, makeFullscreen, setFullscreenContent }: SliderProps) => {
   const scrollX = useRef(new Animated.Value(0)).current;
-  const [movieData, setMovieData] = useState([...data, ...data, ...data]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const flatListRef = useRef<MyFlatList>(null);
   const premiumCost = useAppSelector(selectPremiumCost)
   const {data:premium, isLoading} = useCurrencyByIP({NGN:premiumCost?.premiumNGN??0, USD:premiumCost?.premiumUSD??0})
   const dispatch = useAppDispatch()
-
-  // const sponsoredEvents = useAppSelector(selectSponsoredEvents);
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const secondToLastIndex = movieData.length - 2;
-    const maxScroll = ITEM_WIDTH * secondToLastIndex - 120;
-
-    if (contentOffsetX > maxScroll) {
-      flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
-    }
-
-    if (contentOffsetX < 0) {
-      flatListRef.current?.scrollToOffset({ offset: maxScroll, animated: false });
-    }
-  };
 
   useEffect(() => {
     const listernerID = scrollX.addListener(({ value }) => {
@@ -88,13 +65,13 @@ const Slider = ({ data, live, makeFullscreen, setFullscreenContent }: SliderProp
     <AppView
       className="relative w-full">
       <LinearGradient
-        colors={['rgb(0,0,0, 0.9)', 'rgba(0,0,0,0.65)', 'transparent']}
+        colors={['rgba(0,0,0,0.9)', 'rgba(0,0,0,0.65)', 'transparent']}
         style={styles.gradientStyles}
       />
 
       {!live && (
         <BackDrop
-          data={data.filter((item): item is IVODContent => 'admin_id' in item)}
+          data={data.filter((item): item is IVODContent => 'adminId' in item)}
           curIndex={currentIndex}
           scrollX={scrollX}
         />
@@ -125,16 +102,14 @@ const Slider = ({ data, live, makeFullscreen, setFullscreenContent }: SliderProp
           }}
           renderItem={({ item, index }) => {
             return (
-              <>
                 <Caurosel
                   item={item}
                   currentIndex={index === currentIndex}
                   colors={live ? [] : ['transparent', 'transparent', generateGradientColors('primaryColor' in item ? item.primaryColor : '#333333')[2]]}
                   live={live}
                   watchLive={makeFullscreen}
-                  handleVODTrailer={() => ('admin_id' in item && setFullscreenContent) ? setFullscreenContent({_id:item._id,desc:item.description,landscapePhoto:item.landscapePhoto,pg:item.pg,portraitPhoto:item.portraitPhoto,title:item.title,video:item.trailer,size:'30',type:item.type,viewsCount:item.viewsCount,vidClass:item.vidClass}):console.log('')}
+                  handleVODTrailer={() => ('adminId' in item && setFullscreenContent) ? setFullscreenContent({_id:item._id,desc:item.description,landscapePhoto:item.landscapePhoto,pg:item.pg,portraitPhoto:item.portraitPhoto,title:item.title,video:item.trailer,size:'30',type:item.type,viewsCount:item.viewsCount,vidClass:item.vidClass}):console.log('')}
                 />
-              </>
             );
           }}
         />
@@ -154,7 +129,6 @@ interface BackDropOptions {
 }
 
 const BackDrop = ({ data, scrollX, curIndex }: BackDropOptions) => {
-  const MainItem = data;
   return (
     <AppView
       style={{
@@ -162,7 +136,7 @@ const BackDrop = ({ data, scrollX, curIndex }: BackDropOptions) => {
       }}
       className="w-full absolute h-full">
       <FlatList
-        data={MainItem}
+        data={data}
         keyExtractor={(_, index) => index.toString()}
         contentContainerStyle={{
           height: SLIDER_HEIGHT + 30,
@@ -176,7 +150,7 @@ const BackDrop = ({ data, scrollX, curIndex }: BackDropOptions) => {
               width: '100%',
               }}>
               <LinearGradient
-                colors={generateGradientColors(item.primaryColor)}
+                colors={generateGradientColors(item.primaryColor??'#333')}
                 style={{
                   height: '100%',
                   width: '100%',

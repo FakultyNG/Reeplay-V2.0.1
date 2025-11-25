@@ -11,7 +11,7 @@ import LottieView from 'lottie-react-native';
 import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
 import {selectUser, setCredentials, setWalletInfo} from '@/store/slices/userSlice';
 import {ISubscription} from '@/types/api/subscription.types';
-import {PAYSTACK_PK} from '@env';
+import {FLUTTERWAVE_PUBLIC_KEY, PAYSTACK_PK} from '@env';
 import {createSubscription} from '@/api/subscription.api';
 import {
   handleAuthorizedPayment,
@@ -26,6 +26,7 @@ import ToastNotification from '@/components/ToastNotifications';
 import Size from '@/Utils/useResponsiveSize';
 import { MenuNavigatorParams } from '@/navigation/AppStack';
 import { IPaymentData } from '@/types/api/payment.type';
+import PayWithFlutterwave from 'flutterwave-react-native';
 
 
 interface Props {
@@ -50,6 +51,7 @@ const PayStackView = ({
   saveCard,
   voteInfo
 }: Props) => {
+    const flutterwaveOnPressRef = useRef<(() => void) | null>(null);
     const route = useRoute<SubscriptionRouteProps>();
     const liveId = route.params.metadata?.liveId
     const videoId = route.params.metadata?.videoId
@@ -75,7 +77,7 @@ const PayStackView = ({
       setLoading(true);
       const query:IPaymentData = {
         amount: Number(topUpAmount),
-        method: (selectedPaymentMethod && selectedPaymentMethod.includes('WALLET')) ? 'wallet' : 'paystack',
+        method: (selectedPaymentMethod && selectedPaymentMethod.includes('WALLET')) ? 'wallet' : 'flutterwave',
         currency,
         useCase:tab,
         ...(liveId && {liveId}),
@@ -83,6 +85,7 @@ const PayStackView = ({
         ...(voteInfo && voteInfo)
       }
       const res = await initPayment(query);
+      // console.log(res.data, FLUTTERWAVE_PUBLIC_KEY)
       if(res.ok && res.data){
         const data = res.data.data;
         if(selectedPaymentMethod && selectedPaymentMethod.includes('WALLET') && res.data.message.toLowerCase().includes('successfully')){
@@ -90,7 +93,9 @@ const PayStackView = ({
           setPaySuccessful(true); 
           return;
         }
-        if(!topUpAmount.includes('watch')) setRef(data.reference);
+        if(!topUpAmount.includes('watch')) {
+          setRef(data.reference);
+        }
         if(selectedPaymentMethod && selectedPaymentMethod?.includes('VISA'))
         await shouldStore({paymentId:data.paymentId, shouldStore:saveCard})
       }else{
@@ -120,20 +125,51 @@ const PayStackView = ({
   useEffect(() => {
        if(selectedPaymentMethod && selectedPaymentMethod.includes('....')){
       handleAuthorizedPayment({
-        amount:Number(topUpAmount),
-        paymentDetailsId:''
+        amount_charge:Number(topUpAmount),
       })
     }else{ 
       initPaymentApi();
     }
   }, []);
 
+  useEffect(() =>{
+    if(ref) flutterwaveOnPressRef.current?.()
+  }, [ref])
+
 
   return (
     <AppScreen containerStyle={{position: 'relative'}}>
 
       <View style={{flex: 1}}>
-        {ref && (
+       {ref && <PayWithFlutterwave
+          customButton={e => {
+            flutterwaveOnPressRef.current = e.onPress;
+            return <></>;
+          }}
+          onRedirect={e => e.status.includes('cancelled') ? [setStage('plan'), ToastNotification('error', 'Payment process was cancelled.')] : [setIsShowModal(true),setPaySuccessful(true)]}
+          onAbort={() => [setStage('plan')]}
+          onInitializeError={() => [
+             setStage('plan')
+          ]}
+          options={{
+            tx_ref: ref,
+            authorization: FLUTTERWAVE_PUBLIC_KEY,
+            customer: {
+              email: email,
+            },
+            amount: Number(topUpAmount),
+            currency:currency as any,
+            payment_options: (selectedPaymentMethod?.includes('VISA') ||
+              selectedPaymentMethod?.includes('USE A NEW'))
+                ? 'card'
+                : selectedPaymentMethod?.includes('USSD')
+                ? 'ussd'
+                : 'account'
+            
+          }}
+        />}
+
+        {/* {ref && (
           <Paystack
             paystackKey={PAYSTACK_PK}
             billingEmail={email}
@@ -159,19 +195,10 @@ const PayStackView = ({
             autoStart={!selectedPaymentMethod?.includes('....')}
             refNumber={ref}
           />
-        )}
+        )} */}
       </View>
 
-      {/* {!paySuccessful && !loading && (
-        <AppView className="absolute bottom-3 w-full">
-          <AppButton
-            bgColor={colors.RED}
-            title="Pay"
-            onPress={initPaymentApi}
-            style={{width: '100%', borderRadius: 8}}
-          />
-        </AppView>
-      )} */}
+
 
       <AppModal
         isModalVisible={isShowModal || loading}

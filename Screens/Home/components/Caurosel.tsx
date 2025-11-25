@@ -22,22 +22,19 @@ import {
 } from '@/assets/icons';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import routes from '@/navigation/routes';
-import { fullVideoType, previewContentType, RootNav } from '@/navigation/AppNavigator';
+import { previewContentType, RootNav } from '@/navigation/AppNavigator';
 import LinearGradient from 'react-native-linear-gradient';
-import fonts from '@/configs/fonts';
-import { AnimatedLin, MovieVideo } from '../HomeScreen';
+import { AnimatedLin } from '../HomeScreen';
 import { checkTimeStatus } from '@/Utils/timeStatus';
 import { FadeIn, FadeOut } from 'react-native-reanimated';
 import { ILiveContent, IVODContent } from '@/types/api/content.types';
-import { useScreenOrientation } from '@/Hooks/useScreenOrientation';
 import getSymbolFromCurrency from 'currency-symbol-map';
 import { formatAmount } from '@/Utils/formatAmount';
 import AppModal from '@/components/AppModal';
 import LiveInfoModal from '@/Screens/Live/components/LiveInfoModal';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
 import { setPreviewContent } from '@/store/slices/previewContentSlice';
-import { useCurrencyByIP } from '@/Hooks/useCurrencyByIP';
-import { selectPremiumCost, selectUserPremiumCost, setSelectedPremiumCost } from '@/store/slices/bannerSlice.slice';
+import { selectUserPremiumCost } from '@/store/slices/bannerSlice.slice';
 import { hasPaidContentStatus } from '@/api/content.api';
 import ToastNotification from '@/components/ToastNotifications';
 import { getWatchTag } from '@/Utils/contentUtils';
@@ -46,7 +43,6 @@ import { setFullVideoProps } from '@/store/slices/fullScreenVideo.slice';
 const ITEM_WIDTH = Size.getWidth() * 0.88;
 const WIDTH = Dimensions.get('window').width;
 
-const SPACING = 6;
 
 interface Props {
   item: IVODContent | ILiveContent;
@@ -69,14 +65,14 @@ handleVODTrailer
 }: Props) => {
   const { navigate } = useNavigation<RootNav>();
   const [videoURL, setVideoURL] = useState<string>('');
-  const [imgLoad, setImgLoad] = useState<boolean>(false);
+  const [imgLoad, setImgLoad] = useState<boolean>(true);
   const [modal, setModal] = useState<string|null>(null);
   const isFocused = useIsFocused();
   const startTime = 'start' in item ? item.start : item.releaseDate;
   const endTime = 'start' in item ? item.expiry : item.expiryDate
   const isTime = checkTimeStatus(startTime, endTime);
   const dispatch = useAppDispatch()
-  const [contentIsPaid, setContentIsPaid] = useState<boolean>('admin_id' in item ? false : item.canView)
+  const [contentIsPaid, setContentIsPaid] = useState<boolean>('adminId' in item ? false : item.canView)
   const data = useAppSelector(selectUserPremiumCost)
 
   async function handleContentStatusUpdate(){
@@ -91,38 +87,41 @@ handleVODTrailer
               }
             }
           }
-  
 
-  async function getDefaultVideo() {
-    if("admin_id" in item){
-      setVideoURL(item.trailer);
-    }else{
-      if (isTime === 'normal' || isTime === 'countdown') {
-        setVideoURL(item.previewVideo ?? '')
-      } else {
-        setVideoURL(item.stream_url)
+   useEffect(() => {
+     function preloadMedia() {
+      try {
+        let uri = '';
+        if (live && 'start' in item) uri = item.previewVideo ?? '';
+        else if ('adminId' in item) uri = item.trailer || item.portraitPhoto;
+
+        if (uri) FastImage.preload([{ uri }]);
+        if (live && 'start' in item) setVideoURL(item.previewVideo ?? '');
+        if ('adminId' in item) setVideoURL(item.trailer ?? '');
+      } catch (err) {
+        console.log('Error preloading media:', err);
+      } finally {
+        setImgLoad(false);
       }
     }
 
-  }
-
-  useEffect(() => {
-    getDefaultVideo();
-    handleContentStatusUpdate();
+    if (isFocused) {
+      preloadMedia();
+      handleContentStatusUpdate();
+    }
   }, [isFocused]);
 
   return (
     <Animated.View
       style={{
         width: WIDTH,
-        // paddingHorizontal: SPACING,
         position: 'relative',
         alignItems: 'center',
         overflow: 'hidden',
         flex: 1,
         flexGrow: 2,
       }}>
-      {!live && (
+      {!live && colorsArr.length > 0 && (
         <AppView
           style={{ width: ITEM_WIDTH, height: '100%', bottom: -1 }}
           className="overflow-hidden absolute z-[1] rounded-b-[7px]">
@@ -156,7 +155,7 @@ handleVODTrailer
       )}
 
       {imgLoad && (
-        <AppView className="relative w-full h-full items-center justify-center z-10">
+        <AppView className="absolute w-full h-full items-center justify-center z-10">
           <ActivityIndicator size={'large'} color={colors.RED} />
         </AppView>
       )}
@@ -167,8 +166,6 @@ handleVODTrailer
             uri: item.coverPhoto,
             priority: FastImage.priority.high,
           }}
-          onLoadStart={() => setImgLoad(true)}
-          onLoadEnd={() => setImgLoad(false)}
           style={{
             width: ITEM_WIDTH,
             position: 'absolute',
@@ -178,13 +175,12 @@ handleVODTrailer
         />
       )}
 
-      {("admin_id" in item && !live) && <FastImage
+      {("adminId" in item && !live) && <FastImage
         source={{
           uri: item.portraitPhoto,
           priority: FastImage.priority.high,
         }}
-        onLoadStart={() => setImgLoad(true)}
-        onLoadEnd={() => setImgLoad(false)}
+        onError={() => console.log('error')}
         style={{
           width: ITEM_WIDTH,
           position: 'absolute',
@@ -216,12 +212,12 @@ handleVODTrailer
           style={{
             maxWidth: item.title.length > 13 ? 270 : 248,
           }}
-          className={`text-[40px] ${!live ? 'leading-[39px]' : 'leading-[50px]'} font-LEXEND_700 text-white mb-1 text-center`}> 
+          className={`text-[40px] ${!live ? 'leading-[49px]' : 'leading-[50px]'} font-LEXEND_700 text-white mb-1 text-center`}> 
           {item.title}
         </AppText>
         {!live && (
           <AppView className="flex-row items-center justify-center">
-            {'admin_id' in item &&
+            {'adminId' in item &&
               item.genre &&
               item.genre.map((tag, i) => {
                 return (
@@ -246,7 +242,7 @@ handleVODTrailer
                 ? [dispatch(setPreviewContent(item as IVODContent)),
                   navigate(routes.PREVIEW_SCREEN, {
                       content: item.type.includes('series') ? previewContentType['tv series'] : item.type.includes('video') ? previewContentType['music video'] : previewContentType.film,
-                      videoURL: 'admin_id' in item ? item.trailer :'',
+                      videoURL: 'adminId' in item ? item.trailer :'',
                     })
                 ]
                 : setModal('live')

@@ -25,7 +25,8 @@ const ContentWrapper = ({enums, live,isMusic, showPagination,imageStyle, tag, st
     async function fetchVODContent(){
         try {
            if(content.length === 0) setLoading(true);       
-            const res = await getVODbyEnumID({enumId: enums._id, pagination:{page:1, limit:100}})
+            const res = await getVODbyEnumID({enumId: enums._id, pagination:{page:1, limit:30}})
+            // console.log(res.data)
             if(res.ok && res.data){
                 setContent(res.data.data)
                 await storeData(enums._id, JSON.stringify(res.data.data))

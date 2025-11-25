@@ -75,13 +75,13 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
   };
 
   async function handleContentClick(item:(IVODContent|ILiveContent), canView?:boolean){
-    await registerRecentSearch({contentId:item._id, contentType:'admin_id' in item ?'vod' :'live'})
+    await registerRecentSearch({contentId:item._id, contentType:'adminId' in item ?'vod' :'live'})
     // HANDLING NAVIGATION
-    if('admin_id' in item){
+    if('adminId' in item){
       dispatch(setPreviewContent(item)),
         navigate(routes.PREVIEW_SCREEN, {
         content: item.type.includes('series') ? previewContentType['tv series'] : item.type.includes('video') ? previewContentType['music video'] : previewContentType.film,
-        videoURL: 'admin_id' in item ? item.trailer :'',
+        videoURL: 'adminId' in item ? item.trailer :'',
       })
     }else{
       //CAN VIEW ISSUE

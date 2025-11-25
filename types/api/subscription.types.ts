@@ -6,7 +6,7 @@ export interface ISubscriptionResponse extends IGeneric {
 
 export interface ISubscription {
   _id: string;
-  admin_id: string;
+  adminId: string;
   months_duration: number;
   price: number;
   details: string;

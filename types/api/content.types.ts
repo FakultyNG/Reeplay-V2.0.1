@@ -53,7 +53,7 @@ export interface IVoteInfo{
 
 export interface IVODContent {
     _id: string;
-    admin_id: string;
+    adminId: string;
     primaryColor: string;
     title: string;
     subtitle: string;

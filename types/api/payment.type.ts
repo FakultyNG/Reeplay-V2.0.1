@@ -59,7 +59,7 @@ export interface IPaymentData{
   amount:number;
   currency:string;
   useCase:string;
-  method: 'wallet'|'paystack'
+  method: 'wallet'|'flutterwave'
   liveId?:string;
   videoId?:string;
   contestantId?:string;

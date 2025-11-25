@@ -24,7 +24,7 @@ export const handleCreatePayment = async (data: {
   );
 
 export const handleAuthorizedPayment = async (
-  data: {amount: number, paymentDetailsId:string},
+  data: {amount_charge: number},
 ) =>
 await apiCall<IAuthPaymentResponse>(paymentApi =>
   paymentApi.post<IAuthPaymentResponse>(

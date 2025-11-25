@@ -101,7 +101,7 @@ const UpcomingView = ({
 
   async function handleVideo() {
     if ("start" in items) setVideoURL(items.previewVideo ?? '')
-    if ("admin_id" in items) setVideoURL(items.trailer)
+    if ("adminId" in items) setVideoURL(items.trailer)
   }
 
   async function getSubscribedStatus() {

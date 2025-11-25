@@ -15,7 +15,7 @@ const EMPTY_ARRAY:[] = []
 const initialState: PreviewVODProps = {
     content: {
      _id: '',
-       admin_id: '',
+       adminId: '',
        primaryColor: '',
        title: '',
        subtitle: '',

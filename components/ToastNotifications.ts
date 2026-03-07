@@ -10,22 +10,24 @@ const ToastNotification = (type: ToastType, text?: string) => {
     case 'success':
       Toast.show({
         type: 'success',
-        text1: 'Hooray🎉🎉',
-        text2: text,
+        text1: '',
+        text2: 'SUCCESSFULL',
+        // text2:text
       });
       break;
     case 'info':
       Toast.show({
         type: 'info',
-        text1: 'Heads up💡',
-        text2: text,
+        text1: '',
+        text2: 'UPDATED',
       });
       break;
     case 'error':
       Toast.show({
         type: 'error',
-        text1: 'Opps❗❗❗',
-        text2: text ? text : 'Sorry for the inconveneince',
+        text1: '',
+        // text2: text ? text : 'Sorry for the inconveneince',
+        text2: 'FAILED',
       });
   }
 };

@@ -1,14 +1,14 @@
-import { Platform, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet } from 'react-native';
 import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { AppHeader, AppScreen, AppText, AppView, OTPInput } from '@/components';
 import { useNavigation } from '@react-navigation/native';
 import routes from '@/navigation/routes';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
-import { selectUser } from '@/store/slices/userSlice';
+import { selectUser, setCredentials } from '@/store/slices/userSlice';
 import fonts from '@/configs/fonts';
 import colors from '@/configs/colors';
 import Size from '@/Utils/useResponsiveSize';
-import { getData } from '@/Utils/useAsyncStorage';
+import { getData, storeData } from '@/Utils/useAsyncStorage';
 import { HAS_SET_NEWPIN } from './GetStartedScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bannerApi, fetchEnums } from '@/api/content.api';
@@ -16,6 +16,13 @@ import { setBannerContent, setCategories, setGenres } from '@/store/slices/banne
 import { useAppPersistStore } from '@/store/zustand.store';
 import { RootNav } from '@/navigation/AppNavigator';
 import { isAndroid } from '@/configs/constant';
+import { AuthParamsNavigator } from '@/navigation/AuthNavigation';
+import { resetPIN } from '@/api/auth.api';
+import { getProfileDetails } from '@/api/profile.api';
+import ToastNotification from '@/components/ToastNotifications';
+import { hasUserDetails } from '../Splashscreen/Splashscreen';
+import AppModal from '@/components/AppModal';
+import VerificationModal from './components/VerificationModal';
 
 const AppPIN = ({handleFunc}:{handleFunc?: () => void}) => {
   const { reset } = useNavigation<RootNav>();
@@ -25,6 +32,9 @@ const AppPIN = ({handleFunc}:{handleFunc?: () => void}) => {
   const user = useAppSelector(selectUser);
   const { top, bottom } = useSafeAreaInsets();
   const dispatch = useAppDispatch();
+  const [loading, setLoading] = useState<boolean>(false)
+  const [hasReset, setHasReset] = useState<boolean>(false)
+  const [showModal, setShowModal] = useState<boolean>(false)
 
   const handlePin = async (pin: string) => {
     if (pin.length === 4) {
@@ -41,7 +51,7 @@ const AppPIN = ({handleFunc}:{handleFunc?: () => void}) => {
         if (banner.ok && banner.data) dispatch(setBannerContent(banner.data.data))
         if (categories.ok && categories.data) dispatch(setCategories(categories.data.data))
         if (genres.ok && genres.data) dispatch(setGenres(genres.data.data))
-          console.log(isLock)
+          // console.log(isLock)
           if(isLock) setIsLock(false)
             reset({
               index: 0,
@@ -55,6 +65,35 @@ const AppPIN = ({handleFunc}:{handleFunc?: () => void}) => {
     }
   };
 
+  async function handleForgetPin(){
+    try {
+      const res = await resetPIN({email:user.email});
+      // console.log(res.data)
+      if(res.ok && res.data){
+         const profileRes = await getProfileDetails();
+         if(profileRes.ok && profileRes.data){
+           if (profileRes.data.data.profile.pin && profileRes.data.data.profile.pin!==''){
+             await storeData(
+               HAS_SET_NEWPIN,
+               profileRes.data.data.profile.pin,
+              );
+              await storeData(hasUserDetails, JSON.stringify(profileRes.data.data))
+              setAppPin(
+               profileRes.data.data.profile.pin,
+              )
+           }
+            dispatch(setCredentials(profileRes.data.data));
+            setHasReset(true);
+            setShowModal(true);
+         }
+      }else{
+        ToastNotification('error', res.data?.message)
+      }
+    }finally{
+      setLoading(false)
+    }
+  }
+
   async function getPinState() {
     const hasPin = await getData(HAS_SET_NEWPIN);
     if (hasPin) {
@@ -65,6 +104,8 @@ const AppPIN = ({handleFunc}:{handleFunc?: () => void}) => {
   useLayoutEffect(() => {
     getPinState();
   }, []);
+
+  // console.log(appPin)
 
   return (
     <AppView
@@ -81,12 +122,14 @@ const AppPIN = ({handleFunc}:{handleFunc?: () => void}) => {
       <AppText className="text-2xl text-white font-LEXEND_700 -mt-[5px]">
         {user.first_name}
       </AppText>
-      <AppText className="-mt-[2px] text-sm text-white font-MANROPE_400">
-        Use pin to continue
-      </AppText>
+      {loading ? 
+      <ActivityIndicator size={'small'} color={'#fff'} className='mr-auto' />
+      : <AppText className="mt-[2px] text-sm text-white font-MANROPE_400">
+        {hasReset ? `New PIN sent to ${user.email}` : 'Use pin to continue'}
+      </AppText>}
 
       <AppView className="mt-8">
-        <OTPInput pinCount={4} handleCode={code => handlePin(code)} />
+        <OTPInput pinCount={4} handleCode={code => handlePin(code)} {...((hasReset && !showModal) && {key:0})}  />
         {error && (
           <AppText
             style={{ alignSelf: 'center' }}
@@ -97,9 +140,22 @@ const AppPIN = ({handleFunc}:{handleFunc?: () => void}) => {
       </AppView>
 
       <Pressable
-        style={{ position: 'absolute', bottom: bottom, alignSelf: 'center' }}>
+        style={{ position: 'absolute', bottom: bottom +20, alignSelf: 'center' }} onPress={handleForgetPin}>
         <AppText style={styles.forgotText}>Forgot PIN?</AppText>
       </Pressable>
+
+
+        <AppModal
+                    isModalVisible={showModal}
+                    hideLoge
+                    hideCloseBtn
+                    replaceDefaultContent={
+                      <VerificationModal
+                        message={`New PIN was sent to ${'\n'}${user.email}`}
+                      />
+                    }
+                    handleClose={() => [setShowModal(false)]}
+                  />
     </AppView>
   );
 };

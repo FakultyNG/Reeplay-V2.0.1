@@ -28,7 +28,7 @@ const combinedReducer = combineReducers({
 });
 
 const rootReducer = (state: any, action: PayloadAction<any>) => {
-  if (action.type === 'auth/logout') {
+  if (action.type === 'logout') {
     // check for action type
     state = undefined;
   }

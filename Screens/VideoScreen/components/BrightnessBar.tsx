@@ -33,7 +33,7 @@ const BrightnessBar = ({brightLevel,setLevel}:Props) => {
   const brightnessStart = useRef<number>(0);
   
 
-  console.log(brightLevel, 'brightness')
+  // console.log(brightLevel, 'brightness')
 
   const setBrightness = async (value: number) => {
     // Only attempt to set brightness if we have permission or are on iOS

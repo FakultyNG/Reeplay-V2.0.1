@@ -16,14 +16,14 @@ const Sections = ({isSkipped}: Props) => {
   if(cat.length === 0) return <></>
   return (
     <>
-      {isSkipped && (
-        <AppView className="mt-10 pl-5">
+      {/* {isSkipped && ( */}
+        <AppView style={[!isSkipped && {height:0}]} className="mt-10 pl-5">
           <ContentWrapper
               enums={cat[0]}
               showPagination
             />
         </AppView>
-      )}
+      {/* // )} */}
       <AppView style={{marginTop: isSkipped ? 24 : 40}} className="pl-5">
             {cat.length > 1 && <ContentWrapper
               enums={cat[1]}

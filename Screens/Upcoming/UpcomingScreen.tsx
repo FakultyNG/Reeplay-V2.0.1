@@ -95,7 +95,7 @@ const UpcomingScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationIn
         <>
       <AppView
         style={{
-          minHeight: 55,
+          minHeight: 70,
           backgroundColor: 'rgba(0, 0, 0, 0.59)',
         }}
         className="absolute bottom-0 w-full z-20">

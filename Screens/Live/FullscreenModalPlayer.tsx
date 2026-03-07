@@ -114,7 +114,8 @@ const FullscreenModalPlayer = ({content, isFullscreen, currentContentState, setC
                 desc:content.description,
                 logo:isLive ? content.channelLogo:null,
                 title:content.title,
-                viewsCount:content.viewsCount
+                viewsCount:content.viewsCount,
+                vidClass:content.vidClass
             }}
     />  
       </View>

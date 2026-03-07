@@ -41,7 +41,7 @@ const ContentWrapper = ({enums, live,isMusic, showPagination,imageStyle, tag, st
     async function handleFetContent(){
         const cacheContent = await getData(enums._id);
         if(cacheContent) setContent(JSON.parse(cacheContent))
-            fetchVODContent();
+        fetchVODContent();
     }
 
     useEffect(() =>{

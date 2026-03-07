@@ -20,6 +20,8 @@ import ComfirmPin from './ComfirmPin';
 import {useAppSelector} from '@/Hooks/reduxHook';
 import {selectUser} from '@/store/slices/userSlice';
 import {handleCreatePIN} from '@/api/auth.api';
+import { getProfileDetails } from '@/api/profile.api';
+import { hasUserDetails } from '../Splashscreen/Splashscreen';
 
 const HAS_SET_NEWPIN = 'new_pin';
 
@@ -51,14 +53,18 @@ const ChangePin = () => {
       });
 
       if (res.ok && res.data) {
-        await storeData(HAS_SET_NEWPIN, code);
-        setIsShowModal(true); //if successful run this
-        setTimeout(() => {
-          setIsShowModal(false);
-          setLoading(false);
-          goBack();
-          //remove set timeout and navigate
-        }, 3000);
+        const res_p = await getProfileDetails();
+        if(res_p.ok && res_p.data){
+          await storeData(hasUserDetails, JSON.stringify(res_p.data.data))
+          await storeData(HAS_SET_NEWPIN, code);
+          setIsShowModal(true); //if successful run this
+          setTimeout(() => {
+            setIsShowModal(false);
+            setLoading(false);
+            goBack();
+            //remove set timeout and navigate
+          }, 3000);
+        }
       } else {
         setError(true);
         setErrorMsg('Opps! something went wrong. Please try again');

@@ -94,3 +94,8 @@ export const uploadProfile = async (data: FormData) =>
       },
     }),
   );
+
+export const deleteProfile = async () =>
+  await apiCall<IGeneric>(profileApi =>
+    profileApi.delete('/customers/profile/delete'),
+  );

@@ -10,12 +10,14 @@ type AppPersistStoreState = {
   userDetails?:IProfile;
   isToken?: boolean;
   isLock?: boolean;
+  biometrics?: boolean;
   downloadedList?: IDownloadData[];
 };
 interface AppPersistStore extends AppPersistStoreState {
   setUserDetails: (userDetails?: IProfile) => void;
   setIsToken: (isToken?: boolean) => void;
   setIsLock: (isLock?: boolean) => void;
+  setIsBiometrics: (biometrics?: boolean) => void;
   addDownload: (downloadItem?: IDownloadData) => void;
   removeDownloadById: (id: string) => void;
   hasDownloadById: (id: string) => boolean;
@@ -45,6 +47,7 @@ export const useAppPersistStore = create<
       userDetails:undefined,
       isToken: undefined,
       isLock: undefined,
+      biometrics: false,
       downloadedList:[],
    
 
@@ -52,6 +55,7 @@ export const useAppPersistStore = create<
       setUserDetails: userDetails => set({userDetails}),
       setIsToken: isToken => set({isToken}),
       setIsLock: isLock => set({isLock}),
+      setIsBiometrics: biometrics => set({biometrics}),
       addDownload: downloadItem =>
         set(state => ({
           downloadedList: downloadItem

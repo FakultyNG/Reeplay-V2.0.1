@@ -32,8 +32,8 @@ const SignUpScreen = () => {
   const [isGender, setIsGender] = useState<boolean>(false);
   const [gender, setGender] = useState<string>('Gender');
   const [countryCode, setCountryCode] = useState({
-    cc: '+1',
-    cf: '🇺🇸',
+    cc: '+234',
+    cf: '',
   });
   const ref = useRef<ScrollView|null>(null)
   const {bottom} = useSafeAreaInsets()
@@ -133,7 +133,7 @@ const SignUpScreen = () => {
             <BottomSheet
               handleClose={() => [setIsCountryCode(false), setIsGender(false)]}
               handleNav={item =>
-                setCountryCode({cc: item.dial_code, cf: item.flag})
+                setCountryCode({cc: item.dial_code, cf: item.code})
               }
               handleGender={item => setGender(item)}
               isGender={isGender}

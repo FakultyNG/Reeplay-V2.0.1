@@ -1,11 +1,42 @@
 import {View, Text, ScrollView} from 'react-native';
-import React from 'react';
+import React, { useState } from 'react';
 import {AppButton, AppHeader, AppScreen, AppText, AppView} from '@/components';
 import colors from '@/configs/colors';
 import {useNavigation} from '@react-navigation/native';
+import ToastNotification from '@/components/ToastNotifications';
+import { deleteProfile } from '@/api/profile.api';
+import { RootNav } from '@/navigation/AppNavigator';
+import routes from '@/navigation/routes';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAppDispatch } from '@/Hooks/reduxHook';
+import { hasUserDetails } from '../Splashscreen/Splashscreen';
+import { HAS_LOCK_APP } from '../Settings/SettingScreen';
 
 const DeleteScreen = () => {
   const {goBack} = useNavigation();
+  const [loading, setLoading] = useState<boolean>(false)
+    const nav = useNavigation<RootNav>();
+    const dispatch = useAppDispatch()
+  
+  async function handleDeleteAccount(){
+    try {
+      setLoading(true);
+      const res = await deleteProfile();
+      if(res.ok){
+        AsyncStorage.multiRemove([hasUserDetails,HAS_LOCK_APP, 'FCM_TOKEN'])
+            dispatch({type: 'logout'});
+        nav.navigate(routes.AUTH);
+
+      }else{
+        ToastNotification('error', `${res.data?.message}`)
+      }
+    } catch (error) {
+      ToastNotification('error', `${error}`)
+    }finally{
+      setLoading(false)
+    }
+  }
+
   return (
     <AppScreen
       containerStyle={{
@@ -41,8 +72,10 @@ const DeleteScreen = () => {
       <AppView className="absolute bottom-3 w-full">
         <AppButton
           title="Delete account"
+          isLoading={loading}
+          isDisable={loading}
           bgColor={colors.RED}
-          onPress={() => console.log('deleteAccount')}
+          onPress={() => handleDeleteAccount()}
           style={{width: '100%', borderRadius: 8, marginBottom: 15}}
         />
         <AppButton

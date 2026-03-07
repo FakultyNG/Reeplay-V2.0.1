@@ -6,12 +6,13 @@ import Size from '@/Utils/useResponsiveSize';
 import {previewContentType, RootNav} from '@/navigation/AppNavigator';
 import routes from '@/navigation/routes';
 import {useNavigation} from '@react-navigation/native';
-import {MovieVideo} from '@/Screens/Home/HomeScreen';
 import { IVODContent } from '@/types/api/content.types';
 import ToastNotification from '@/components/ToastNotifications';
 import { getVODbyGenreID } from '@/api/content.api';
 import Placeholder from '@/components/SkeletonLoader';
 import FastImage from 'react-native-fast-image';
+import { setPreviewContent } from '@/store/slices/previewContentSlice';
+import { useAppDispatch } from '@/Hooks/reduxHook';
 
 interface props {
   title: string;
@@ -20,9 +21,10 @@ interface props {
 }
 
 const RelatedContent = ({title, vodId, genreId}: props) => {
-  const {navigate} = useNavigation<RootNav>();
+  const {replace} = useNavigation<RootNav>();
   const [loading, setLoading] = useState<boolean>(false)
   const [content, setContent] = useState<IVODContent[]>([]);
+  const dispatch = useAppDispatch();
 
   async function handleFetchContent(){
     try {
@@ -48,20 +50,21 @@ const RelatedContent = ({title, vodId, genreId}: props) => {
         {title}
       </AppText>
       <AppView style={styles.centerContent}>
-        {(loading ? [...Array(6)] : content).map((lib, index) => {
+        {(loading ? [...Array(6)] : content).map((item, index) => {
+          const lib = item as IVODContent
           if(loading) return <Placeholder key={index} style={styles.image} />
           return (
             <TouchableOpacity
               activeOpacity={0.6}
               key={index}
               onPress={() =>
-                navigate(routes.PREVIEW_SCREEN, {
-                  content: previewContentType.film,
-                  videoURL: MovieVideo,
-                })
+                 [dispatch(setPreviewContent(item)), replace(routes.PREVIEW_SCREEN, {
+                          content: item.type.includes('series') ? previewContentType['tv series'] : item.type.includes('video') ? previewContentType['music video'] : previewContentType.film,
+                          videoURL: item.trailer,
+                        })]
               }>
               <AppImage source={{
-                uri: lib.image,
+                uri: lib.portraitPhoto,
                 priority:FastImage.priority.high
                 }} 
                 style={styles.image} 

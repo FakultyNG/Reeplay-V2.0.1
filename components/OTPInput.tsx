@@ -1,7 +1,7 @@
 import colors from '@/configs/colors';
 import fonts from '@/configs/fonts';
 import React, {useRef, useState, useEffect} from 'react';
-import {Platform, StyleProp, TextStyle} from 'react-native';
+import {Keyboard, Platform, StyleProp, TextStyle} from 'react-native';
 import {TextInput, View, StyleSheet} from 'react-native';
 
 interface OTPInputProps {
@@ -15,15 +15,18 @@ const OTPInput = ({pinCount, handleCode, style, space}: OTPInputProps) => {
   const [code, setCode] = useState<string[]>(Array(pinCount).fill(''));
   const inputRefs = useRef<TextInput[]>([]);
 
-  useEffect(() => {
-    inputRefs.current[0]?.focus();
+ useEffect(() => {
+    const timer = setTimeout(() => {
+        if (inputRefs.current.length > 0) {
+            inputRefs.current[0]?.focus();
+        }
+    }, 100); 
+    return () => clearTimeout(timer);
   }, []);
 
   const handleTextChange = (text: string, index: number) => {
     const newCode = [...code];
     newCode[index] = text;
-
-    console.log(newCode[index]);
 
     setCode(newCode);
 
@@ -57,7 +60,9 @@ const OTPInput = ({pinCount, handleCode, style, space}: OTPInputProps) => {
       {Array.from({length: pinCount}, (_, index) => (
         <TextInput
           key={index}
-          ref={ref => (inputRefs.current[index] = ref as TextInput)}
+          ref={(ref) => {
+            inputRefs.current[index] = ref as TextInput;
+          }}          
           cursorColor={colors.WHITE}
           style={[
             styles.input,
@@ -75,6 +80,7 @@ const OTPInput = ({pinCount, handleCode, style, space}: OTPInputProps) => {
               inputRefs.current[index - 1]?.focus();
             }
           }}
+
         />
       ))}
     </View>

@@ -5,12 +5,14 @@ import { selectPreviewVODComments, setContentComments } from '@/store/slices/pre
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
 import { IReplyDetails } from '@/types/api/comment.types';
 import { fetchCommentbyVOD } from '@/api/comment.api';
+import Size from '@/Utils/useResponsiveSize';
 
 interface Props{
   setRepliesDetails: React.Dispatch<React.SetStateAction<IReplyDetails | null>>
   vodId:string
+  loadComment:boolean
 }
-const PreviewComments = ({setRepliesDetails, vodId}:Props) => {
+const PreviewComments = ({setRepliesDetails, vodId, loadComment}:Props) => {
     const flatListRef = useRef(null);
     const dispatch = useAppDispatch();
     const commentList = useAppSelector(selectPreviewVODComments);
@@ -63,6 +65,8 @@ const PreviewComments = ({setRepliesDetails, vodId}:Props) => {
     }, 5000)
   }, [hasMore])
 
+  // console.log(commentList[0])
+
   return (
     <FlatList
           ref={flatListRef}
@@ -73,12 +77,13 @@ const PreviewComments = ({setRepliesDetails, vodId}:Props) => {
           bounces={false}
           contentContainerStyle={{
             paddingHorizontal: 12,
-            paddingBottom: Platform.OS === 'ios' ? 20 : 30,
+            paddingBottom: Platform.OS === 'ios' ? Size.hp(10) : Size.hp(20),
           }} 
           onEndReachedThreshold={1}         
           onEndReached={loadMore}
           showsVerticalScrollIndicator={false}
           data={commentList}
+          extraData={[loadComment]}
           renderItem={({item, index}) => {
             return (
               <CommentCard 

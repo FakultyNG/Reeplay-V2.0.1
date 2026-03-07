@@ -6,7 +6,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import SectionHeader, {
   headerProps,
 } from '@/Screens/Home/components/SectionHeader';
@@ -22,6 +22,7 @@ import { setPreviewContent } from '@/store/slices/previewContentSlice';
 import { previewContentType, RootNav } from '@/navigation/AppNavigator';
 import routes from '@/navigation/routes';
 import { useNavigation } from '@react-navigation/native';
+import { getCachedImage } from '@/Utils/contentUtils';
 
 interface CategoriesProsp extends headerProps {
   movieCategories: IVODContent[];
@@ -96,9 +97,22 @@ interface ContentItemProps{
 }
 
 export const ContentItem = ({item,imageStyle,index,style,tag,video,linearGradient}:ContentItemProps) =>{
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const dispatch = useAppDispatch();
-  const {navigate} = useNavigation<RootNav>()
+  const {navigate} = useNavigation<RootNav>();
+    const [localUri, setLocalUri] = useState(item.portraitPhoto);
+
+useEffect(() => {
+  let isMounted = true;
+
+  (async () => {
+    const cached = await getCachedImage(item.portraitPhoto, item._id);
+    // console.log(cached)
+    if (isMounted && loading) setLocalUri(cached);
+  })();
+
+  return () => { isMounted = false };
+}, [item._id]);
   return (
     <View className='relative'>
          {loading && <View className='absolute z-10 rounded-[5px] overflow-hidden'>
@@ -117,9 +131,8 @@ export const ContentItem = ({item,imageStyle,index,style,tag,video,linearGradien
                 style={imageStyle}
                 className="w-full rounded-[5px] overflow-hidden">
                 <AppImage
-                  source={{uri:item.portraitPhoto, priority:FastImage.priority.high, cache:FastImage.cacheControl.web}}
+                  source={{uri:localUri, priority:FastImage.priority.high, cache:FastImage.cacheControl.web}}
                   style={[styles.images, imageStyle]}
-                  onLoadStart={() => setLoading(true)}
                   onLoadEnd={() => setLoading(false)}
                 />
               </AppView>

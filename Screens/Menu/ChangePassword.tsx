@@ -70,7 +70,7 @@ const ChangePassword = () => {
 
       setStep('setPassword');
       setStartTiimer(true);
-      handleRest();
+      // handleRest();
     }
   }
 

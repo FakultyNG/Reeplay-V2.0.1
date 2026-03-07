@@ -136,7 +136,7 @@ const BackDrop = ({ data, scrollX, curIndex }: BackDropOptions) => {
       }}
       className="w-full absolute h-full">
       <FlatList
-        data={data}
+        data={[data[curIndex]]}
         keyExtractor={(_, index) => index.toString()}
         contentContainerStyle={{
           height: SLIDER_HEIGHT + 30,

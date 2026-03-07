@@ -8,7 +8,7 @@ interface VideoCastingProps {
   handleCastingFunc?: () => void;
 }
 
-const Casting = memo(
+const Casting =
   ({
     handleCastingFunc,
   }:VideoCastingProps) => {
@@ -23,7 +23,7 @@ const Casting = memo(
     // </TouchableOpacity>
      <CastButton style={{width: 24, height: 24,marginLeft: 24,}} />
   )
-})
+}
 
 export default Casting
 

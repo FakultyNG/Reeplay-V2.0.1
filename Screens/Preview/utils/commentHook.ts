@@ -26,6 +26,8 @@ export const useCommentHook = ({reply, resetFunc, handleFinalFunc, text, vodId, 
     const {setIsToken} = useAppPersistStore()
 
 
+    // TODO: REDO THIS FUNCTION FOR LESSER COST
+    // DON'T USE FOR PRODUCTION...
      async function getCommentArray(_id: string) {
     try {
       handleFinalFunc()
@@ -34,8 +36,9 @@ export const useCommentHook = ({reply, resetFunc, handleFinalFunc, text, vodId, 
         type: reply ? 'REPLY'
           : 'COMMENT'}
       );
-      if (response.data?.message.toLowerCase() === 'you shall not pass')
+      if (response.status === 401)
         setIsToken(true);
+      // console.log(response.data)
       if (response.ok && response.data) {
         const data = response.data.data;
         const replyData = 'parentCommentId' in data && data;
@@ -80,8 +83,7 @@ export const useCommentHook = ({reply, resetFunc, handleFinalFunc, text, vodId, 
       author: {
         userDocumentId: user._id,
         fullName: `${user.first_name} ${user.last_name}`,
-        photoBucket:null,
-        photoKey:null,
+        photoURL:userProfilePic
       },
       loading: true,
     };
@@ -98,8 +100,7 @@ export const useCommentHook = ({reply, resetFunc, handleFinalFunc, text, vodId, 
             ...data,
            parentCommentAuthor:{
             fullName:'',
-            photoBucket:null,
-            photoKey:null,
+            photoURL:'',
             userDocumentId:''
            },
            parentCommentId,
@@ -117,8 +118,26 @@ export const useCommentHook = ({reply, resetFunc, handleFinalFunc, text, vodId, 
       resetFunc();
       if (response.ok && response.data) {
         console.log(response.data)
-        getCommentArray(
-           response.data.data._id,
+        // getCommentArray(
+        //    response.data.data._id,
+        // );
+           dispatch(
+          (reply && parentCommentId)
+            ? addReplyByCommentId({
+                commentId: parentCommentId,
+                reply: {
+                ...data,
+                _id:response.data.data._id,
+                loading:false,
+                parentCommentAuthor:{
+                  fullName:'',
+                  photoURL:'',
+                  userDocumentId:''
+                },
+                parentCommentId,
+              },
+           })
+          : addCommentReducers({...data as IComment, _id:response.data.data._id, loading: false}),
         );
       }
     } catch (error) {

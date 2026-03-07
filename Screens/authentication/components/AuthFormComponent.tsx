@@ -1,5 +1,6 @@
 import {
   Modal,
+  PermissionsAndroid,
   Platform,
   Pressable,
   StatusBar,
@@ -9,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import React, { useState } from 'react';
-import { AppButton, AppText, AppView, TouchableOpacity } from '@/components';
+import { AppButton, AppImage, AppText, AppView, TouchableOpacity } from '@/components';
 import colors from '@/configs/colors';
 import Size from '@/Utils/useResponsiveSize';
 import fonts from '@/configs/fonts';
@@ -17,7 +18,7 @@ import { CheckIcon, DropDwn, EyeIcon, EyeIcon_C } from '@/assets/icons';
 import useToggle from '@/Hooks/useToggle';
 import { useNavigation } from '@react-navigation/native';
 import routes from '@/navigation/routes';
-import { removeData, storeData } from '@/Utils/useAsyncStorage';
+import { getData, removeData, storeData } from '@/Utils/useAsyncStorage';
 import { handleLoginAPI, handleSignUpAPI, resendToken } from '@/api/auth.api';
 import { GUEST_TOKEN, WEB_CLIENT_ID } from '@env';
 import { getProfileDetails } from '@/api/profile.api';
@@ -40,6 +41,10 @@ import country_codes from '@/configs/country_codes';
 import { useAppPersistStore } from '@/store/zustand.store';
 import PrivacyScreen from '@/Screens/support/PrivacyScreen';
 import TermScreen from '@/Screens/support/TermScreen';
+import CountryFlag from 'react-native-country-flag';
+import {getDeviceId} from 'react-native-device-info';
+import { registerNotificationDevice } from '@/api/notification.api';
+import messaging from '@react-native-firebase/messaging';
 
 
 const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -91,6 +96,13 @@ const AuthFormComponent = ({
   const [error, setError] = useState<string>(''); 
   const {setIsToken} = useAppPersistStore()
   const [modal, setModal] = useState<'privacy'|'terms'|null>(null)
+    const deviceId = getDeviceId();
+    const deviceType =
+    Platform.OS === 'ios'
+      ? 'ios'
+      : Platform.OS === 'android'
+      ? 'android'
+      : 'other';
 
   async function resetState() {
     setEmail('');
@@ -102,6 +114,58 @@ const AuthFormComponent = ({
     setError('');
     await removeData(HAS_SKIPPED);
   }
+
+     const requestUserPermission = async () => {
+      if (Platform.OS === 'android' && Platform.Version >= 33) {
+        const check = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+        if (!check) {
+          const status = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+          if (status !== PermissionsAndroid.RESULTS.GRANTED) return false;
+        }
+      }
+    
+      const authStatus = await messaging().requestPermission();
+      const enabled =
+        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+    
+      return enabled;
+    };
+    const getToken = async () => {
+  try {
+    if (!messaging().isDeviceRegisteredForRemoteMessages) {
+      await messaging().registerDeviceForRemoteMessages();
+    }
+
+    const token = await messaging().getToken();
+    
+    if (token) {
+      console.log("FCM Token Generated:", token);
+      await storeData('FCM_TOKEN', token);
+      const t = await registerNotificationDevice({
+        device_id: deviceId,
+        device_type: deviceType,
+        device_token: token,
+      });
+      return t;
+    }
+  } catch (error) {
+    console.error("Token Generation Error:", error);
+  }
+};
+  
+     async function handleInitializations() {
+      if (await requestUserPermission()) {
+        getToken();
+        messaging()
+          .getInitialNotification()
+          .then(async rm => {
+            // if (rm) {
+            //   console.log('Notification: ', rm.notification);
+            // }
+          });
+      }
+    }
 
   async function handleLogin() {
     if (email === '' && password === '') {
@@ -126,13 +190,24 @@ const AuthFormComponent = ({
             const banner = await bannerApi();
             const categories = await fetchEnums('categories');
             const genres = await fetchEnums('genres');
+            const fcmToken = await getData('FCM_TOKEN');
 
+            
             if (banner.ok && banner.data) dispatch(setBannerContent(banner.data.data))
-            if (categories.ok && categories.data) dispatch(setCategories(categories.data.data))
-            if (genres.ok && genres.data) dispatch(setGenres(genres.data.data))
-              
-            if (profileRes.ok && profileRes.data) {
-              await storeData(
+              if (categories.ok && categories.data) dispatch(setCategories(categories.data.data))
+                if (genres.ok && genres.data) dispatch(setGenres(genres.data.data))
+                  
+                  if (profileRes.ok && profileRes.data) {
+                    if(fcmToken){
+                      await registerNotificationDevice({
+                       device_id:deviceId,
+                      device_type:deviceType,
+                      device_token:fcmToken,
+                    });
+                    }else if(profileRes.data.data.profile.settings_info.allow_notifications && !fcmToken){
+                        handleInitializations();
+                    }
+                    await storeData(
                 hasUserDetails,
                 JSON.stringify(profileRes.data.data),
               );
@@ -207,6 +282,7 @@ const AuthFormComponent = ({
         setLoading(true);
         //Auth endpoint
         const res = await resendToken({ email: email.trim() });
+        console.log(res)
         if (res.ok) {
           setLoading(false);
           setResetEmail && setResetEmail(email.trim());
@@ -367,10 +443,19 @@ const AuthFormComponent = ({
             <Pressable
               style={[styles.center, { columnGap: 4 }]}
               onPress={() => setIsCountryCode(true)}>
-              <AppView className="w-7 h-[18px] items-center justify-center">
-                <AppText className="text-[25px] -mt-2">
-                  {countryCode.cf}
-                </AppText>
+               <AppView style={{transform:[{scale:1.2}]}} className="w-7 h-[18px] items-center justify-center overflow-hidden relative">
+                                  {countryCode.cf === '' ? 
+                                <AppImage source={require('@/assets/images/nigerian-flag1.png')} style={{position:'absolute', width:23, height:14}} />
+                                  : <CountryFlag
+                  isoCode={countryCode.cf.toLowerCase()}
+                  size={18}
+                  style={{
+                    width: 23,
+                    height: 14,
+                    marginLeft: -1,
+                  }}
+                />
+}
               </AppView>
               <AppText style={styles.text}>{countryCode.cc}</AppText>
               <DropDwn />
@@ -550,7 +635,7 @@ const AuthFormComponent = ({
         <>
           <AppText
             style={{ fontFamily: fonts.INTER_400 }}
-            className="mt-8 text-[13px] text-[#9095A0] text-center">
+            className="mt-4 text-[13px] text-[#9095A0] text-center">
             By signing up, you agree to REEPLAY's
           </AppText>
           <AppView className="mt-1 mb-4 flex-row items-center justify-center gap-x-1">
@@ -584,7 +669,7 @@ const AuthFormComponent = ({
 
       {(screen === 'login' || screen === 'signUp') && !isSession && (
         <AppView
-          style={Platform.OS === 'android' && { marginTop: 1 }}
+          style={Platform.OS === 'android' && { marginTop: screen !== 'login' ? -5 :1 }}
           className="flex-row items-center mt-3">
           <AppText className="text-base text-[#BCC1CA] font-MANROPE_400 text-center">
             {screen === 'login'

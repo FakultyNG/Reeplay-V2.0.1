@@ -14,7 +14,7 @@ import {create} from 'apisauce';
 import { apiCall } from './profile.api';
 
 
-const baseApi = create({
+export const baseApi = create({
   baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -54,6 +54,9 @@ export const resendVerificationToken = async (data: {
 export const resetPassword = async (data: IResetPasswordData) =>
   await baseApi.post<IGeneric>(`/customers/pass-reset/change-pass`, data);
 
+export const resetPIN = async (data:{email:string}) =>
+  await baseApi.get<IGeneric>(`/customers/pin-reset/${data.email}`);
+
 export const handleCreatePIN = async (data: ICreatePIN) =>
   await apiCall<IGeneric>(authApi =>
     authApi.post<IGeneric>(`/customers/signup/createpin`, data),
@@ -73,3 +76,4 @@ export const refreshToken = async (token: string) =>
   await baseApi.get<IValideTokenResponse>(
     `/customers/general/renew-accesstoken?ref_token=${token}`,
   );
+

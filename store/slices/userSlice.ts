@@ -69,6 +69,9 @@ const userSlice = createSlice({
     const idToDelete = action.payload;
     state.watchList = state.watchList.filter(item => item._id !== idToDelete);
 },
+    clearWatchlist: (state, action:PayloadAction<null>) => {
+    state.watchList = []
+},
     setNoticationsList: (state, action: PayloadAction<INotification[]>) => {
       state.notifications = action.payload;
     },
@@ -90,7 +93,7 @@ const userSlice = createSlice({
   },
 });
 
-export const {setCredentials, setHideTabBar, setNoticationsList, updateNotificationById, setWatchListContents, setWalletInfo, setCredentialsEmail, logout} = userSlice.actions;
+export const {setCredentials, setHideTabBar, deleteWatchlistById, clearWatchlist, setNoticationsList, updateNotificationById, setWatchListContents, setWalletInfo, setCredentialsEmail, logout} = userSlice.actions;
 // Other code such as selectors can use the imported `RootState` type
 export const selectUser = (state: RootState) => state.user.userInfo.profile;
 export const selectUserProfilePic = (state: RootState) => state.user.userInfo.photo_url;

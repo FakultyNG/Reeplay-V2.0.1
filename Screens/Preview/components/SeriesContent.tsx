@@ -6,6 +6,7 @@ import {
   OpenDropDwn,
   PreviewDownloadIcon,
 } from '@/assets/icons';
+import LockWhite from '@/assets/icons/lock-white.svg'
 import { IDownloadData, IEpisode, ISeasonData, IVODContent } from '@/types/api/content.types';
 import { useAppPersistStore } from '@/store/zustand.store';
 import { fetchSeasonsForSeries } from '@/api/content.api';
@@ -90,8 +91,7 @@ const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}
 
     useEffect(() =>{
       handleGetSeasons();
-    }, []);
-  
+    }, []);  
   return (
     <AppView className="mt-3 pt-[10px] border-t border-grey_200/10">
       <AppView className="w-[82px]">
@@ -298,7 +298,7 @@ const SeriesView = ({
           ]
           } 
           className="absolute z-30 w-8 h-8 items-center justify-center rounded-full bg-black/60">
-          <MiniPlayBtn />
+          {!accessStatus ? <LockWhite /> : <MiniPlayBtn />}
         </TouchableOpacity>
 
           {/* ProgressBar */}

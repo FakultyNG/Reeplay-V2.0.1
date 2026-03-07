@@ -50,6 +50,7 @@ import { checkImageUrlValidity } from '@/Utils/ValidateImageUrl';
 import { walletBalance } from '@/api/payment.api';
 import { fetchWatchList } from '@/api/watchlist.api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { HAS_LOCK_APP } from '../Settings/SettingScreen';
 
 const tabs = [
   'Account',
@@ -105,8 +106,8 @@ const MenuScreen = () => {
 
   async function handleLogout() {
     await removeData(hasUserDetails);
-    await AsyncStorage.clear().finally(async() =>  await storeData(HAS_ONBOARD, 'true'));
-    dispatch(logout({}));
+     AsyncStorage.multiRemove([hasUserDetails,HAS_LOCK_APP, 'FCM_TOKEN'])
+    dispatch({type: 'logout'});
     setShowModal(false);
     nav.reset({
       index: 0,
@@ -137,7 +138,7 @@ const MenuScreen = () => {
 
   return (
     <>
-      <AppScreen containerStyle={{ paddingTop: Size.calcHeight(20) }}>
+      <AppScreen scrollable containerStyle={{ paddingTop: Size.calcHeight(20) }}>
         <AppView className="flex-row items-center justify-between">
           {!isSkipped && (
             <AppView className="flex-row items-center gap-x-3">
@@ -158,13 +159,13 @@ const MenuScreen = () => {
           </TouchableOpacity>
         </AppView>
 
-        <View className="mt-6 pl-5 flex-1">
+        <View className="mt-6 pl-5 flex-1 mb-5">
           {(isSkipped ? skippedTab : tabs).map((tab, i) => {
             return (
               <TouchableOpacity
                 onPress={() => handleNavigation(tab)}
                 key={i}
-                className="my-5 py-2 flex-row items-center gap-x-5">
+                className="my-5 py-1.5 flex-row items-center gap-x-5">
                 {(tab === 'Account' || tab === 'Log In') && <AccountIcon />}
                 {tab === 'Downloads' && <DownloadIcon />}
                 {tab === 'Watchlist' && <Watchlists />}
@@ -181,7 +182,7 @@ const MenuScreen = () => {
           })}
         </View>
 
-        <AppView className="mt-auto pl-5 mb-10">
+        <AppView className="pl-5 my-10 mt-20">
           <Pressable
             onPress={() =>
               isSkipped
@@ -194,7 +195,7 @@ const MenuScreen = () => {
               {isSkipped ? 'Sign Up' : 'Log out'}
             </AppText>
           </Pressable>
-          <AppText className="mt-3 font-MANROPE_400 text-sm text-light_blue">
+          <AppText className="mt-4 font-MANROPE_400 text-sm text-light_blue">
             Reeplay Version 2.0.1
           </AppText>
         </AppView>

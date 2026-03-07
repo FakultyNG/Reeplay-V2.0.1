@@ -18,9 +18,9 @@ interface Props{
   vod: IVODContent
 }
 const RatingView = ({vod,rating,setRating, vodRatings}:Props) => {
-  const starRatings = vodRatings && formatRatingStats(vodRatings);
+  const starRatings = formatRatingStats(vodRatings);
 
-  console.log(JSON.stringify(starRatings,null,2), vodRatings)
+  // console.log(JSON.stringify(starRatings,null,2), vodRatings)
 
   if(!starRatings) return<></>;
   return (

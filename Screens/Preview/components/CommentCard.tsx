@@ -148,7 +148,7 @@ const SingleCommentCard = ({item, isReply, showReplies, setRepliesDetails, showB
   const [reactionCount, setReactionCount] = useState<number>(0);
    const [clicked, setClicked] = useState<boolean>(false);
   const [userReaction, setUserReaction] = useState<string | null>(null);
-  const img = item.authorPhotoURL || "parentCommentAuthorPhotoURL" in item && item.parentCommentAuthorPhotoURL
+  const img = item.author.photoURL || "parentCommentAuthor" in item && item.parentCommentAuthor?.photoURL
   const dispatch = useAppDispatch();
   const {setIsToken} = useAppPersistStore()
 
@@ -161,24 +161,24 @@ const SingleCommentCard = ({item, isReply, showReplies, setRepliesDetails, showB
     })
   }
 
-   async function getCommentArray() {
-      const response = await getCommentById(
-       {commentId: item._id,
-        type: isReply ? 'REPLY' : 'COMMENT'
-      }
-      );
-      if (response.data?.message.toLowerCase() === 'you shall not pass')
-        setIsToken(true);
-      if (response.ok && response.data) {
-        const data = response.data.data;
-        const reply = 'parentCommentId' in data && data;
-        dispatch(
-          (reply && isReply && reply.parentCommentId)
-            ? updateRepliesByReplyId({commentId: reply.parentCommentId, reply})
-            : updateCommentById({...data as IComment, loading: false}),
-        );
-      }
-  }
+  //  async function getCommentArray() {
+  //     const response = await getCommentById(
+  //      {commentId: item._id,
+  //       type: isReply ? 'REPLY' : 'COMMENT'
+  //     }
+  //     );
+  //     if (response.status === 401)
+  //       setIsToken(true);
+  //     if (response.ok && response.data) {
+  //       const data = response.data.data;
+  //       const reply = 'parentCommentId' in data && data;
+  //       dispatch(
+  //         (reply && isReply && reply.parentCommentId)
+  //           ? updateRepliesByReplyId({commentId: reply.parentCommentId, reply})
+  //           : updateCommentById({...data as IComment, loading: false}),
+  //       );
+  //     }
+  // }
 
   async function handleCommentReaction() {
     if (item.loading || clicked) return;
@@ -192,6 +192,7 @@ const SingleCommentCard = ({item, isReply, showReplies, setRepliesDetails, showB
         const response = await addReaction(
           {reaction:'love', commentId:item._id},
         );
+        console.log(response.data)
         if (!response.ok) {
           setReactionCount(reactionCount);
           setIsLike(false);
@@ -208,7 +209,9 @@ const SingleCommentCard = ({item, isReply, showReplies, setRepliesDetails, showB
         setReactionCount(reactionCount - 1);
 
         const response = await deleteReaction({reactionId:userReaction});
-        if (response.status !== 204) {
+        // console.log(response.data)
+
+        if (!(response.data?.message.toLowerCase().includes('successful')) || (response.data.status !== 200)) {
           setReactionCount(reactionCount);
           setIsLike(true);
           ToastNotification('error',
@@ -221,7 +224,7 @@ const SingleCommentCard = ({item, isReply, showReplies, setRepliesDetails, showB
     } catch (error) {
       ToastNotification('error',`${error}`);
     } finally {
-      getCommentArray();
+      // getCommentArray();
       setClicked(false);
     }
   }
@@ -272,7 +275,7 @@ const SingleCommentCard = ({item, isReply, showReplies, setRepliesDetails, showB
         {/* Buttons */}
         <AppView className="flex-row items-center gap-x-4 mt-[10px]">
           <AppView className="flex-row items-center gap-x-1.5">
-            <TouchableOpacity onPress={handleCommentReaction}>
+            <TouchableOpacity onPress={handleCommentReaction} hitSlop={20}>
               {isLike ? <LikeBtn_F /> : <LikeBtn />}
             </TouchableOpacity>
             <AppText className="font-ROBOTO_400 text-white text-[11.8px]">

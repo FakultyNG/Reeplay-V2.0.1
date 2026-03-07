@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">ReePlay</string>
+    <string moduleConfig="true" name="CodePushDeploymentKey">NsvUdMguE6fTiE8JMGnmv5roSaLm41didEHO7l</string>
 </resources>

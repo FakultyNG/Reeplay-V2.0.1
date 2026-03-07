@@ -66,7 +66,8 @@ const ContinueWatchingComp = ({
       vidClass:item.video.vidClass,
       video:episodeUrl??'',
       viewsCount:Number(item.episode ? item.episode.viewsCount:item.video.viewsCount),
-      seekTo:progressRatio
+      seekTo:item.duration,
+      watchedDocumentId:item.watchedDocumentId
     }
 
   async function removeContinueWatching(){
@@ -100,14 +101,14 @@ const ContinueWatchingComp = ({
     <AppView style={{width: ITEM_WIDTH}} className="mt-4 mr-3">
       <AppView className="relative overflow-hidden">
        
-          <TouchableOpacity onPress={removeContinueWatching} className="absolute z-10 top-1 right-1">
+          <TouchableOpacity onPress={removeContinueWatching} hitSlop={20} className="absolute z-10 top-1 right-1">
             {loading ? <ActivityIndicator size={'small'} /> : <CloseIcon />}
           </TouchableOpacity>
      
 
 
         <TouchableOpacity
-          onPress={() => [setFullscreenContent({...itemData}), makeFullscreen()]}
+          onPress={() => [setFullscreenContent({...itemData, watchedDocumentId:item.watchedDocumentId}), makeFullscreen()]}
           className="w-full h-[102px] overflow-hidden">
           {item.episode && episodeUrl && episodeUrl !== '' ? 
             <AppVideo

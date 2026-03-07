@@ -102,6 +102,18 @@ export interface ICast {
     photoUrl: string;
 }
 
+export interface ICastsResponse extends IGeneric{
+    data:ICast[]
+}
+
+export interface IVodMetaResponse extends IGeneric{
+    data:{
+        _id:string;
+        viewsCount:number;
+        averageRating:number
+    }
+}
+
 export interface IAdsResponse extends IGeneric{
     data: IAdsData[]
 }
@@ -231,6 +243,7 @@ export interface IDownloadData{
     vidClass:string;
     viewsCount:number
     seekTo?:number
+    watchedDocumentId?:string
 }
 
 export interface IVODRatingResponse extends IGeneric{
@@ -298,4 +311,16 @@ export interface IEpisode {
   video: string;
   trailer: string;
   durationWatched:number
+}
+
+export interface IVodSubtitleResponse extends IGeneric{
+    data: IVodSubtitle[]
+}
+
+export interface IVodSubtitle{
+    _id:string;
+    key:string;
+    bucket:string;
+    language:string;
+    src:string
 }

@@ -7,7 +7,7 @@ interface MuteProps {
   onMutePress: () => void;
 }
 
-export const Mute = memo(
+export const Mute =
   ({
     isMuted,
     onMutePress,
@@ -27,4 +27,3 @@ export const Mute = memo(
       </TouchableOpacity>
     );
   }
-);

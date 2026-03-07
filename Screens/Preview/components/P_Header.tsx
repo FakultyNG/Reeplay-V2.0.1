@@ -50,7 +50,8 @@ const P_Header = ({setFullscreen, isFullscreen, content}:VideoOrientationProps) 
           desc:content.description,
           logo:null,
           title:content.title,
-          viewsCount:content.viewsCount
+          viewsCount:content.viewsCount,
+          vidClass:content.vidClass
         }}
     />
     </View>

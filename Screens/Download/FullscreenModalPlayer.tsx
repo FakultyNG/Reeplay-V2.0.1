@@ -54,7 +54,13 @@ const DownloadFullscreenModalPlayer = ({content, isFullscreen,isDownloadScreen, 
                 desc:content.desc,
                 logo:null,
                 title:content.title,
-                viewsCount:content.viewsCount
+                viewsCount:content.viewsCount,
+                vidClass:content.vidClass,
+                ...((content.watchedDocumentId && {
+                    watchedDocumentId:content.watchedDocumentId,
+                    seekTo:content.seekTo
+
+                }))
             }}
     />  
       </View>

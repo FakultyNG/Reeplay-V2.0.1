@@ -80,6 +80,7 @@ const SwiperContainer = () => {
           keyExtractor={(_, i) => i.toString()}
           horizontal
           showsHorizontalScrollIndicator={false}
+          removeClippedSubviews={true}
           contentContainerStyle={{
             marginTop: 15,
           }}
@@ -118,6 +119,7 @@ const SwiperContainer = () => {
           paginationActiveColor={colors.RED}
           paginationDefaultColor="rgba(255, 19, 19, 0.4)"
           paginationStyleItem={styles.pagination}
+          removeClippedSubviews={true}
           data={contents[genres[activeIndex].name].length > 0 ? contents[genres[activeIndex].name] : [...Array(1)]}
           renderItem={({item, index}) => (
             <>

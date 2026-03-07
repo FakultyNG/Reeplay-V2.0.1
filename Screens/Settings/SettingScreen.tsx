@@ -1,4 +1,4 @@
-import {View, Text, StyleSheet, Linking, Alert} from 'react-native';
+import {View, Text, StyleSheet, Linking, Alert, Platform, PermissionsAndroid} from 'react-native';
 import React, {useEffect, useState} from 'react';
 import {
   AppButton,
@@ -47,9 +47,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
-import { selectUser, setCredentials } from '@/store/slices/userSlice';
+import { clearWatchlist, selectUser, setCredentials } from '@/store/slices/userSlice';
 import { getProfileDetails, setNotifications as notificationApi } from '@/api/profile.api';
 import ToastNotification from '@/components/ToastNotifications';
+import { useAppPersistStore } from '@/store/zustand.store';
+import { clearWatchList } from '@/api/watchlist.api';
+import { getDeviceId } from 'react-native-device-info';
+import messaging from '@react-native-firebase/messaging';
+import { registerNotificationDevice } from '@/api/notification.api';
 
 export const HAS_LOCK_APP = 'HAS_LOCK_APP';
 
@@ -59,9 +64,10 @@ const SettingScreen = () => {
   const [showModal, setShowModal] = useState<boolean>(false);
   const [modalType, setModelType] = useState<string>('');
   const [lock, setLock] = useState<boolean>(false);
-  const [notifications, setNotifications] = useState<boolean>(false);
+  const [notifications, setNotifications] = useState<boolean|null>(null);
   const [biometrics, setBiometrics] = useState<boolean>(false);
   const [biometricsIsSupport, setBiometricsIsSupport] = useState(true);
+  const [loading, setLoading] = useState(false);
   const rnBiometrics = new ReactNativeBiometrics();
    const dispatch = useAppDispatch();
     const {
@@ -72,6 +78,27 @@ const SettingScreen = () => {
       new_services,
       video_quality,
     } = useAppSelector(selectUser).settings_info;
+    const {biometrics:isBiometrics, setIsBiometrics} = useAppPersistStore();
+      const deviceType =
+    Platform.OS === 'ios'
+      ? 'ios'
+      : Platform.OS === 'android'
+      ? 'android'
+      : 'other';
+  const deviceId = getDeviceId();
+
+    async function handleClearWatchlist(){
+      try {
+        setLoading(true);
+        const res = await clearWatchList();
+        if(res.ok){
+          dispatch(clearWatchlist(null));
+          setShowModal(false);
+        }
+      } finally{
+        setLoading(false)
+      }
+    }
 
   const url = 'https://reeplay-inc.gitbook.io/reeplay-inc.-docs/';
 
@@ -156,6 +183,61 @@ const SettingScreen = () => {
     }
   }
 
+
+  const requestUserPermission = async () => {
+  if (Platform.OS === 'android' && Platform.Version >= 33) {
+    const check = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+    if (!check) {
+      const status = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+      if (status !== PermissionsAndroid.RESULTS.GRANTED) return false;
+    }
+  }
+
+  const authStatus = await messaging().requestPermission();
+  const enabled =
+    authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+    authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+  return enabled;
+};
+
+const getToken = async () => {
+  try {
+    if (!messaging().isDeviceRegisteredForRemoteMessages) {
+      await messaging().registerDeviceForRemoteMessages();
+    }
+
+    const token = await messaging().getToken();
+    
+    if (token) {
+      console.log("FCM Token Generated:", token);
+      await storeData('FCM_TOKEN', token);
+      
+      const t = await registerNotificationDevice({
+        device_id: deviceId,
+        device_type: deviceType,
+        device_token: token,
+      });
+      return t;
+    }
+  } catch (error) {
+    console.error("Token Generation Error:", error);
+  }
+};
+
+   async function handleInitializations() {
+    if (await requestUserPermission()) {
+      getToken();
+      messaging()
+        .getInitialNotification()
+        .then(async rm => {
+          // if (rm) {
+          //   console.log('Notification: ', rm.notification);
+          // }
+        });
+    }
+  }
+
   function handleClicked(query: string) {
     if (query.includes('clear')) {
       setShowModal(true);
@@ -175,38 +257,61 @@ const SettingScreen = () => {
       navigation.navigate(routes.INTEREST_SCREEN, {isSettings: true});
   }
 
-    async function handleSettings() {
-      try {
-        const res = await notificationApi({
-          allow_notifications: notifications,
-          upcoming_events,
-          new_arrivals,
-          live_channels,
-          new_services,
-          video_quality,
-        });
-        if (res.ok && res.data && res.data.message.includes('Successful')) {
-          ToastNotification('info', res.data.message)
-          const user = await getProfileDetails();
-          if (user.ok && user.data) dispatch(setCredentials(user.data.data));
-        }
-      } catch (error) {
-        Alert.alert('error', 'Unable to update settings');
+   async function handleSettings() {
+  try {
+    // let currentToken = await getData('FCM_TOKEN');
+
+    if (notifications !== null) {
+      if (notifications) {
+        await handleInitializations(); 
+        // currentToken = await getData('FCM_TOKEN'); 
+      } else {
+        messaging().deleteToken().catch(() => {});
+        await removeData('FCM_TOKEN');
       }
     }
+
+    const res = await notificationApi({
+      allow_notifications: notifications !== null ? notifications : allow_notifications,
+      upcoming_events,
+      new_arrivals,
+      live_channels,
+      new_services,
+      video_quality,
+    });
+
+    if (res.ok && res.data?.message.includes('Successful')) {
+      ToastNotification('info', res.data.message);
+      const user = await getProfileDetails();
+      if (user.ok && user.data) dispatch(setCredentials(user.data.data));
+    }
+  } catch (error) {
+    // Alert.alert('Error', 'Unable to update settings');
+  }
+}
   
     useEffect(() => {
       handleSettings();
     }, [notifications]);
 
   useEffect(() => {
+   if(notifications === null){
+     setNotifications(allow_notifications)
+     if(allow_notifications) animation3.value = withTiming(11.5, {duration: 400});
+   }
     getLockState();
     checkBiometrics();
+    if(isBiometrics) {
+      setBiometrics(isBiometrics)
+      handleAnimation();
+    }
   }, []);
 
   useEffect(() => {
     handleLock();
   }, [lock]);
+
+  console.log('check..', allow_notifications)
 
   return (
     <>
@@ -245,7 +350,7 @@ const SettingScreen = () => {
                   activeOpacity={1}
                   onPress={() =>
                     biometricsIsSupport
-                      ? [setBiometrics(!biometrics), handleAnimation()]
+                      ? [setBiometrics(!biometrics),setIsBiometrics(!biometrics), handleAnimation()]
                       : Alert.alert(
                           'Sorry, your device has no biometrics settings active.',
                         )
@@ -269,7 +374,7 @@ const SettingScreen = () => {
               key={i}
               onPress={() => handleClicked(tabs.toLowerCase())}
               activeOpacity={1}
-              disabled={isInterest || isNotification}
+              disabled={isNotification}
               style={{
                 backgroundColor: !odd ? 'transparent' : '#3E3D3D59',
                 paddingHorizontal: Size.calcHeight(25),
@@ -289,7 +394,7 @@ const SettingScreen = () => {
                   <PrivacyPolicyIcon />
                 )}
                 {tabs.toLowerCase().includes('about') && <AboutUsIcon />}
-                <AppText className={`font-MANROPE_400 text-sm ${isInterest ?'text-[#626161]' :'text-white'} `}>
+                <AppText className={`font-MANROPE_400 text-sm ${'text-white'} `}>
                   {tabs}
                 </AppText>
               </AppView>
@@ -329,6 +434,7 @@ const SettingScreen = () => {
           height: 380,
         }}
         hideCloseBtn={true}
+        isView
         replaceDefaultContent={
           <>
             {modalType === 'video' ? (
@@ -350,9 +456,10 @@ const SettingScreen = () => {
                 <AppButton
                   bgColor={colors.RED}
                   title="Yes"
-                  onPress={() => console.log('payment')}
+                  onPress={handleClearWatchlist}
                   style={styles.btn}
                   labelStyle={styles.btnLabel}
+                  isLoading={loading}
                 />
                 <AppView className="mb-5" />
               </AppView>

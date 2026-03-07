@@ -24,6 +24,7 @@ const NotificationScreen = () => {
     try {
       setLoading(true);
       const res = await getAllNotifications({page: page ?? 1, limit: 20});
+      // console.log(res.data)
       if (res.data?.status === 401) setIsToken(true);
       if (res.ok && res.data) {
         const existing = new Set(notifications.map(x => x._id));
@@ -75,13 +76,11 @@ const NotificationScreen = () => {
   return (
     <AppScreen containerStyle={{paddingTop: 30, position: 'relative'}}>
       <AppHeader style={{marginTop:5}} />
-      <AppView className="absolute -top-[10px] w-full items-center">
-        <AppImage source={require('@/assets/images/Logo_L.png')} style={{width: 268, height:49}}
-          resizeMode='contain' />
-      </AppView>
-      <AppText className="font-MANROPE_700 text-white text-lg mt-12 mb-5">
+      <AppView className="absolute w-full items-center">
+      <AppText className="font-MANROPE_700 text-white text-xl mt-1.5 mb-0">
         Notifications
       </AppText>
+      </AppView>
 
       <AppView>
         <SectionList

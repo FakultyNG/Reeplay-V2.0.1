@@ -127,12 +127,12 @@ const previewVODSlice = createSlice({
 
     updateRepliesByReplyId: (
       state,
-      action: PayloadAction<{commentId: string; reply: IReply}>,
+      action: PayloadAction<{commentId: string; reply: IReply, replyId:string}>,
     ) => {
-      const {commentId, reply} = action.payload;
+      const {commentId, reply, replyId} = action.payload;
       const existing = state.replies[commentId] ?? [];
 
-      const index = existing.findIndex(r => r._id === reply._id);
+      const index = existing.findIndex(r => r._id === replyId);
       if (index === -1) return;
 
       const updated = [...existing];

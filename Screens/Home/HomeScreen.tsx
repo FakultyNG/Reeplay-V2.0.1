@@ -4,6 +4,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -54,6 +55,7 @@ import { getAllNotifications } from '@/api/notification.api';
 import { OrientationInjectedProps } from '@/components/OrientationWrapper';
 import DownloadFullscreenModalPlayer from '../Download/FullscreenModalPlayer';
 import { IDownloadData } from '@/types/api/content.types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 const AnimatedView = Animated.createAnimatedComponent(AppView);
@@ -79,6 +81,7 @@ const HomeScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInject
   const ContinueWatching = useAppSelector(selectContinueWatching);
   const {setIsToken} = useAppPersistStore();
   const [isFullscreenContent, setFullscreenContent] = useState<IDownloadData|null>(null)
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
 
   async function getSkippedState() {
@@ -173,7 +176,7 @@ const allContent = cW.data.data;
     };
   }, [scrollY]);
 
-  useEffect(() => {
+  async function loadFunc(){
     Orientation.lockToPortrait();
     checkOrientation();
     userProfile();
@@ -183,7 +186,20 @@ const allContent = cW.data.data;
     getWallet();
     handlePremiumContentCost();
     handleNotifications();
-  }, []);
+  }
+
+    async function handleRefresh(){
+      try {
+        setIsRefreshing(true);
+        await loadFunc()
+      } finally{
+        setIsRefreshing(false);
+      }
+  }
+
+  useEffect(() => {
+    if(!isFullscreen) loadFunc();
+  }, [isFullscreen]);
 
   function checkOrientation() {
     Orientation.getOrientation(orient => {
@@ -211,7 +227,7 @@ const allContent = cW.data.data;
           {/* //Header */}
           <AppView
             style={{
-              minHeight: 55,
+              minHeight: 70,
               backgroundColor: 'rgba(0, 0, 0, 0.69)',
             }}
             className="absolute bottom-0 w-full z-20">
@@ -220,12 +236,12 @@ const allContent = cW.data.data;
                 blurType="dark"
                 blurAmount={120}
                 style={{
-                  minHeight: 55,
+                  minHeight: 80,
                   width: '100%',
                 }}
               />
             ) : (
-              <BlurView backgroundColor="rgba(0, 0, 0, 1)" blurRadius={120} />
+              <BlurView backgroundColor="rgba(0, 0, 0, 0.8)" blurRadius={120} />
             )}
           </AppView>
           <Header scroll={isScrolled} />
@@ -247,6 +263,11 @@ const allContent = cW.data.data;
             scrollEventThrottle={16}
             nestedScrollEnabled
             showsVerticalScrollIndicator={false}
+            removeClippedSubviews={false}
+            refreshControl={<RefreshControl 
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+            />}
             contentContainerStyle={{ paddingBottom: Size.hp(17), width: '100%' }}
             style={{
               backgroundColor: colors.DEEP_BLACK,

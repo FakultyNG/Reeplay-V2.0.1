@@ -17,6 +17,7 @@ import {
   type TextStyle,
   type ImageStyle,
   BackHandler,
+  TouchableOpacity,
 } from 'react-native';
 import {
   ResizeMode,
@@ -30,6 +31,10 @@ import { RenderVideo, VideoInternalRef } from './VideoPlayer';
 import { StartButton, Thumbnail } from './controls/Thumbnail';
 import { useBackButtonHandler } from '@/Hooks/nativeBackFunc';
 import { useNavigation } from '@react-navigation/native';
+import { deleteContinueWatchingById } from '@/api/content.api';
+import { removeContinueWatchingById } from '@/store/slices/bannerSlice.slice';
+import { useAppDispatch } from '@/Hooks/reduxHook';
+import { BigClose } from '@/assets/icons';
 
 export interface VideoPlayerRef extends VideoRef {
   stop: () => void;
@@ -41,6 +46,9 @@ export interface IContentData{
   desc:string;
   logo:string|null;
   viewsCount:number
+  vidClass:string
+  seekTo?:number
+    watchedDocumentId?:string
 }
 
 export interface CustomStyles {
@@ -141,6 +149,7 @@ const DynamicVideoComponent = forwardRef<VideoPlayerRef, VideoPlayerProps>(
 
     const videoRef = useRef<VideoInternalRef>(null);
     const {goBack} = useNavigation()
+    const dispatch = useAppDispatch()
 
     useImperativeHandle(ref, () => ({
       ...videoRef.current!,
@@ -173,6 +182,14 @@ const DynamicVideoComponent = forwardRef<VideoPlayerRef, VideoPlayerProps>(
       setTimeout(() => videoRef.current?.onStart(), 0);
     }, [onStart]);
 
+    async function removeWatched(_id:string){
+      const res = await deleteContinueWatchingById(_id);
+      console.log(res.data, _id)
+      if(res.ok){
+        dispatch(removeContinueWatchingById(_id))
+      }
+    }
+
     const _onEnd = useCallback(() => {
       if (onEnd) onEnd();
       if (endWithThumbnail || endThumbnail) {
@@ -181,6 +198,7 @@ const DynamicVideoComponent = forwardRef<VideoPlayerRef, VideoPlayerProps>(
         videoRef.current?.dismissFullscreenPlayer();
         videoRef.current?.seek(0);
         videoRef.current?.pause();
+        if(props.contentData.watchedDocumentId) removeWatched(props.contentData.watchedDocumentId)
       }
     }, [onEnd, endWithThumbnail, endThumbnail, setIsStarted, setHasEnded]);
 
@@ -202,7 +220,7 @@ const DynamicVideoComponent = forwardRef<VideoPlayerRef, VideoPlayerProps>(
       return (
         <View className='w-full h-full relative'>
             {((hasEnded && endThumbnail) || (!isStarted && thumbnail)) && 
-          <View className='absolute w-full h-full z-[9999999px]'> 
+          <View className='absolute w-full h-full' style={{zIndex:999}}> 
             <Thumbnail
             thumbnailSource={
               hasEnded && endThumbnail ? endThumbnail : thumbnail!
@@ -225,6 +243,11 @@ const DynamicVideoComponent = forwardRef<VideoPlayerRef, VideoPlayerProps>(
               customStylesPlayArrow={customStyles.playArrow}
             />
             </View>} */}
+           {isFullscreen && <TouchableOpacity 
+           onPress={() => [handleGoBackFunc ? handleGoBackFunc() : onToggleFullScreen()]}
+            className='absolute top-5 right-10'>
+              <BigClose />
+            </TouchableOpacity>}
           </View>
             }
 

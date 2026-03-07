@@ -73,15 +73,16 @@ function makeFullscreen(){
   return (
     <View 
      style={[{
-        height: !isLandscape
-          ? manualLandscape
-            ? Size.wp(100)
-            : Size.hp(100)
-          : Size.wp(100),
-            width:
-              isLandscape || manualLandscape
-                ? screenHeight
-                : Size.wp(100),
+        // height: !isLandscape
+        //   ? manualLandscape
+        //     ? Size.wp(100)
+        //     : screenHeight
+        //   : Size.wp(100),
+        //     width:
+        //       isLandscape || manualLandscape
+        //         ? screenHeight
+        //         : Size.wp(100),
+        flex:1
           },
         ]}
     >

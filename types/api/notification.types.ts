@@ -31,3 +31,9 @@ interface Photo {
   Bucket: string;
   Key: string;
 }
+
+export interface IRegisterDevice{
+  device_token:string;
+  device_id:string;
+  device_type:string
+}

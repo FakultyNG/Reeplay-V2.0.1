@@ -1,4 +1,7 @@
 import { IVODRatings } from "@/types/api/content.types";
+import { getData, storeData } from "./useAsyncStorage";
+import RNFS from 'react-native-fs';
+
 
 export function generateGradientColors(hexColor: string): string[] {
   // HEX → RGB
@@ -107,7 +110,7 @@ export function getWatchTag(type: string, live?: boolean): string {
   return '';
 }
 
-export function formatRatingStats(data: IVODRatings): Record<string, number> {
+export function formatRatingStats(data: IVODRatings|null): Record<string, number> {
   const result: Record<string, number> = {
     "1": 0,
     "2": 0,
@@ -118,17 +121,92 @@ export function formatRatingStats(data: IVODRatings): Record<string, number> {
   };
 
   // Set total
-  if (data.totalStats.length > 0) {
-    result.total = data.totalStats[0].totalRatingsDocuments;
-  }
-
-  // Fill rates 1 to 5
-  for (const stat of data.groupStats) {
-    const rateKey = String(stat.rate);
-    if (["1", "2", "3", "4", "5"].includes(rateKey)) {
-      result[rateKey] = stat.count;
+  if(data !== null){
+    if (data.totalStats.length > 0) {
+      result.total = data.totalStats[0].totalRatingsDocuments;
+    }
+  
+    // Fill rates 1 to 5
+    for (const stat of data.groupStats) {
+      const rateKey = String(stat.rate);
+      if (["1", "2", "3", "4", "5"].includes(rateKey)) {
+        result[rateKey] = stat.count;
+      }
     }
   }
 
   return result;
+}
+
+
+const CACHE_KEY = 'IMAGE_CACHE_MAP';
+
+function getFileExtension(url: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const match = pathname.match(/\.([a-zA-Z0-9]+)$/);
+    return match ? match[1].toLowerCase() : 'jpg';
+  } catch {
+    return 'jpg';
+  }
+}
+
+export async function getCachedImage(
+  url: string,
+  id: string,
+): Promise<string> {
+  if (!url || !id) return url;
+
+  const saved = await getData(CACHE_KEY);
+  const cacheMap: Record<string, string> = saved ? JSON.parse(saved) : {};
+
+  const cachedPath = cacheMap[id];
+  if (cachedPath && (await RNFS.exists(cachedPath))) {
+    return `file://${cachedPath}`;
+  }
+
+  try {
+    const extension = getFileExtension(url); // ✅ FIX
+    const fileName = `${id}.${extension}`;
+    const filePath = `${RNFS.CachesDirectoryPath}/${fileName}`;
+
+    await RNFS.downloadFile({
+      fromUrl: url,
+      toFile: filePath,
+    }).promise;
+
+    cacheMap[id] = filePath;
+    await storeData(CACHE_KEY, JSON.stringify(cacheMap));
+
+    return `file://${filePath}`;
+  } catch (error) {
+    console.log('Image caching error:', error, id);
+    return url;
+  }
+}
+
+
+export function srtToVtt(srt: string): string {
+  let vtt = srt
+    // Normalize line endings
+    .replace(/\r+/g, '')
+    .replace(/^\uFEFF/, '') // remove BOM
+
+    // Remove subtitle index numbers
+    .replace(/^\d+\n/gm, '')
+
+    // Convert timestamps (comma → dot)
+    .replace(
+      /(\d{2}:\d{2}:\d{2}),(\d{3})/g,
+      '$1.$2'
+    )
+
+    // Remove HTML tags (<b>, <i>, etc.)
+    .replace(/<\/?[^>]+>/g, '')
+
+    // Trim extra blank lines
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return `WEBVTT\n\n${vtt}`;
 }

@@ -26,7 +26,7 @@ import {BlurView as Blur} from '@react-native-community/blur';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
 import { selectCategories, selectGenres } from '@/store/slices/bannerSlice.slice';
 import { ICategoryData, IVODContent } from '@/types/api/content.types';
-import { libraryContent } from '@/api/content.api';
+import { getDefaultLibrary, libraryContent } from '@/api/content.api';
 import Placeholder from '@/components/SkeletonLoader';
 import FastImage from 'react-native-fast-image';
 import { setPreviewContent } from '@/store/slices/previewContentSlice';
@@ -35,8 +35,8 @@ const LibraryScreen = () => {
   const genres = useAppSelector(selectGenres)
   const categories = useAppSelector(selectCategories)
   const [genre, setGenre] = useState<string | null>(null);
-  const [categoriesTxt, setCategoriesTxt] = useState<ICategoryData>(categories[0]);
-  const [genreTxt, setGenreTxt] = useState<ICategoryData>(genres[0]);
+  const [categoriesTxt, setCategoriesTxt] = useState<ICategoryData>({_id:'',name:'All Categories',createdAt:'',position:0,updatedAt:''});
+  const [genreTxt, setGenreTxt] = useState<ICategoryData>({_id:'',name:'Movies',createdAt:'',position:0,updatedAt:''});
   const [selectedItems, setSelectedItems] = useState<ICategoryData[]>([]);
   const [contents, setContents] = useState<IVODContent[]>([])
   const [loading, setLoading] = useState<boolean>(false);
@@ -56,7 +56,8 @@ const LibraryScreen = () => {
       }else{
         setLoading(true);
       }
-      const res = await libraryContent({catId: categoriesTxt._id, genreId:genreTxt._id, pagination:{page:page??1, limit:20}})
+
+      const res = (categoriesTxt._id === '' || genreTxt._id === '') ? await getDefaultLibrary({pagination:{page:page??1, limit:20}}) : await libraryContent({catId: cat ??categoriesTxt._id, genreId:genre?? genreTxt._id, pagination:{page:page??1, limit:20}})
       if(res.ok && res.data){
         const data = res.data.data;
         setContents(prev =>{
@@ -85,6 +86,7 @@ const LibraryScreen = () => {
 
   async function handleSelect(value: ICategoryData) {
     resetState();
+    setContents([])
     if (genre === 'genre'){
        setGenreTxt(value);
       await handleFetchContent(1, undefined, value._id)
@@ -94,6 +96,8 @@ const LibraryScreen = () => {
       await handleFetchContent(1, value._id, undefined)
       }
   }
+
+  // getDefaultLibrary
 
   const loadMore = () => {
     if(!hasMore || contents.length < 20) return
@@ -116,7 +120,7 @@ const LibraryScreen = () => {
     <>
       <AppView
         style={{
-          minHeight: 55,
+          minHeight: 70,
           backgroundColor: 'rgba(0, 0, 0, 0.5)',
         }}
         className="absolute bottom-0 w-full z-20">
@@ -176,13 +180,13 @@ const LibraryScreen = () => {
             </AppView>
           )}
         </AppView>
-        <AppView className="mb-[92px]">
+        <AppView className="mb-[110px]">
           <FlatList 
             data={loading ? [...Array(20)] : contents}
             keyExtractor={(item,index) => loading ? index.toString() : item._id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.centerContent}
-            onEndReachedThreshold={1}
+            onEndReachedThreshold={0.5}
         onEndReached={loadMore}
         ListFooterComponent={
           <>

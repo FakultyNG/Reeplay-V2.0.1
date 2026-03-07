@@ -58,7 +58,15 @@ const SetNewPIN = () => {
           setIsShowModal(true);
           setTimeout(() => {
             setIsShowModal(false);
-            replace(routes.INTEREST_SCREEN, {isSettings: false});
+            // replace(routes.INTEREST_SCREEN, {isSettings: false});
+             reset({
+                          index: 0,
+                          routes: [
+                            {
+                              name: routes.TAB_MAIN,
+                            },
+                          ],
+                        });
             setLoading(false);
           }, 3000);
         } else {

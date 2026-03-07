@@ -20,10 +20,10 @@ const MyTabBar = ({state, descriptors, navigation}: BottomTabBarProps) => {
       style={{
         flexDirection: 'row',
         justifyContent: 'space-around',
-        minHeight: 80,
+        minHeight: 70,
         paddingTop: 20,
         width: '100%',
-        // backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        ...(Platform.OS === 'android' && {backgroundColor: 'rgba(0, 0, 0, 0.8)'})
       }}>
       {state.routes.map((route, index) => {
         const {options} = descriptors[route.key];

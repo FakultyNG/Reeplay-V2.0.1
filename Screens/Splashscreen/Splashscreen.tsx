@@ -61,10 +61,10 @@ const Splashscreen = () => {
     <SafeAreaView style={[styles.center, styles.container]}>
       <StatusBar hidden />
         <LottieView
-              source={require('@/assets/lottie/RPsplash.json')}
+              source={require('@/assets/lottie/RPlogo.json')}
               autoPlay
               loop={false}
-              speed={50}
+              speed={3}
               style={{
                 width: Size.calcAverage(800),
                 height: Size.calcAverage(800),

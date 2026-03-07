@@ -1,6 +1,6 @@
 import { IGeneric, IPagination } from "@/types/api/auth.types";
 import { apiCall } from "./profile.api";
-import { IAddReactionResponse, IAdsResponse, IBannerContentResponse, IContentUserStatusResponse, IContinueWatchingResponse, IEnumsResponse, IPremiumContentCostResponse, IRatingData, IReactionData, IRegisteredContinueWatching, ISearchMainResponse, ISearchResponse, ISeasonDataResponse, IVODbyEnumIDResponse, IVODRatingResponse } from "@/types/api/content.types";
+import { IAddReactionResponse, IAdsResponse, IBannerContentResponse, ICastsResponse, IContentUserStatusResponse, IContinueWatchingResponse, IEnumsResponse, IPremiumContentCostResponse, IRatingData, IReactionData, IRegisteredContinueWatching, ISearchMainResponse, ISearchResponse, ISeasonDataResponse, IVODbyEnumIDResponse, IVodMetaResponse, IVODRatingResponse, IVodSubtitleResponse } from "@/types/api/content.types";
 
 
 export const bannerApi = async () =>
@@ -57,7 +57,7 @@ export const addReaction = async (data:IReactionData) =>
     await apiCall<IAddReactionResponse>(baseApi => baseApi.put<IAddReactionResponse>(`/customers/socials/create-update/reaction/${data.commentId}/${data.reaction}`))
 
 export const deleteReaction = async (data:{reactionId:string}) =>
-    await apiCall(baseApi => baseApi.put(`/customers/socials/delete/reaction/${data.reactionId}`))
+    await apiCall<IGeneric>(baseApi => baseApi.delete<IGeneric>(`/customers/socials/delete/reaction/${data.reactionId}`))
 
 export const hasPaidContentStatus = async (data:{contentType:'live'|'vod', _id:string}) =>
     await apiCall<IContentUserStatusResponse>(baseApi => baseApi.get<IContentUserStatusResponse>(`/customers/shared/check-content-payment/${data.contentType}/${data._id}`))
@@ -67,3 +67,19 @@ export const contentCostApi = async () =>
 
 export const fetchSeasonsForSeries = async ({pagination,_id}:{pagination:IPagination, _id:string}) =>
     await apiCall<ISeasonDataResponse>(baseApi => baseApi.get<ISeasonDataResponse>(`/customers/shared/vods/seasons/${_id}?page=${pagination.page}&limit=${pagination.limit}`))
+
+export const fetchCastsByVOID = async ({pagination,_id}:{pagination:IPagination, _id:string}) =>
+    await apiCall<ICastsResponse>(baseApi => baseApi.get<ICastsResponse>(`/customers/shared/get-casts?vodId=${_id}&page=${pagination.page}&limit=${pagination.limit}`))
+
+export const fetchVODDetails = async ({_id}:{_id:string}) =>
+    await apiCall<IVodMetaResponse>(baseApi => baseApi.get<IVodMetaResponse>(`/customers/shared/vods/vod-meta/${_id}`))
+
+export const getDefaultLibrary = async ({pagination}:{pagination:IPagination}) =>
+    await apiCall<IVODbyEnumIDResponse>(baseApi => baseApi.get<IVODbyEnumIDResponse>(`/customers/shared/vods/default-library?page=${pagination.page}&limit=${pagination.limit}`))
+
+export const updateViewsCount = async (data:{content:string,contentType:'vod'}) =>
+    await apiCall<IGeneric>(baseApi => baseApi.post<IGeneric>(`/customers/view/content`, data))
+
+export const getSubtitles = async (data:{parentId:string}) =>
+    await apiCall<IVodSubtitleResponse>(baseApi => baseApi.get<IVodSubtitleResponse>(`/customers/shared/subtitles/fetch/${data.parentId}`))
+

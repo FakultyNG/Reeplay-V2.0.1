@@ -58,17 +58,17 @@ import {BlurView as Blur} from '@react-native-community/blur';
 import {MovieVideo, MusicVideo, SeriesVideo} from '../Home/HomeScreen';
 import Orientation from 'react-native-orientation-locker';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
-import { selectPreviewVODContent, setContentComments } from '@/store/slices/previewContentSlice';
+import { selectPreviewVODContent, setContentComments, setPreviewContent } from '@/store/slices/previewContentSlice';
 import { formatAmount, formatLikesNumber } from '@/Utils/formatAmount';
 import ToastNotification from '@/components/ToastNotifications';
-import { addWatchList, checkIsWatchList } from '@/api/watchlist.api';
+import { addWatchList, checkIsWatchList, removeWatchList } from '@/api/watchlist.api';
 import { fetchCommentbyVOD, totalCommentCount } from '@/api/comment.api';
-import { selectUserProfilePic } from '@/store/slices/userSlice';
+import { deleteWatchlistById, selectUserProfilePic } from '@/store/slices/userSlice';
 import FastImage from 'react-native-fast-image';
 import { IReplyDetails } from '@/types/api/comment.types';
-import { IDownloadData, ISeasonData, IVODContent, IVODRatings } from '@/types/api/content.types';
+import { ICast, IDownloadData, ISeasonData, IVODContent, IVODRatings } from '@/types/api/content.types';
 import { useCommentHook } from './utils/commentHook';
-import { addVODRating, fetchSeasonsForSeries, getVODRatings, hasPaidContentStatus } from '@/api/content.api';
+import { addVODRating, fetchSeasonsForSeries, fetchVODDetails, getVODRatings, hasPaidContentStatus } from '@/api/content.api';
 import { useAppPersistStore } from '@/store/zustand.store';
 import { downloadAndSave, encryptFile, getAESKeys } from './utils/downloadUtils';
 import RNFS from 'react-native-fs';
@@ -103,6 +103,7 @@ const PreviewScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInj
 const [downloadPercentage, setDownloadPercentage] = useState(0);
     const [vodRating, setVODRating] = useState<IVODRatings|null>(null);
     const [accessStatus, setAccessStatus] = useState<boolean>(false);
+    const [seeMore, setSeeMore] = useState<boolean>(false);
       const [isFullscreenContent, setFullscreenContent] = useState<IDownloadData|null>(null)
  const dispatch = useAppDispatch();
  const {hasDownloadById,addDownload} = useAppPersistStore()
@@ -111,6 +112,16 @@ const [downloadPercentage, setDownloadPercentage] = useState(0);
 const premiumCost = useAppSelector(selectUserPremiumCost)
 const isFocused = useIsFocused();
 const lastUpdateRef = useRef(Date.now());
+
+
+async function handleFetchVodMeta(){
+  const res = await fetchVODDetails({_id:previewContent._id});
+  // console.log(res.data, 'VOD META')
+  if(res.ok && res.data){
+    const data = res.data.data
+    dispatch(setPreviewContent({...previewContent, viewsCount:data.viewsCount,averageRating:data.averageRating}))
+  }
+}
 
   async function getCommentCount(){
     const res = await totalCommentCount(previewContent._id)
@@ -133,6 +144,7 @@ const lastUpdateRef = useRef(Date.now());
         parentId:previewContent._id,
         parentType:'vod'
       });
+      // console.log(res, 'Content rating...', res.data)
       if(res.ok && res.data){
         ToastNotification('success', res.data.message)
       }else{
@@ -143,6 +155,8 @@ const lastUpdateRef = useRef(Date.now());
     }finally{
       setLoading_r(false);
       await handleVODRating();
+      await handleFetchVodMeta();
+      // TODO: CALL getVodById endpoint to refersh previewContent data
     }
   }
 
@@ -154,13 +168,14 @@ const lastUpdateRef = useRef(Date.now());
   async function handleAddWatchList(){
     try {
       setLoading(true);
-      setAddWatchList(true);
-      const res = await addWatchList(previewContent._id);
+      setAddWatchList(!addWatchList_boolean);
+      const res = addWatchList_boolean ? await removeWatchList(previewContent._id) : await addWatchList(previewContent._id);
       if(res.ok && res.data){
-        ToastNotification('info', res.data.message)
+        ToastNotification('info', res.data.message);
+        if(addWatchList_boolean) dispatch(deleteWatchlistById(previewContent._id))
       }else{
         ToastNotification('error', `${res.data?.message}`)
-        setAddWatchList(false)
+        setAddWatchList(addWatchList_boolean)
       }
     } catch (error) {
       ToastNotification('error', `${error}`);
@@ -284,15 +299,22 @@ const lastUpdateRef = useRef(Date.now());
   useEffect(() => {
     if(!isFocused) return
     Orientation.lockToPortrait();
-    handleFetchComments()
     handleContentStatusUpdate();
     handleVODRating();
     getWatchListStatus();
     getCommentCount();
+    handleFetchVodMeta();
   }, [isFocused]);
+  
+  useEffect(() =>{
+    handleFetchComments()
+  }, [isComment])
 
   useEffect(() =>{
-    if(!isFullscreen) setFullscreenContent(null);
+    if(!isFullscreen) {
+      setFullscreenContent(null);
+       handleFetchVodMeta();
+    }
   }, [isFullscreen])
 
 
@@ -345,7 +367,7 @@ const lastUpdateRef = useRef(Date.now());
             {!addRatting && (
               <AppView className="px-5">
                 <AppView className="border-y border-grey_200/10 py-[7px] mt-4 flex-row items-center justify-between">
-                  <TouchableOpacity onPress={setAddRating}>
+                  <TouchableOpacity disabled={!accessStatus} onPress={() => [setIsComment(false), setAddRating()]}>
                     <AppText className="text-center font-ROBOTO_400 text-grey_200 text-[11px]">
                       {formatLikesNumber(previewContent.viewsCount)} VIEWS
                     </AppText>
@@ -402,7 +424,7 @@ const lastUpdateRef = useRef(Date.now());
             {Platform.OS === 'ios' && (
               <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={isComment && {paddingBottom: 112}}>
+                contentContainerStyle={isComment && {paddingBottom: Size.hp(20)}}>
                 <AppView
                   style={
                     isComment
@@ -437,7 +459,7 @@ const lastUpdateRef = useRef(Date.now());
                             <View className={`flex-row w-full p-[4px] ${replyDetails ? 'pl-3':''}`}>
                               <AppImage
                                 className="w-[39px] h-[39px] rounded-full mr-3"
-                                source={require('@/assets/images/bette.png')}
+                              source={(userPic && userPic !== '') ? {uri: userPic, priority:FastImage.priority.high} : require('@/assets/images/user.png')}
                               />
                               <TextInput
                                 placeholder="Write a comment..."
@@ -465,6 +487,7 @@ const lastUpdateRef = useRef(Date.now());
                           <PreviewComments 
                             setRepliesDetails={setRepliesDetails}
                             vodId={previewContent._id}
+                            loadComment={loadingComment}
                           />
                         </AppView>
                         <TouchableOpacity
@@ -490,9 +513,18 @@ const lastUpdateRef = useRef(Date.now());
                           <AppText className="font-ROBOTO_400 uppercase text-white text-[11px]">
                             {previewContentType[content]}
                           </AppText>
-                          <AppText className="text-center mt-2 font-ROBOTO_400 text-white text-xs">
-                            {previewContent.description}
-                          </AppText>
+                          <View>
+                          <AppText 
+                        {...(!seeMore && {numberOfLines:2})}
+                        className="text-center font-ROBOTO_400 text-white text-xs flex-1">
+                          {previewContent.description}
+                        </AppText>
+                       {previewContent.description.length>20 && <TouchableOpacity className='ml-1.5' onPress={() => setSeeMore(!seeMore)}>
+                        <AppText className='font-ROBOTO_500 text-white text-sm'>
+                          See More
+                        </AppText>
+                        </TouchableOpacity>}
+                          </View>
 
                           <AppView className="my-3.5 w-full justify-center relative">
                           {content !== previewContentType['tv series'] && <TouchableOpacity
@@ -529,20 +561,6 @@ const lastUpdateRef = useRef(Date.now());
                             bgColor={colors.RED}
                             labelStyle={styles.btnLabel_}
                             onPress={() =>
-                              // contentPrice === 'Watch' && contentType === 'free'
-                              //   ? navigate(routes.FULL_SCREEN_VIDEO, {
-                              //       videoURL:
-                              //         content === previewContentType.film
-                              //           ? MovieVideo
-                              //           : content ===
-                              //             previewContentType['music video']
-                              //           ? MusicVideo
-                              //           : SeriesVideo,
-                              //       type: previewContentType['tv series']
-                              //         ? fullVideoType.series
-                              //         : fullVideoType.default,
-                              //     })
-                                // : 
                                 setWatchModal()
                             }
                             iconRight={
@@ -674,7 +692,7 @@ const lastUpdateRef = useRef(Date.now());
                                 borderRadius:99,
                                 marginRight: 10
                               }}
-                              source={(userPic && userPic === '') ? {uri: userPic, priority:FastImage.priority.high} : require('@/assets/images/user.png')}
+                              source={(userPic && userPic !== '') ? {uri: userPic, priority:FastImage.priority.high} : require('@/assets/images/user.png')}
                             />
                             <TextInput
                               placeholder="Write a comment..."
@@ -702,6 +720,7 @@ const lastUpdateRef = useRef(Date.now());
                         <PreviewComments 
                           setRepliesDetails={setRepliesDetails}
                           vodId={previewContent._id}
+                          loadComment={loadingComment}
                         />
                       </AppView>
                       <TouchableOpacity
@@ -717,24 +736,33 @@ const lastUpdateRef = useRef(Date.now());
 
                 {/* From here */}
                 <ScrollView
-                  contentContainerStyle={{paddingBottom: 100, paddingTop: 2}}
+                  contentContainerStyle={{paddingBottom: Size.hp(20), paddingTop: 2}}
                   showsVerticalScrollIndicator={false}>
                   {!addRatting ? (
                     <AppView className="px-5">
                       {/* desc */}
 
-                      <AppView className="items-center mt-5 px-4">
+                      <AppView className="items-center mt-5 px-4 w-full">
                         <AppText className="font-ROBOTO_400 uppercase text-white text-[11px]">
                           {previewContentType[content]}
                         </AppText>
-                        <AppText className="text-center mt-2 font-ROBOTO_400 text-white text-xs">
+                        <View key={previewContent.description.length} className='mt-2 flex-col items-center justify-center'>
+                        <AppText 
+                        {...(!seeMore && {numberOfLines:2})}
+                        className="text-center font-ROBOTO_400 text-white text-xs">
                           {previewContent.description}
                         </AppText>
+                       {previewContent.description.length> 130 && !seeMore && <TouchableOpacity className='ml-1.5' onPress={() => setSeeMore(!seeMore)}>
+                        <AppText className='font-ROBOTO_500 text-white text-sm'>
+                          See More
+                        </AppText>
+                        </TouchableOpacity>}
+                          </View>
 
                         <AppView className="my-3.5 w-full justify-center relative">
                           {content !== previewContentType['tv series'] && <View><TouchableOpacity
                           disabled={isDownloaded||isDownloading || !accessStatus}
-                          className='absolute right-2 z-20 items-center'
+                          className={`absolute right-2 z-20 items-center ${(isDownloaded||isDownloading || !accessStatus) ? 'opacity-35' :''}`}
                              onPress={handleDownload}>
                              {isDownloaded ? <DownloadedCompleteIcon /> : <>
                             <PreviewDownloadIcon />

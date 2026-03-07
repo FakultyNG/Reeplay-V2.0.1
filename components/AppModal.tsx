@@ -16,6 +16,7 @@ import {ModalLogo} from '@/assets/icons';
 import BlurView from 'react-native-blur-effect';
 import {BlurView as Blur} from '@react-native-community/blur';
 import { JSX } from 'react';
+import { useBackButtonHandler } from '@/Hooks/nativeBackFunc';
 
 interface Props {
   isModalVisible: boolean;
@@ -26,6 +27,7 @@ interface Props {
   redCloseBtn?: boolean;
   style?: ViewStyle;
   LogoStyle?: ViewStyle;
+  isView?:boolean
 }
 
 const AppModal = ({
@@ -37,14 +39,12 @@ const AppModal = ({
   style,
   LogoStyle,
   redCloseBtn,
+  isView
 }: Props): JSX.Element => {
-  return (
-    <Modal
-      animationType="fade"
-      // transparent={true}
-      visible={isModalVisible}
-      onRequestClose={handleClose}>
-      <View style={[styles.modalContainer, {position: 'relative'}]}>
+
+  const renderComponent = () =>{
+    return (
+       <View style={[styles.modalContainer, {position: 'relative'}]}>
         <Pressable onPress={handleClose} style={styles.overlay}>
           {(
             <Blur
@@ -92,6 +92,22 @@ const AppModal = ({
           )}
         </View>
       </View>
+    )
+  }
+
+  if(isView && isModalVisible){
+    useBackButtonHandler(() => handleClose());
+    return <View className='absolute h-full w-full'>
+      {renderComponent()}
+    </View>
+  }
+  return (
+    <Modal
+      animationType="fade"
+      // transparent={true}
+      visible={isModalVisible}
+      onRequestClose={handleClose}>
+           {renderComponent()}
     </Modal>
   );
 };
@@ -102,6 +118,7 @@ const styles = StyleSheet.create({
     height: '100%',
     width: '100%',
     position: 'absolute',
+    // zIndex:-20
   },
   modalContainer: {
     height: Size.hp(100),

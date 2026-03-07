@@ -67,14 +67,13 @@ const InterestScreen = () => {
         //TODO: handle interest endpoint and remove setTimeout
 
         const res = await addinterests({interest: selectedItems});
-
         if (res.ok && res.data) {
           if (isSettings) {
-            Alert.alert('Settings', 'Interest has been added');
+            Alert.alert('Settings', 'Interest has been updated');
             const userRes = await getProfileDetails();
             if (userRes.ok && userRes.data)
               dispatch(setCredentials(userRes.data.data));
-            navigation.navigate(routes.SETTINGS_SCREEN);
+            navigation.goBack();
           } else {
             navigation.reset({
               index: 0,

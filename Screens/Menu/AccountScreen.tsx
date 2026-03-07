@@ -67,7 +67,7 @@ const AccountScreen = () => {
   const user = useAppSelector(selectUser);
   const profilePic = useAppSelector(selectUserProfilePic);
   const nav = useNavigation<RootNav>();
-  const [showModal, setShowModal] = useState<boolean>(false);
+  const [showModal, setShowModal] = useState<'logout'|'gmd'|null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const wallet = useAppSelector(selectWalletInfo);
   const [isValidImg, setVallid] = useState<boolean>(false)
@@ -121,7 +121,7 @@ const AccountScreen = () => {
 
   function handleLogout() {
     nav.navigate(routes.AUTH);
-    setShowModal(false);
+    setShowModal(null);
   }
 
   useEffect(() => {
@@ -333,6 +333,16 @@ const AccountScreen = () => {
                     </AppText>
                   </TouchableOpacity>
 
+ <TouchableOpacity 
+                  onPress={() => setShowModal('gmd')}
+                  className="px-6 pt-1.5 pb-2.5 rounded-md bg-[#6D31ED]">
+                    <AppText className="font-MANROPE_400 text-[9px] text-white">
+                     GMD balance
+                    </AppText>
+                    <AppText className="font-MANROPE_700 text-white text-lg text-left">
+                      D{formatAmount(wallet.GMDBalance.toString())}.00
+                    </AppText>
+                  </TouchableOpacity>
                   </View>
                 </AppView>
               ) : (
@@ -359,7 +369,7 @@ const AccountScreen = () => {
             onPress={() =>
               billingService
                 ? navigate(routes.CANCEL_SUBSCRIPTION_SCREEN)
-                : setShowModal(true)
+                : setShowModal('logout')
             }>
             <AppText className=" font-MANROPE_400 text-sm text-[#DE3B40]">
               {billingService ? 'Cancel Subscription' : 'Log out'}
@@ -374,31 +384,31 @@ const AccountScreen = () => {
       </AppScreen>
 
       <AppModal
-        isModalVisible={showModal}
+        isModalVisible={showModal !== null}
         replaceDefaultContent={
-          <AppView className="">
+          <AppView className=" items-center">
             <AppText className="mt-4 font-ROBOTO_400 text-sm text-black text-center leading-5">
-              Are you sure you want to {'\n'}Logout?
+              {showModal === 'logout' ? `Are you sure you want to \nLogout?`:'GMD Wallet funding is only available via Reeplay Gift Cards. Do you want to continue?'}
             </AppText>
 
             <AppView className="mt-7" />
             <AppButton
               bgColor={colors.DARK_GREY}
               title="No"
-              onPress={() => setShowModal(false)}
+              onPress={() => setShowModal(null)}
               style={styles.btn}
               labelStyle={styles.btnLabel}
             />
             <AppButton
               bgColor={colors.RED}
               title="Yes"
-              onPress={() => handleLogout()}
+              onPress={() => showModal === 'logout' ? handleLogout() : [navigate(routes.GIFT_CARD_SCREEN), setShowModal(null)]}
               style={styles.btn}
               labelStyle={styles.btnLabel}
             />
           </AppView>
         }
-        handleClose={() => setShowModal(false)}
+        handleClose={() => setShowModal(null)}
       />
     </>
   );

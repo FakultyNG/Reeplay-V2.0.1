@@ -21,11 +21,14 @@ import FastImage from 'react-native-fast-image';
 import Placeholder from '@/components/SkeletonLoader';
 import { IVODContent } from '@/types/api/content.types';
 import ToastNotification from '@/components/ToastNotifications';
-import { fetchWatchList } from '@/api/watchlist.api';
+import { fetchWatchList, removeWatchList } from '@/api/watchlist.api';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
-import { selectWatchListContents, setWatchListContents } from '@/store/slices/userSlice';
+import { deleteWatchlistById, selectWatchListContents, setWatchListContents } from '@/store/slices/userSlice';
 import {BlurView as Blur} from '@react-native-community/blur';
 import DeleteIcon from '@/assets/icons/Waste Basket icon.svg'
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import colors from '@/configs/colors';
+import { setPreviewContent } from '@/store/slices/previewContentSlice';
 
 interface WatchListData {
   image: string;
@@ -34,15 +37,36 @@ interface WatchListData {
 const WatchlistScreen = () => {
   const {goBack, navigate} = useNavigation<WatchlistScreenNav>();
   const watchList = useAppSelector(selectWatchListContents);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
     const [loading_m, setLoading_m] = useState<boolean>(false);
+    const [loading_d, setLoading_d] = useState<boolean>(false);
     const [page, setPage] = useState<number>(1);
     const [hasMore, setHasMore] = useState<boolean>(true);
     const [selectedContent, setSelectContent] = useState<IVODContent|null>(null)
     const dispatch = useAppDispatch()
 
+    async function deleteWatchList(){
+      if(!selectedContent) return;
+      try {
+        setLoading_d(true);
+        const res = await removeWatchList(selectedContent._id);
+        if(res.ok && res.data){
+                  ToastNotification('info', res.data.message);
+                  dispatch(deleteWatchlistById(selectedContent._id));
+                  setSelectContent(null);
+                }else{
+          ToastNotification('error', res.data?.message);
+        }
+      } catch (error) {
+        ToastNotification('error', `${error}`);
+      }finally{
+        setSelectContent(null);
+        setLoading_d(false)
+      }
+    }
+
     async function handleFetchList(page?:number, isLoadMore?:boolean){
-    if(loading || !hasMore) return
+    if(loading_m || !hasMore) return
     try {
       if(isLoadMore){
         setLoading_m(true)
@@ -53,7 +77,7 @@ const WatchlistScreen = () => {
         const res = await fetchWatchList({page:page??1, limit:20});
         if(res.ok && res.data){
           const data = res.data.data
-          const existingIds = new Set<string>(watchList.map(x => x._id))
+          const existingIds = new Set<string>(watchList.map((x) => x._id))
           const merged = [
             ...watchList,
             ...data.filter(x => !existingIds.has(x._id))
@@ -78,7 +102,7 @@ const WatchlistScreen = () => {
     }
 
       const loadMore = () => {
-        if(!hasMore || watchList.length < 20) return
+        if(!hasMore || watchList.length < 20) return;
         handleFetchList(watchList.length >= page * 20 ? page+1:page, true)
       }
     
@@ -87,13 +111,16 @@ const WatchlistScreen = () => {
       }, [])
     
       useEffect(() =>{
+        if(watchList.length>20)
         if(!hasMore) setTimeout(()=> setHasMore(true), 3000);
       }, [hasMore])
+
+      // console.log(loading)
 
   return (
     <AppScreen containerStyle={{paddingTop: 10}}>
       <AppHeader style={{zIndex: 99}} />
-      {watchList.length === 0 ? (
+      {(watchList.length === 0 && !loading)? (
         <AppModal
           isModalVisible={true}
           hideLoge
@@ -110,21 +137,21 @@ const WatchlistScreen = () => {
         />
       ) : (
         <>
-        {selectedContent !== null && <TouchableOpacity className='mb-5 mx-auto w-[100px] items-center'>
-          <DeleteIcon />
-          </TouchableOpacity>}
+        {selectedContent !== null &&  <Animated.View entering={FadeInDown.springify()} className='absolute bottom-10 w-full h-20 z-50'><TouchableOpacity onPress={deleteWatchList} className='mb-5 mx-auto w-20 h-20 rounded-full bg-white justify-center items-center'>
+          {loading_d ? <ActivityIndicator size={'small'} color={colors.RED} /> : <DeleteIcon width={26} height={26} />}
+          </TouchableOpacity></Animated.View>}
           <AppText className="text-center font-LEXEND_700 text-grey_100 -mt-5 text-[17px]">
             My Watchlist
           </AppText>
 
            <AppView className="relative">
-            <Pressable onPress={() => setSelectContent(null)} className='absolute w-full h-full z-50'>
+            {selectedContent !== null && <Pressable onPress={() => setSelectContent(null)} className='absolute w-full h-full z-40'>
                <Blur
               style={{width: '100%', height: '100%'}}
               blurType="dark"
               blurAmount={2}
             />
-            </Pressable>
+            </Pressable>}
 
                    <FlatList
                      data={loading ? [...Array(20)] : watchList}
@@ -159,6 +186,22 @@ export default WatchlistScreen;
 export const ContentItem = ({item, handleLongPress}:{item:IVODContent, handleLongPress: () => void}) =>{
     const {navigate} = useNavigation<RootNav>();
     const [loading, setLoading] = useState<boolean>(true)
+    const dispatch = useAppDispatch()
+   
+   useEffect(() => {
+     function preloadMedia() {
+      try {
+        let uri = item.portraitPhoto;
+
+        if (uri) FastImage.preload([{ uri }]);
+      } catch (err) {
+        console.log('Error preloading media:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+      preloadMedia();
+  }, [item._id]);
 
   return (
     <View className='relative'>
@@ -169,10 +212,10 @@ export const ContentItem = ({item, handleLongPress}:{item:IVODContent, handleLon
       activeOpacity={0.6}
       onLongPress={handleLongPress}
       onPress={() =>
-        navigate(routes.PREVIEW_SCREEN, {
-          content: previewContentType.film,
+       [dispatch(setPreviewContent(item)), navigate(routes.PREVIEW_SCREEN, {
+          content: item.type.includes('series') ? previewContentType['tv series'] : item.type.includes('video') ? previewContentType['music video'] : previewContentType.film,
           videoURL: item.trailer,
-        })
+        })]
       }>
         <AppImage 
           source={{
@@ -180,8 +223,6 @@ export const ContentItem = ({item, handleLongPress}:{item:IVODContent, handleLon
             priority:FastImage.priority.high
           }} 
           style={styles.image}
-          onLoadStart={() => setLoading(true)}
-          onLoadEnd={() => setLoading(false)}
         />
       </TouchableOpacity>
     </View>

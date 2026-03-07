@@ -37,6 +37,7 @@ export interface ICreatePayment {
 
 export interface WalletDetails {
     NGNBalance: number;
+    GMDBalance: number;
   USDBalance: number;
   createdAt: string;
   updatedAt: string;

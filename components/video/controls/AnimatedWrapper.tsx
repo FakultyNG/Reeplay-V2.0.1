@@ -1,10 +1,4 @@
-import type { CustomStyles } from 'react-native-video-player';
-import {
-  forwardRef,
-  memo,
-  useCallback,
-  useImperativeHandle,
-} from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -12,70 +6,58 @@ import Animated, {
   withTiming,
   runOnJS,
 } from 'react-native-reanimated';
-import Size from '@/Utils/useResponsiveSize';
-
-export interface AnimationRef {
-  runControlsAnimation: (toValue: number, callback?: () => void) => void;
-}
 
 interface AnimatedWrapperProps {
   animationDuration: number;
+  visible: boolean;
   children: React.ReactNode;
+  onAnimationEnd?: () => void;
 }
 
-export const AnimatedWrapper = 
-memo(
-  forwardRef<AnimationRef, AnimatedWrapperProps>(
-    ({ animationDuration, children }, ref) => {
-      const opacity = useSharedValue(0);
-      const display = useSharedValue<'flex' | 'none'>('none');
+export const AnimatedWrapper = ({
+  animationDuration,
+  visible,
+  children,
+  onAnimationEnd,
+}: AnimatedWrapperProps) => {
+  const opacity = useSharedValue(0);
+  const display = useSharedValue<'flex' | 'none'>('none');
 
-      const runControlsAnimation = useCallback(
-        (toValue: number, callback?: () => void) => {
-          if (toValue === 1) {
-            display.value = 'flex';
-          }
-
-          opacity.value = withTiming(toValue, { duration: animationDuration }, (finished) => {
-            if (finished && toValue === 0) {
-              display.value = 'none';
-            }
-            if (finished && callback) {
-              runOnJS(callback)();
-            }
-          });
-        },
-        [animationDuration, opacity, display]
-      );
-
-      useImperativeHandle(ref, () => ({
-        runControlsAnimation,
-      }));
-
-      const animatedStyle = useAnimatedStyle(() => ({
-        opacity: opacity.value,
-        display: display.value,
-      }));
-
-      return (
-        <Animated.View
-          style={[
-            styles.controls,
-            animatedStyle
-          ]}
-        >
-          {children}
-        </Animated.View>
-      );
+  useEffect(() => {
+    if (visible) {
+      display.value = 'flex';
     }
-  )
-);
+
+    opacity.value = withTiming(
+      visible ? 1 : 0,
+      { duration: animationDuration },
+      finished => {
+        if (finished && !visible) {
+          display.value = 'none';
+        }
+
+        if (finished && onAnimationEnd) {
+          runOnJS(onAnimationEnd)();
+        }
+      }
+    );
+  }, [visible, animationDuration, onAnimationEnd]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    display: display.value,
+  }));
+
+  return (
+    <Animated.View style={[styles.controls, animatedStyle]}>
+      {children}
+    </Animated.View>
+  );
+};
 
 const styles = StyleSheet.create({
   controls: {
     position: 'relative',
     height: '100%',
-    // flexDirection: 'column',
-    // alignItems: 'center',
   },
 });

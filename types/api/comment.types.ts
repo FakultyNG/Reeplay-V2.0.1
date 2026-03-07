@@ -40,8 +40,7 @@ export interface IComment {
 
 export interface Author {
   fullName: string;
-  photoKey: null;
-  photoBucket: null;
+  photoURL:string;
   userDocumentId: string;
 }
 

@@ -38,17 +38,20 @@ import { IVODContent } from '@/types/api/content.types';
 import ToastNotification from '@/components/ToastNotifications';
 import { getVODbyCastID } from '@/api/content.api';
 import Placeholder from '@/components/SkeletonLoader';
+import { setPreviewContent } from '@/store/slices/previewContentSlice';
+import { useAppDispatch } from '@/Hooks/reduxHook';
 
 const CastScreeen = () => {
   const scrollY = useRef(new Animated.Value(0)).current;
   const [isScrolled, setIsScrolled] = useState(0);
   const [loading, setLoading] = useState<boolean>(false)
     const [content, setContent] = useState<IVODContent[]>([]);
-  const {goBack, navigate} = useNavigation<RootNav>();
+  const {goBack, replace, pop} = useNavigation<RootNav>();
   const route = useRoute<CastScreenRoute>()
   const cast = route.params.cast
   const vodId = route.params.vodId
   const url = cast.link;
+  const dispatch = useAppDispatch()
 
   const handleLink = async () => {
     await InAppBrowser.open(url);
@@ -169,10 +172,10 @@ const CastScreeen = () => {
                     activeOpacity={0.6}
                     key={index}
                     onPress={() =>
-                      navigate(routes.PREVIEW_SCREEN, {
+                      [dispatch(setPreviewContent(lib)), pop(1), replace(routes.PREVIEW_SCREEN, {
                       content: lib.type.includes('series') ? previewContentType['tv series'] : lib.type.includes('video') ? previewContentType['music video'] : previewContentType.film,
-                        videoURL: MovieVideo,
-                      })
+                        videoURL: lib.trailer,
+                      })]
                     }>
                     <AppImage source={{
                       uri: lib.portraitPhoto,

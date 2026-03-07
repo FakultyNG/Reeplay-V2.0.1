@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import React, {useEffect, useLayoutEffect, useState} from 'react';
-import {AppButton, AppHeader, AppScreen, AppText, AppView} from '@/components';
+import {AppButton, AppHeader, AppImage, AppScreen, AppText, AppView} from '@/components';
 import Size from '@/Utils/useResponsiveSize';
 import fonts from '@/configs/fonts';
 import colors from '@/configs/colors';
@@ -21,6 +21,7 @@ import {selectUser, setCredentials} from '@/store/slices/userSlice';
 import AppModal from '@/components/AppModal';
 import VerificationModal from '../authentication/components/VerificationModal';
 import {useNavigation} from '@react-navigation/native';
+import CountryFlag from 'react-native-country-flag';
 
 const ChangePhone = () => {
   const {goBack} = useNavigation();
@@ -35,14 +36,14 @@ const ChangePhone = () => {
   const [isCountryCode, setIsCountryCode] = useState<boolean>(false);
   const [countryCode, setCountryCode] = useState({
     cc: country_codes[0].dial_code,
-    cf: country_codes[0].flag,
+    cf: '',
   });
 
   function getPhoneCode() {
     country_codes.map(code => {
       if (code.dial_code === user.country_code) {
         console.log(code.dial_code, 'saved');
-        setCountryCode({cc: code.dial_code, cf: code.flag});
+        setCountryCode({cc: code.dial_code, cf: ''});
         return false;
       }
     });
@@ -59,9 +60,10 @@ const ChangePhone = () => {
       try {
         setLoading(true);
         const formdata = new FormData();
-        formdata.append('country_code', countryCode.cc)
+        formdata.append('countryCode', countryCode.cc)
         formdata.append('mobile', phoneNum)
         const res = await updateProfileDetails(formdata, user._id);
+        console.log(res.data)
         if (res.ok && res.data) {
           const profileRes = await getProfileDetails();
           if (profileRes.ok && profileRes.data) {
@@ -128,13 +130,21 @@ const ChangePhone = () => {
               <Pressable
                 style={[styles.center, {columnGap: 4}]}
                 onPress={() => setIsCountryCode(true)}>
-                <AppView className="w-7 h-[18px] items-center justify-center overflow-hidden">
-                  <AppText className="text-[30px] -mt-2">
-                    {countryCode.cf}
-                  </AppText>
-                </AppView>
-                <AppText style={styles.text}>{countryCode.cc}</AppText>
-                <DropDwn />
+                <AppView style={{transform:[{scale:1.2}]}} className="w-7 h-[18px] items-center justify-center overflow-hidden relative">
+                  {countryCode.cf === '' ? 
+                <AppImage source={require('@/assets/images/nigerian-flag1.png')} style={{position:'absolute', width:23, height:14}} />
+                  : <CountryFlag
+                  isoCode={countryCode.cf.toLowerCase()}
+                  size={18}
+                  style={{
+                    width: 23,
+                    height: 14,
+                    marginLeft: -1,
+                  }}
+                />}
+              </AppView>
+              <AppText style={styles.text}>{countryCode.cc}</AppText>
+              <DropDwn />
               </Pressable>
               <TextInput
                 value={phoneNum}
@@ -184,7 +194,7 @@ const ChangePhone = () => {
                 <BottomSheet
                   handleClose={() => setIsCountryCode(false)}
                   handleNav={item =>
-                    setCountryCode({cc: item.dial_code, cf: item.flag})
+                    setCountryCode({cc: item.dial_code, cf: item.code})
                   }
                 />
               </View>

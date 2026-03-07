@@ -54,7 +54,7 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
   const rnBiometrics = new ReactNativeBiometrics();
   const dispatch = useAppDispatch();
   const ads = useAppSelector(selectAdsContent).ads
-  const {isLock,setIsLock,isToken} = useAppPersistStore()
+  const {isLock,setIsLock,isToken, biometrics} = useAppPersistStore()
     const [modal, setModal] = useState<'privacy'|'terms'|null>(null)
 
   async function handleLogin() {
@@ -167,6 +167,8 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
     checkBiometrics();
   }, []);
 
+  console.log(user)
+
   useEffect(() => {
     if (isFocused) {
       setTimeout(() => setIsPause(false), 3000)
@@ -243,8 +245,9 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
             <TouchableOpacity
               onPress={handleLockPress}
               activeOpacity={0.7}
+              disabled={!biometrics}
               style={{
-                backgroundColor: !biometricsIsSupport
+                backgroundColor: (!biometricsIsSupport || !biometrics)
                   ? colors.GREY_BIOMETRICS
                   : !lock
                   ? colors.GREY_BIOMETRICS

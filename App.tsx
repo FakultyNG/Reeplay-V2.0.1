@@ -17,22 +17,13 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
   AppState,
   BackHandler,
-  PermissionsAndroid,
   Platform,
   StatusBar,
-  StyleSheet,
-
 } from 'react-native';
 import { getData, storeData } from './Utils/useAsyncStorage';
 import { addEventListener } from '@react-native-community/netinfo';
 import NetInfo from '@react-native-community/netinfo';
-import colors from './configs/colors';
-import fonts from './configs/fonts';
-import Size from './Utils/useResponsiveSize';
-import routes from './navigation/routes';
 import Orientation from 'react-native-orientation-locker';
-import { validateReefreshToken } from './api/auth.api';
-import messaging from '@react-native-firebase/messaging';
 import "./global.css"
 import { useAppPersistStore } from './store/zustand.store';
 import NetworkComponent from './components/NetworkComponent';
@@ -42,6 +33,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast, { BaseToastProps, InfoToast } from 'react-native-toast-message';
 import { generateAESKeys, getAESKeys, saveAESKeys } from '@/Screens/Preview/utils/downloadUtils';
 import { SocketContextProvider } from './context/socketContent';
+import codePush from '@revopush/react-native-code-push';
+import ErrorBoundaryWrapper from './context/ErrorBoundary';
 
 const LEFT_APP_TIME = 'LEFT_APP_TIME';
 
@@ -200,6 +193,7 @@ function App(): React.JSX.Element {
     },
   };
   return (
+    <ErrorBoundaryWrapper>
     <Provider store={store}>
       <SocketContextProvider>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000' }}>
@@ -220,8 +214,13 @@ function App(): React.JSX.Element {
       </GestureHandlerRootView>
       </SocketContextProvider>
     </Provider>
+    </ErrorBoundaryWrapper>
   );
 }
 
-export default App;
 
+const CodePushRoot = codePush({
+  checkFrequency: codePush.CheckFrequency.ON_APP_RESUME,
+})(App);
+
+export default CodePushRoot;

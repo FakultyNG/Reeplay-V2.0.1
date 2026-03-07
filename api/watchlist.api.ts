@@ -9,5 +9,11 @@ export const fetchWatchList = async (pagination: IPagination) =>
 export const addWatchList = async (_id: string) =>
     await apiCall<IGeneric>(baseApi => baseApi.post<IGeneric>(`/customers/vod-waitlist/${_id}`))
 
+export const removeWatchList = async (_id: string) =>
+    await apiCall<IGeneric>(baseApi => baseApi.delete<IGeneric>(`/customers/vod-waitlist/${_id}`))
+
+export const clearWatchList = async () =>
+    await apiCall<IGeneric>(baseApi => baseApi.delete<IGeneric>(`/customers/vod-waitlist`))
+
 export const checkIsWatchList = async (_id: string) =>
     await apiCall<ICheckWatchListResponse>(baseApi => baseApi.get<ICheckWatchListResponse>(`/customers/vod-waitlist/${_id}`))

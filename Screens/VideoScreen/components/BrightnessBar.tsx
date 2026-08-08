@@ -2,17 +2,13 @@ import {
   Platform,
   StyleSheet,
   View,
-  Alert,
   PanResponder,
-  GestureResponderEvent,
-  PanResponderGestureState,
-  PanResponderInstance,
+  type LayoutChangeEvent,
+  type PanResponderInstance,
 } from 'react-native';
-import React, {useEffect, useState, useRef, useCallback} from 'react';
+import React, {useEffect, useRef} from 'react';
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
-  useDerivedValue,
   useSharedValue,
 } from 'react-native-reanimated';
 import colors from '@/configs/colors';
@@ -20,116 +16,142 @@ import DeviceBrightness from '@adrianso/react-native-device-brightness';
 import {isAndroid} from '@/configs/constant';
 import ToastNotification from '@/components/ToastNotifications';
 
-interface Props{
-  brightLevel: number | null
-  setLevel: React.Dispatch<React.SetStateAction<number | null>>
+interface Props {
+  brightLevel?: number | null;
+  setLevel?: React.Dispatch<React.SetStateAction<number | null>>;
+  onGestureStart?: () => void;
+  onGestureEnd?: () => void;
 }
 
-const BrightnessBar = ({brightLevel,setLevel}:Props) => {
-  const translateY = useSharedValue(0);
-  const [hasPermission, setHasPermission] = useState(Platform.OS === 'ios');
-  const barHeight = useRef<number>(165); // The maximum height of the brightness slider
-  const touchStart = useRef<number>(0);
-  const brightnessStart = useRef<number>(0);
-  
+const TRACK_HIT_WIDTH = 44;
 
-  // console.log(brightLevel, 'brightness')
+const BrightnessBar = ({
+  brightLevel = null,
+  setLevel,
+  onGestureStart,
+  onGestureEnd,
+}: Props) => {
+  /** 0 = full bright (fill at top), 1 = dim (fill near bottom) — stored as fill height from bottom. */
+  const fillHeight = useSharedValue(80);
+  const trackHeight = useRef(180);
+  const touchStartY = useRef(0);
+  const levelStart = useRef(0.5);
+  const levelRef = useRef(0.5);
+  const onGestureStartRef = useRef(onGestureStart);
+  const onGestureEndRef = useRef(onGestureEnd);
+  onGestureStartRef.current = onGestureStart;
+  onGestureEndRef.current = onGestureEnd;
 
-  const setBrightness = async (value: number) => {
-    // Only attempt to set brightness if we have permission or are on iOS
-      const invertedValue = barHeight.current - value;
-      const platformBrightnessValue = invertedValue / barHeight.current;
-      setLevel(platformBrightnessValue)
+  const applyBrightness = async (level01: number) => {
+    const clamped = Math.max(0.01, Math.min(level01, 1));
+    levelRef.current = clamped;
+    setLevel?.(clamped);
+    fillHeight.value = clamped * trackHeight.current;
 
-      try {
-        await DeviceBrightness.setBrightnessLevel(platformBrightnessValue);
-      } catch (e) {
-        console.error('Failed to set brightness:', e);
-        ToastNotification('error', 'Could not set screen brightness.');
-      }
-  };
-
-  const getInitialBrightness = async () => {
     try {
-      const brightness = brightLevel ? brightLevel : isAndroid
-        ? await DeviceBrightness.getSystemBrightnessLevel()
-        : await DeviceBrightness.getBrightnessLevel();
-
-      const scaledValue = barHeight.current - brightness * barHeight.current;
-      translateY.value = Math.max(10, Math.min(scaledValue, barHeight.current));
+      await DeviceBrightness.setBrightnessLevel(clamped);
     } catch (e) {
-      console.error('Failed to get initial brightness:', e);
-      translateY.value = barHeight.current / 2;
+      console.error('Failed to set brightness:', e);
+      ToastNotification('error', 'Could not set screen brightness.');
     }
   };
 
-  // Run on mount to get initial brightness
-  useEffect(() => {
-    getInitialBrightness();
-  }, [hasPermission]);
+  const syncFromSystem = async () => {
+    try {
+      const brightness = brightLevel
+        ? brightLevel
+        : isAndroid
+          ? await DeviceBrightness.getSystemBrightnessLevel()
+          : await DeviceBrightness.getBrightnessLevel();
+      const clamped = Math.max(0.01, Math.min(brightness, 1));
+      levelRef.current = clamped;
+      setLevel?.(clamped);
+      fillHeight.value = clamped * trackHeight.current;
+    } catch (e) {
+      console.error('Failed to get initial brightness:', e);
+      fillHeight.value = trackHeight.current * 0.5;
+      levelRef.current = 0.5;
+    }
+  };
 
-  // --- PanResponder Logic ---
+  useEffect(() => {
+    if (Platform.OS === 'android' || Platform.OS === 'ios') {
+      syncFromSystem();
+    }
+  }, []);
+
   const panResponderRef = useRef<PanResponderInstance | null>(null);
   if (!panResponderRef.current) {
     panResponderRef.current = PanResponder.create({
-      onStartShouldSetPanResponder: (evt, gestureState) => true,
-      onMoveShouldSetPanResponder: (evt, gestureState) => true,
-      onPanResponderGrant: (evt, gestureState) => {
-        console.log('PanResponder Grant');
-        touchStart.current = evt.nativeEvent.pageY;
-        brightnessStart.current = translateY.value;
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
+      onPanResponderGrant: evt => {
+        onGestureStartRef.current?.();
+        touchStartY.current = evt.nativeEvent.locationY;
+        levelStart.current = levelRef.current;
       },
-      onPanResponderMove: (evt, gestureState) => {
-        const diff = evt.nativeEvent.pageY - touchStart.current;
-        const newBrightnessPosition = brightnessStart.current + diff;
-        const clampedPosition = Math.max(
-          0,
-          Math.min(newBrightnessPosition, barHeight.current)
-        );
-        
-        translateY.value = clampedPosition;
-        setBrightness(clampedPosition);
+      onPanResponderMove: evt => {
+        const h = trackHeight.current || 1;
+        // Drag up = brighter, drag down = dimmer (locationY from top of track).
+        const y = Math.max(0, Math.min(evt.nativeEvent.locationY, h));
+        const nextLevel = 1 - y / h;
+        applyBrightness(nextLevel);
       },
-      onPanResponderRelease: (evt, gestureState) => {
+      onPanResponderRelease: () => {
+        onGestureEndRef.current?.();
       },
-      onPanResponderTerminate: (evt, gestureState) => {
+      onPanResponderTerminate: () => {
+        onGestureEndRef.current?.();
       },
     });
   }
 
-  // Animated style for the bar position
-  const rBottomSheetStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{translateY: translateY.value}],
-    };
-  });
+  const fillStyle = useAnimatedStyle(() => ({
+    height: Math.max(6, fillHeight.value),
+  }));
+
+  const onTrackLayout = (e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) {
+      trackHeight.current = h;
+      fillHeight.value = levelRef.current * h;
+    }
+  };
 
   return (
-    <Animated.View
-      style={[styles.container, rBottomSheetStyle]}
-      {...panResponderRef.current.panHandlers}
-    >
-      <View style={styles.bar} />
-    </Animated.View>
+    <View
+      style={styles.hitArea}
+      onLayout={onTrackLayout}
+      {...panResponderRef.current.panHandlers}>
+      <View style={styles.track}>
+        <Animated.View style={[styles.fill, fillStyle]} />
+      </View>
+    </View>
   );
 };
 
 export default BrightnessBar;
 
 const styles = StyleSheet.create({
-  container: {
+  hitArea: {
+    width: TRACK_HIT_WIDTH,
     height: '100%',
-    width: '100%',
-    flex: 1,
-    position: 'absolute',
-    top: 0,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
-  bar: {
+  track: {
+    width: 8,
     height: '100%',
-    width: 6,
-    flex: 1,
+    borderRadius: 5,
+    backgroundColor: '#535353',
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  fill: {
+    width: '100%',
     backgroundColor: colors.WHITE,
     borderRadius: 5,
-    marginLeft: 'auto',
   },
 });

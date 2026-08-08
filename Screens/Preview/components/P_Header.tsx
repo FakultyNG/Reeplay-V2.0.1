@@ -1,61 +1,82 @@
-import { View } from 'react-native'
-import React, { useEffect, useRef, useState } from 'react'
-import DynamicVideoComponent, { VideoPlayerRef } from '@/components/video/DynamicVideoComponent'
-import { ILiveContent, IVODContent } from '@/types/api/content.types';
-import convertToProxyURL from 'react-native-video-cache';
-import { checkTimeStatus } from '@/Utils/timeStatus';
-import { adTagUrl } from '@/Screens/Download/FullscreenModalPlayer';
+import {StyleSheet, View} from 'react-native';
+import React, {useEffect, useRef, useState} from 'react';
+import DynamicVideoComponent, {
+  VideoPlayerRef,
+} from '@/components/video/DynamicVideoComponent';
+import {IVODContent} from '@/types/api/content.types';
+import {resolvePlaybackSource} from '@/components/video/playbackConfig';
 
-
-export interface VideoOrientationProps{
-    setFullscreen: () => void
-    isFullscreen: boolean
-    content: IVODContent
+export interface VideoOrientationProps {
+  setFullscreen: () => void;
+  isFullscreen: boolean;
+  content: IVODContent;
 }
-const P_Header = ({setFullscreen, isFullscreen, content}:VideoOrientationProps) => {
-      const playerRef = useRef<VideoPlayerRef>(null);
-       const [videoURL, setVideoURL] = useState<string>('');
-      
-        async function handleVideo() {
-            setVideoURL((isFullscreen && content.type !== 'series') ? content.video : content.trailer)
-        }
 
-        useEffect(() =>{
-          handleVideo();
-        }, []);
+const fillStyle = StyleSheet.create({
+  fill: {
+    width: '100%',
+    height: '100%',
+  },
+});
+
+const P_Header = ({
+  setFullscreen,
+  isFullscreen,
+  content,
+}: VideoOrientationProps) => {
+  const playerRef = useRef<VideoPlayerRef>(null);
+  const [videoURL, setVideoURL] = useState<string>('');
+
+  async function handleVideo() {
+    setVideoURL(
+      isFullscreen && content.type !== 'series'
+        ? content.video
+        : content.trailer,
+    );
+  }
+
+  useEffect(() => {
+    handleVideo();
+  }, []);
+
+  const coverUri = content.landscapePhoto || content.portraitPhoto;
 
   return (
-    <View className='w-full h-full overflow-hidden'>
-     <DynamicVideoComponent 
+    <View style={fillStyle.fill} className="overflow-hidden">
+      <DynamicVideoComponent
         ref={playerRef}
         endWithThumbnail
-        thumbnail={{
-          uri:isFullscreen ? content.landscapePhoto :content.portraitPhoto,
-        }}
+        endThumbnail={{uri: coverUri}}
+        thumbnail={{uri: coverUri}}
         autoplay
-        source={{
-          uri: convertToProxyURL(videoURL),
-          // ad:{adTagUrl: (content.vidClass === 'free' && isFullscreen) ? adTagUrl : ''}
-        }}
-        disableControlsAutoHide={!isFullscreen}
-        onError={(e) => console.log(e)}
+        source={resolvePlaybackSource(videoURL, 'vod')}
+        onError={e => console.log(e)}
         showDuration={true}
         isFullscreen={isFullscreen}
         onToggleFullScreen={setFullscreen}
         type={content.type}
         isTime={false}
         isSaveProgress={videoURL === content.video}
-        contentData={{
-          _id:content._id,
-          desc:content.description,
-          logo:null,
-          title:content.title,
-          viewsCount:content.viewsCount,
-          vidClass:content.vidClass
+        resizeMode="cover"
+        style={fillStyle.fill}
+        customStyles={{
+          wrapper: fillStyle.fill,
+          video: fillStyle.fill,
+          videoWrapper: fillStyle.fill,
+          thumbnail: fillStyle.fill,
+          thumbnailImage: {width: '100%', height: '100%'},
         }}
-    />
+        contentData={{
+          _id: content._id,
+          desc: content.description,
+          logo: null,
+          title: content.title,
+          viewsCount: content.viewsCount,
+          vidClass: content.vidClass,
+        }}
+      />
     </View>
-  )
-}
+  );
+};
 
-export default P_Header
+export default P_Header;

@@ -34,17 +34,23 @@ const bannerSlice = createSlice({
     name: 'banner',
     initialState,
     reducers: {
-        setBannerContent: (state, action) => {
-            state.banner = action.payload;
-        },
-       setCategories: (state, action: PayloadAction<ICategoryData[]>) => {
-  state.category = action.payload.slice().sort((a, b) => a.position - b.position);
+        setCategories: (state, action: PayloadAction<ICategoryData[]>) => {
+  const list = Array.isArray(action.payload) ? action.payload : [];
+  state.category = list.slice().sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 },
        setGenres: (state, action: PayloadAction<ICategoryData[]>) => {
-  state.genres = action.payload.slice().sort((a, b) => a.position - b.position);
+  const list = Array.isArray(action.payload) ? action.payload : [];
+  state.genres = list.slice().sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 },
         setContinueWatching: (state, action) =>{
-            state.continueWatching = action.payload
+            state.continueWatching = Array.isArray(action.payload) ? action.payload : [];
+        },
+        setBannerContent: (state, action) => {
+            const payload = action.payload;
+            state.banner = {
+              lives: Array.isArray(payload?.lives) ? payload.lives : [],
+              vods: Array.isArray(payload?.vods) ? payload.vods : [],
+            };
         },
         setPremiumContentCost: (state, action) =>{
             state.premiumCost = action.payload

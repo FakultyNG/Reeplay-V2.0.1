@@ -1,17 +1,18 @@
 import {
-  Image,
   ImageBackground,
   type ImageSourcePropType,
+  type StyleProp,
+  type ViewStyle,
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
-import { memo } from 'react';
-import { CustomStyles, VideoPlayerProps } from '../DynamicVideoComponent';
-import { B_PlayBtn, BigPlayIcon } from '@/assets/icons';
+import {memo} from 'react';
+import {CustomStyles, VideoPlayerProps} from '../DynamicVideoComponent';
+import {B_PlayBtn, BigPlayIcon} from '@/assets/icons';
 
 interface StartButtonProps {
   onStart: () => void;
-  isFullscreen:boolean
+  isFullscreen: boolean;
   customStylesPlayButton: CustomStyles['playButton'];
   customStylesPlayArrow: CustomStyles['playArrow'];
 }
@@ -19,9 +20,9 @@ interface StartButtonProps {
 interface ThumbnailProps extends StartButtonProps {
   thumbnailSource: ImageSourcePropType;
   style: VideoPlayerProps['style'];
-  sizeStyles: { height: number; width: number };
+  sizeStyles: StyleProp<ViewStyle>;
   onStart: () => void;
-  isFullscreen:boolean
+  isFullscreen: boolean;
   customStylesThumbnail: CustomStyles['thumbnail'];
   customStylesThumbnailImage: CustomStyles['thumbnailImage'];
   customStylesPlayButton: CustomStyles['playButton'];
@@ -32,13 +33,11 @@ export const StartButton = ({
   onStart,
   isFullscreen,
   customStylesPlayButton,
-  customStylesPlayArrow,
 }: StartButtonProps) => {
   return (
     <TouchableOpacity
       style={[styles.playButton, customStylesPlayButton]}
-      onPress={onStart}
-    >
+      onPress={onStart}>
       {!isFullscreen ? <BigPlayIcon /> : <B_PlayBtn />}
     </TouchableOpacity>
   );
@@ -60,8 +59,7 @@ export const Thumbnail = memo(
       <ImageBackground
         source={thumbnailSource}
         imageStyle={customStylesThumbnailImage}
-        style={[styles.thumbnail, style, customStylesThumbnail]}
-      >
+        style={[styles.thumbnail, sizeStyles, style, customStylesThumbnail]}>
         <StartButton
           customStylesPlayButton={customStylesPlayButton}
           onStart={onStart}
@@ -70,7 +68,7 @@ export const Thumbnail = memo(
         />
       </ImageBackground>
     );
-  }
+  },
 );
 
 const styles = StyleSheet.create({
@@ -78,17 +76,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'black',
     justifyContent: 'center',
     alignItems: 'center',
-    flex:1
   },
   playButton: {
     width: 64,
     height: 64,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  playArrow: {
-    width: 28,
-    height: 28,
-    marginLeft: 2,
   },
 });

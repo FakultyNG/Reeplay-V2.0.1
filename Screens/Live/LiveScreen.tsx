@@ -1,6 +1,5 @@
 import {
   Animated,
-  Platform,
   StatusBar,
   StyleSheet,
   VirtualizedList,
@@ -9,11 +8,8 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Header from '@/Screens/Home/Header';
 import colors from '@/configs/colors';
 import Slider from '@/Screens/Home/components/SliderContainer';
-import { AppView } from '@/components';
 import DynamicViewContainer from './DynamicViewContainer';
 import Size from '@/Utils/useResponsiveSize';
-import BlurView from 'react-native-blur-effect';
-import { BlurView as Blur } from '@react-native-community/blur';
 import Orientation, { PORTRAIT } from 'react-native-orientation-locker';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
 import { selectBannerContent } from '@/store/slices/bannerSlice.slice';
@@ -94,25 +90,6 @@ const LiveScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInject
 
   return (
     <>
-      {!isFullscreen &&<AppView
-        style={[{
-          minHeight: 70,
-          backgroundColor: 'rgba(0, 0, 0, 0.59)',
-        }]}
-        className="absolute bottom-0 w-full z-20">
-        {Platform.OS === 'ios' ? (
-          <Blur
-            blurType="dark"
-            blurAmount={120}
-            style={{
-              minHeight: 55,
-              width: '100%',
-            }}
-          />
-        ) : (
-          <BlurView backgroundColor="rgba(0, 0, 0, 1)" blurRadius={120} />
-        )}
-      </AppView>}
           <StatusBar
             hidden={isFullscreen || isFullscreenContent !== null}
             translucent

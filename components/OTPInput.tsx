@@ -1,8 +1,17 @@
 import colors from '@/configs/colors';
 import fonts from '@/configs/fonts';
-import React, {useRef, useState, useEffect} from 'react';
-import {Keyboard, Platform, StyleProp, TextStyle} from 'react-native';
-import {TextInput, View, StyleSheet} from 'react-native';
+import React, {useEffect, useRef, useState} from 'react';
+import {
+  Keyboard,
+  Platform,
+  StyleProp,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextStyle,
+  View,
+  ViewStyle,
+} from 'react-native';
 
 interface OTPInputProps {
   pinCount: number;
@@ -11,104 +20,138 @@ interface OTPInputProps {
   space?: boolean;
 }
 
+/**
+ * One real TextInput (invisible) + visual digit cells.
+ * Avoids multi-input focus hopping, which breaks often on Android.
+ */
 const OTPInput = ({pinCount, handleCode, style, space}: OTPInputProps) => {
-  const [code, setCode] = useState<string[]>(Array(pinCount).fill(''));
-  const inputRefs = useRef<TextInput[]>([]);
-
- useEffect(() => {
-    const timer = setTimeout(() => {
-        if (inputRefs.current.length > 0) {
-            inputRefs.current[0]?.focus();
-        }
-    }, 100); 
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleTextChange = (text: string, index: number) => {
-    const newCode = [...code];
-    newCode[index] = text;
-
-    setCode(newCode);
-
-    if (text.length === 1 && index < inputRefs.current.length - 1) {
-      inputRefs.current[index + 1]?.focus();
-    }
-    if (text.length === 0 && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-
-    if (newCode.every(value => value.length === 1)) {
-      // Move the focus away from the last input field
-      inputRefs.current[pinCount - 1]?.blur();
-    }
-  };
+  const [code, setCode] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<TextInput>(null);
+  const handleCodeRef = useRef(handleCode);
+  handleCodeRef.current = handleCode;
 
   useEffect(() => {
-    handleCode(code.join(''));
-  }, [code]);
+    const t = setTimeout(() => inputRef.current?.focus(), 200);
+    return () => clearTimeout(t);
+  }, []);
 
-  const getInputStyle = (index: number) => {
-    return code[index] ? styles.inputFilled : styles.inputEmpty;
-  };
+  useEffect(() => {
+    handleCodeRef.current(code);
+    if (code.length >= pinCount) {
+      Keyboard.dismiss();
+      inputRef.current?.blur();
+    }
+  }, [code, pinCount]);
 
-  const getSpaceStyle = (index: number) => {
-    return index === 3 ? {marginLeft: 20} : {};
-  };
+  const activeIndex = Math.min(code.length, pinCount - 1);
 
   return (
     <View style={styles.container}>
-      {Array.from({length: pinCount}, (_, index) => (
-        <TextInput
-          key={index}
-          ref={(ref) => {
-            inputRefs.current[index] = ref as TextInput;
-          }}          
-          cursorColor={colors.WHITE}
-          style={[
-            styles.input,
-            getInputStyle(index),
-            space && getSpaceStyle(index),
-            style,
-          ]}
-          maxLength={1}
-          keyboardType="numeric"
-          inputMode="numeric"
-          onChangeText={text => handleTextChange(text, index)}
-          value={code[index]}
-          onKeyPress={({nativeEvent}) => {
-            if (nativeEvent.key === 'Backspace' && !code[index] && index > 0) {
-              inputRefs.current[index - 1]?.focus();
-            }
-          }}
+      <TextInput
+        ref={inputRef}
+        value={code}
+        onChangeText={text => {
+          setCode(text.replace(/\D/g, '').slice(0, pinCount));
+        }}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        keyboardType="number-pad"
+        textContentType="oneTimeCode"
+        autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
+        importantForAutofill="yes"
+        caretHidden
+        contextMenuHidden
+        maxLength={pinCount}
+        autoFocus
+        style={styles.hiddenInput}
+        accessibilityLabel="One-time passcode"
+      />
 
-        />
-      ))}
+      {/* Visual only — touches hit the TextInput above */}
+      <View style={styles.cellsRow} pointerEvents="none">
+        {Array.from({length: pinCount}, (_, index) => {
+          const char = code[index] ?? '';
+          const isActive = isFocused && index === activeIndex;
+          const cellStyle: StyleProp<ViewStyle> = [
+            styles.cell,
+            char ? styles.cellFilled : styles.cellEmpty,
+            isActive && styles.cellActive,
+            space && index === 3 ? styles.spaceGap : null,
+          ];
+
+          return (
+            <View key={index} style={cellStyle}>
+              <Text style={[styles.cellText, style]}>{char}</Text>
+              {isActive && !char ? <View style={styles.caret} /> : null}
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 };
 
+const CELL_H = 43;
+
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
+    alignSelf: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  input: {
+  hiddenInput: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: CELL_H,
+    // Android ignores fully transparent focused inputs; keep a tiny opacity.
+    opacity: 0.05,
+    color: 'transparent',
+    backgroundColor: 'transparent',
+    zIndex: 2,
+    fontSize: 1,
+  },
+  cellsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  cell: {
     borderWidth: 1,
     width: 39,
-    height: 43,
-    textAlign: 'center',
+    height: CELL_H,
     margin: 5,
-    fontSize: 16,
-    fontFamily: fonts.MANROPE_400,
     borderRadius: 4,
-    color: colors.WHITE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  inputEmpty: {
+  cellEmpty: {
     borderColor: colors.WHITE,
   },
-  inputFilled: {
+  cellFilled: {
     borderColor: colors.RED,
+  },
+  cellActive: {
+    borderColor: colors.RED,
+  },
+  cellText: {
+    fontSize: 16,
+    fontFamily: fonts.MANROPE_400,
+    color: colors.WHITE,
+    textAlign: 'center',
+  },
+  caret: {
+    position: 'absolute',
+    width: 1.5,
+    height: 18,
+    backgroundColor: colors.WHITE,
+    borderRadius: 1,
+  },
+  spaceGap: {
+    marginLeft: 20,
   },
 });
 

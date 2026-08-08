@@ -29,7 +29,7 @@ import {
   WalletIcon,
 } from '@/assets/icons';
 import getSymbolFromCurrency from 'currency-symbol-map';
-import {formatAmount} from '@/Utils/formatAmount';
+import {formatAmount, sanitizeAmountInput} from '@/Utils/formatAmount';
 import {useIsFocused, useNavigation} from '@react-navigation/native';
 import {selectUser} from '@/store/slices/userSlice';
 import {useAppSelector} from '@/Hooks/reduxHook';
@@ -74,11 +74,11 @@ const TopUp = ({
   const {width} = useWindowDimensions()
 
   function handleText(value: string) {
-    setText(value.replaceAll(',',''));
+    const sanitized = sanitizeAmountInput(value, currency);
+    setText(sanitized);
 
     options.forEach((option, i) => {
-      console.log(value.replace(',', ''), option, i);
-      if (value.replace(',', '') === option) {
+      if (sanitized === option) {
         setActiveindex(i);
       } else setActiveindex(-1);
     });
@@ -116,12 +116,12 @@ const TopUp = ({
             {getSymbolFromCurrency(currency)}
           </AppText>
           <TextInput
-            value={formatAmount(text)}
+            value={formatAmount(text, {currency, padFraction: false})}
             onChangeText={handleText}
             placeholder="500"
             placeholderTextColor="#171A1F"
             style={styles.input}
-            keyboardType="number-pad"
+            keyboardType="decimal-pad"
           />
         </AppView>
 
@@ -147,7 +147,7 @@ const TopUp = ({
                 <AppText
                   style={{color: showClicked ? 'white' : 'black'}}
                   className="font-MANROPE_400 text-lg">
-                  {getSymbolFromCurrency(currency)}{formatAmount(option)}
+                  {getSymbolFromCurrency(currency)}{formatAmount(option, currency)}
                 </AppText>
               </TouchableOpacity>
             );

@@ -28,16 +28,17 @@ import {
 import routes from '@/navigation/routes';
 import colors from '@/configs/colors';
 import fonts from '@/configs/fonts';
+import appVersion from '@/version.json';
 import AppModal from '@/components/AppModal';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { DrawerNavigatorProps } from '@/navigation/AppStack';
 import { AuthStackParamList } from '@/navigation/AuthNavigation';
 import { RootNav, RootStackParamList } from '@/navigation/AppNavigator';
-import { getData, removeData, storeData } from '@/Utils/useAsyncStorage';
-import { HAS_SKIPPED } from '../authentication/components/AuthFormComponent';
-import { SignUpNavigationProps } from '../authentication/SignUpScreen';
-import { HAS_ONBOARD, hasUserDetails } from '../Splashscreen/Splashscreen';
-import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
+import {authGet, authMultiRemove, AUTH_MMKV_KEYS} from '@/Utils/authMmkv';
+import {HAS_SKIPPED} from '../authentication/components/AuthFormComponent';
+import {SignUpNavigationProps} from '../authentication/SignUpScreen';
+import {hasUserDetails} from '../Splashscreen/Splashscreen';
+import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
 import {
   logout,
   selectUser,
@@ -46,11 +47,12 @@ import {
   setWatchListContents,
 } from '@/store/slices/userSlice';
 import FastImage from 'react-native-fast-image';
-import { checkImageUrlValidity } from '@/Utils/ValidateImageUrl';
-import { walletBalance } from '@/api/payment.api';
-import { fetchWatchList } from '@/api/watchlist.api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { HAS_LOCK_APP } from '../Settings/SettingScreen';
+import {checkImageUrlValidity} from '@/Utils/ValidateImageUrl';
+import {walletBalance} from '@/api/payment.api';
+import {fetchWatchList} from '@/api/watchlist.api';
+import {HAS_LOCK_APP} from '../Settings/SettingScreen';
+import {clearTokens} from '@/Utils/secureTokenStorage';
+import {useAppPersistStore} from '@/store/zustand.store';
 
 const tabs = [
   'Account',
@@ -79,13 +81,17 @@ const MenuScreen = () => {
   const [isValidImg, setVallid] = useState<boolean>(false)
 
   async function getSkippedState() {
-    const hasSkipped = await getData(HAS_SKIPPED);
+    const hasSkipped = await authGet(HAS_SKIPPED);
     if (hasSkipped) {
       setIsSkipped(true);
     }
   }
 
   async function handleValidImg() {
+    if (!profilePic) {
+      setVallid(false);
+      return;
+    }
     const valid = await checkImageUrlValidity(profilePic)
     setVallid(valid)
   }
@@ -94,7 +100,10 @@ const MenuScreen = () => {
     if (selectedTab === 'Account') navigate(routes.ACCOUNT_SCREEN);
     if (selectedTab === 'Log In')
       navigation.navigate(routes.AUTH, { screen: routes.LOGIN_SCREEN });
-    if (selectedTab === 'Watchlist') navigate(routes.WATCHLIST_SCREEN);
+    if (selectedTab === 'Watchlist') {
+      // Watchlist lives on the root stack, not the menu stack.
+      nav.navigate(routes.WATCHLIST_SCREEN);
+    }
     if (selectedTab === 'Create AD') setAds(true);
     if (selectedTab === 'Notifications') navigate(routes.NOTIFICATION_SCREEN);
     if (selectedTab === 'Suggestions') navigate(routes.SUGGESTION_SCREEN);
@@ -105,9 +114,14 @@ const MenuScreen = () => {
   }
 
   async function handleLogout() {
-    await removeData(hasUserDetails);
-     AsyncStorage.multiRemove([hasUserDetails,HAS_LOCK_APP, 'FCM_TOKEN'])
-    dispatch({type: 'logout'});
+    await clearTokens();
+    await authMultiRemove([
+      hasUserDetails,
+      HAS_LOCK_APP,
+      AUTH_MMKV_KEYS.FCM_TOKEN,
+    ]);
+    useAppPersistStore.getState().setIsSessionExpired(false);
+    dispatch(logout());
     setShowModal(false);
     nav.reset({
       index: 0,
@@ -116,16 +130,24 @@ const MenuScreen = () => {
   }
 
    async function getWallet() {
-      const res = await walletBalance();
-      if (res.ok && res.data) {
-        dispatch(setWalletInfo(res.data.data));
+      try {
+        const res = await walletBalance();
+        if (res.ok && res.data) {
+          dispatch(setWalletInfo(res.data.data));
+        }
+      } catch {
+        // non-fatal on menu open
       }
     }
 
    async function getWatchList() {
-      const res = await fetchWatchList({page:1, limit:20});
-      if (res.ok && res.data) {
-        dispatch(setWatchListContents(res.data.data));
+      try {
+        const res = await fetchWatchList({page:1, limit:20});
+        if (res.ok && Array.isArray(res.data?.data)) {
+          dispatch(setWatchListContents(res.data.data));
+        }
+      } catch {
+        // non-fatal on menu open
       }
     }
 
@@ -134,7 +156,12 @@ const MenuScreen = () => {
     getWallet();
     getSkippedState();
     handleValidImg();
-  }, [user]);
+  }, [user?._id]);
+
+  const displayName = [user?.first_name, user?.last_name]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
 
   return (
     <>
@@ -143,14 +170,18 @@ const MenuScreen = () => {
           {!isSkipped && (
             <AppView className="flex-row items-center gap-x-3">
                 <AppImage
-                  source={!isValidImg ? require('@/assets/images/user.png'): {
-                    uri: profilePic,
-                    priority: FastImage.priority.high,
-                  }}
+                  source={
+                    isValidImg && profilePic
+                      ? {
+                          uri: profilePic,
+                          priority: FastImage.priority.high,
+                        }
+                      : require('@/assets/images/user.png')
+                  }
                   style={styles.image}
                 />
               <AppText className="font-MANROPE_700 capitalize text-base text-white ml-2">
-                {user.first_name} {user.last_name}
+                {displayName || 'User'}
               </AppText>
             </AppView>
           )}
@@ -196,7 +227,7 @@ const MenuScreen = () => {
             </AppText>
           </Pressable>
           <AppText className="mt-4 font-MANROPE_400 text-sm text-light_blue">
-            Reeplay Version 2.0.1
+            Reeplay Version {appVersion.version}
           </AppText>
         </AppView>
       </AppScreen>

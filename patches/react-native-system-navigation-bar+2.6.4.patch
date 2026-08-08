@@ -1,0 +1,22 @@
+diff --git a/node_modules/react-native-system-navigation-bar/android/build.gradle b/node_modules/react-native-system-navigation-bar/android/build.gradle
+index 6c4b14c..0637caa 100644
+--- a/node_modules/react-native-system-navigation-bar/android/build.gradle
++++ b/node_modules/react-native-system-navigation-bar/android/build.gradle
+@@ -3,7 +3,7 @@ buildscript {
+         repositories {
+             google()
+             mavenCentral()
+-            jcenter()
++            mavenCentral()
+         }
+ 
+         dependencies {
+@@ -49,7 +49,7 @@ repositories {
+     }
+     google()
+     mavenCentral()
+-    jcenter()
++    mavenCentral()
+ }
+ 
+ dependencies {

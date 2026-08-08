@@ -9,7 +9,7 @@ import {
   OTPInput,
   TouchableOpacity,
 } from '@/components';
-import {storeData} from '@/Utils/useAsyncStorage';
+import {authSet, AUTH_MMKV_KEYS} from '@/Utils/authMmkv';
 import colors from '@/configs/colors';
 import Size from '@/Utils/useResponsiveSize';
 import AppModal from '@/components/AppModal';
@@ -23,7 +23,7 @@ import {handleCreatePIN} from '@/api/auth.api';
 import { getProfileDetails } from '@/api/profile.api';
 import { hasUserDetails } from '../Splashscreen/Splashscreen';
 
-const HAS_SET_NEWPIN = 'new_pin';
+const HAS_SET_NEWPIN = AUTH_MMKV_KEYS.HAS_SET_NEWPIN;
 
 const ChangePin = () => {
   const user = useAppSelector(selectUser);
@@ -55,8 +55,8 @@ const ChangePin = () => {
       if (res.ok && res.data) {
         const res_p = await getProfileDetails();
         if(res_p.ok && res_p.data){
-          await storeData(hasUserDetails, JSON.stringify(res_p.data.data))
-          await storeData(HAS_SET_NEWPIN, code);
+          await authSet(hasUserDetails, JSON.stringify(res_p.data.data))
+          await authSet(HAS_SET_NEWPIN, code);
           setIsShowModal(true); //if successful run this
           setTimeout(() => {
             setIsShowModal(false);

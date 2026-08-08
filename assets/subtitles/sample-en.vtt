@@ -1,0 +1,19 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:04.000
+ReePlay subtitle test — line 1.
+
+00:00:04.000 --> 00:00:08.000
+If you can read this, overlay captions are working.
+
+00:00:08.000 --> 00:00:12.000
+Toggle Off from the Subtitle control to hide them.
+
+00:00:12.000 --> 00:00:20.000
+English (Test) stays on for the first 20 seconds.
+
+00:00:20.000 --> 00:00:40.000
+Still here — scrub back to the start if you missed it.
+
+00:00:40.000 --> 00:01:00.000
+Subtitle overlay is driven by playback time, not ExoPlayer.

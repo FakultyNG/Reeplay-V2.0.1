@@ -313,7 +313,7 @@ const AccountScreen = () => {
                      NGN balance
                     </AppText>
                     <AppText className="font-MANROPE_700 text-white text-lg text-left">
-                      ₦{formatAmount(wallet.NGNBalance.toString())}.00
+                      ₦{formatAmount(wallet.NGNBalance, 'NGN')}
                     </AppText>
                   </TouchableOpacity>
 
@@ -329,7 +329,7 @@ const AccountScreen = () => {
                      USD balance
                     </AppText>
                     <AppText className="font-MANROPE_700 text-white text-lg text-left">
-                      ${formatAmount(wallet.USDBalance.toString())}.00
+                      ${formatAmount(wallet.USDBalance, 'USD')}
                     </AppText>
                   </TouchableOpacity>
 
@@ -340,7 +340,7 @@ const AccountScreen = () => {
                      GMD balance
                     </AppText>
                     <AppText className="font-MANROPE_700 text-white text-lg text-left">
-                      D{formatAmount(wallet.GMDBalance.toString())}.00
+                      D{formatAmount(wallet.GMDBalance, 'GMD')}
                     </AppText>
                   </TouchableOpacity>
                   </View>

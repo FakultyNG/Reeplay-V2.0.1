@@ -1,0 +1,12 @@
+diff --git a/node_modules/react-native-vector-icons/android/build.gradle b/node_modules/react-native-vector-icons/android/build.gradle
+index 28e2fcc..e721450 100644
+--- a/node_modules/react-native-vector-icons/android/build.gradle
++++ b/node_modules/react-native-vector-icons/android/build.gradle
+@@ -1,6 +1,6 @@
+ buildscript {
+   repositories {
+-    jcenter()
++    mavenCentral()
+   }
+ 
+   dependencies {

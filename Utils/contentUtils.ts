@@ -1,11 +1,24 @@
 import { IVODRatings } from "@/types/api/content.types";
-import { getData, storeData } from "./useAsyncStorage";
-import RNFS from 'react-native-fs';
-
+import {BASE_URL} from '@env';
 
 export function generateGradientColors(hexColor: string): string[] {
+  const fallback = '#333333';
+  const raw = (hexColor || fallback).trim();
+  let hex = raw.replace(/^#/, '');
+
+  // Expand #RGB → #RRGGBB
+  if (hex.length === 3) {
+    hex = hex
+      .split('')
+      .map(ch => ch + ch)
+      .join('');
+  }
+
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+    hex = fallback.replace(/^#/, '');
+  }
+
   // HEX → RGB
-  const hex = hexColor.replace(/^#/, '');
   const r = parseInt(hex.slice(0, 2), 16);
   const g = parseInt(hex.slice(2, 4), 16);
   const b = parseInt(hex.slice(4, 6), 16);
@@ -79,7 +92,7 @@ export function generateGradientColors(hexColor: string): string[] {
   return [
     rgbToHex(color1),
     rgbToHex(color2),
-    hexColor,
+    `#${hex}`,
     lightBlack,
     mediumBlack
   ];
@@ -94,16 +107,17 @@ export const subtractYears = (date: Date, years: number): Date => {
   return date;
 };
 
-export function getWatchTag(type: string, live?: boolean): string {
-  if (live && type === 'exclusive') {
+export function getWatchTag(type?: string | null, live?: boolean): string {
+  const normalized = (type ?? '').toLowerCase();
+  if (live && normalized === 'exclusive') {
     return 'live-watch-exclusive';
   }
 
-  if (!live && type === 'exclusive') {
+  if (!live && normalized === 'exclusive') {
     return 'video-watch-exclusive';
   }
 
-  if (!live && type === 'premium') {
+  if (!live && normalized === 'premium') {
     return 'video-watch-premium';
   }
 
@@ -139,50 +153,15 @@ export function formatRatingStats(data: IVODRatings|null): Record<string, number
 }
 
 
-const CACHE_KEY = 'IMAGE_CACHE_MAP';
-
-function getFileExtension(url: string): string {
-  try {
-    const pathname = new URL(url).pathname;
-    const match = pathname.match(/\.([a-zA-Z0-9]+)$/);
-    return match ? match[1].toLowerCase() : 'jpg';
-  } catch {
-    return 'jpg';
-  }
-}
-
+/**
+ * @deprecated Prefer FastImage with cacheControl.immutable.
+ * Kept for any legacy callers; no longer used by home posters.
+ */
 export async function getCachedImage(
   url: string,
-  id: string,
+  _id: string,
 ): Promise<string> {
-  if (!url || !id) return url;
-
-  const saved = await getData(CACHE_KEY);
-  const cacheMap: Record<string, string> = saved ? JSON.parse(saved) : {};
-
-  const cachedPath = cacheMap[id];
-  if (cachedPath && (await RNFS.exists(cachedPath))) {
-    return `file://${cachedPath}`;
-  }
-
-  try {
-    const extension = getFileExtension(url); // ✅ FIX
-    const fileName = `${id}.${extension}`;
-    const filePath = `${RNFS.CachesDirectoryPath}/${fileName}`;
-
-    await RNFS.downloadFile({
-      fromUrl: url,
-      toFile: filePath,
-    }).promise;
-
-    cacheMap[id] = filePath;
-    await storeData(CACHE_KEY, JSON.stringify(cacheMap));
-
-    return `file://${filePath}`;
-  } catch (error) {
-    console.log('Image caching error:', error, id);
-    return url;
-  }
+  return url;
 }
 
 
@@ -195,11 +174,12 @@ export function srtToVtt(srt: string): string {
     // Remove subtitle index numbers
     .replace(/^\d+\n/gm, '')
 
-    // Convert timestamps (comma → dot)
+    // Convert timestamps (comma → dot) — HH:MM:SS,mmm or MM:SS,mmm
     .replace(
-      /(\d{2}:\d{2}:\d{2}),(\d{3})/g,
-      '$1.$2'
+      /(\d{1,2}:\d{2}:\d{2}),(\d{3})/g,
+      '$1.$2',
     )
+    .replace(/(\d{1,2}:\d{2}),(\d{3})/g, '$1.$2')
 
     // Remove HTML tags (<b>, <i>, etc.)
     .replace(/<\/?[^>]+>/g, '')
@@ -209,4 +189,171 @@ export function srtToVtt(srt: string): string {
     .trim();
 
   return `WEBVTT\n\n${vtt}`;
+}
+
+/** Normalize arbitrary caption text to WEBVTT (SRT, VTT body, or full VTT). */
+export function ensureWebVtt(text: string): string {
+  const cleaned = (text || '').replace(/^\uFEFF/, '').trim();
+  if (!cleaned) {
+    return 'WEBVTT\n\n';
+  }
+  if (/^WEBVTT/i.test(cleaned)) {
+    return cleaned;
+  }
+  // VTT-style timestamps already use dots
+  if (/\d{1,2}:\d{2}(?::\d{2})?\.\d{3}\s*-->/.test(cleaned)) {
+    return `WEBVTT\n\n${cleaned}`;
+  }
+  return srtToVtt(cleaned);
+}
+
+/**
+ * Resolve subtitle download URLs from mixed API shapes:
+ * absolute http(s), protocol-relative, s3://, bare host/path, or bucket+key.
+ */
+export function normalizeSubtitleUrl(
+  src?: string | null,
+  bucket?: string | null,
+  key?: string | null,
+): string {
+  let raw = String(src ?? '')
+    .trim()
+    .replace(/^['"]+|['"]+$/g, '')
+    .replace(/\\/g, '/');
+
+  const hasScheme = /^https?:\/\//i.test(raw) || /^s3:\/\//i.test(raw);
+  const isProtocolRelative = raw.startsWith('//');
+
+  if ((!raw || (!hasScheme && !isProtocolRelative)) && bucket) {
+    const objectKey = String(key || raw || '')
+      .trim()
+      .replace(/^\/+/, '');
+    if (objectKey) {
+      const host = String(bucket)
+        .trim()
+        .replace(/^https?:\/\//i, '')
+        .replace(/\/+$/, '');
+      raw = host.includes('.')
+        ? `https://${host}/${objectKey}`
+        : `https://${host}.s3.amazonaws.com/${objectKey}`;
+    }
+  }
+
+  if (!raw) {
+    throw new Error('Missing subtitle URL');
+  }
+
+  if (raw.startsWith('//')) {
+    raw = `https:${raw}`;
+  }
+
+  const s3Match = raw.match(/^s3:\/\/([^/]+)\/(.+)$/i);
+  if (s3Match) {
+    raw = `https://${s3Match[1]}.s3.amazonaws.com/${s3Match[2]}`;
+  }
+
+  if (!/^https?:\/\//i.test(raw)) {
+    if (raw.startsWith('/')) {
+      const origin = (BASE_URL || 'https://typescript.reeplay.app')
+        .replace(/\/api\/v\d+\/?$/i, '')
+        .replace(/\/$/, '');
+      raw = `${origin}${raw}`;
+    } else {
+      raw = `https://${raw}`;
+    }
+  }
+
+  // Encode spaces / unsafe chars but keep query string delimiters intact.
+  try {
+    const parsed = new URL(raw);
+    parsed.pathname = parsed.pathname
+      .split('/')
+      .map(seg => {
+        try {
+          return encodeURIComponent(decodeURIComponent(seg || ''));
+        } catch {
+          return encodeURIComponent(seg || '');
+        }
+      })
+      .join('/');
+    return parsed.toString();
+  } catch {
+    return raw.replace(/ /g, '%20');
+  }
+}
+
+export type VttCue = {
+  start: number;
+  end: number;
+  text: string;
+};
+
+/** Parse `HH:MM:SS.mmm` or `MM:SS.mmm` into seconds. */
+export function parseVttTimestamp(raw: string): number {
+  const cleaned = raw.trim().split(/\s+/)[0]?.replace(',', '.') ?? '';
+  const parts = cleaned.split(':').map(Number);
+  if (parts.some(n => Number.isNaN(n))) {
+    return 0;
+  }
+  if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  }
+  return parts[0] || 0;
+}
+
+/** Minimal WEBVTT cue parser for overlay captions. */
+export function parseVttCues(vtt: string): VttCue[] {
+  const normalized = vtt.replace(/^\uFEFF/, '').replace(/\r+/g, '').trim();
+  if (!normalized) {
+    return [];
+  }
+
+  const body = normalized.replace(/^WEBVTT[^\n]*\n?/i, '').trim();
+  const blocks = body.split(/\n{2,}/);
+  const cues: VttCue[] = [];
+
+  for (const block of blocks) {
+    const lines = block
+      .split('\n')
+      .map(l => l.trim())
+      .filter(Boolean);
+    if (!lines.length) {
+      continue;
+    }
+
+    const timeIdx = lines.findIndex(l => l.includes('-->'));
+    if (timeIdx < 0) {
+      continue;
+    }
+
+    const [startRaw, endRaw] = lines[timeIdx].split('-->');
+    if (!startRaw || !endRaw) {
+      continue;
+    }
+
+    const start = parseVttTimestamp(startRaw);
+    const end = parseVttTimestamp(endRaw);
+    const text = lines
+      .slice(timeIdx + 1)
+      .join('\n')
+      .replace(/<\/?[^>]+>/g, '')
+      .trim();
+
+    if (text && end > start) {
+      cues.push({start, end, text});
+    }
+  }
+
+  return cues;
+}
+
+export function cueTextAtTime(cues: VttCue[] | undefined, time: number): string {
+  if (!cues?.length || !(time >= 0)) {
+    return '';
+  }
+  const cue = cues.find(c => time >= c.start && time < c.end);
+  return cue?.text ?? '';
 }

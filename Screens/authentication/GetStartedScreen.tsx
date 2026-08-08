@@ -26,7 +26,7 @@ import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
 import {selectUser} from '@/store/slices/userSlice';
 import {useIsFocused, useNavigation} from '@react-navigation/native';
 import routes from '@/navigation/routes';
-import {getData, storeData} from '@/Utils/useAsyncStorage';
+import {authGet, AUTH_MMKV_KEYS} from '@/Utils/authMmkv';
 import ReactNativeBiometrics, {BiometryTypes} from 'react-native-biometrics';
 import { VideoRef } from 'react-native-video';
 import { randomAds } from '@/api/content.api';
@@ -37,9 +37,10 @@ import { useAppPersistStore } from '@/store/zustand.store';
 import PrivacyScreen from '../support/PrivacyScreen';
 import TermScreen from '../support/TermScreen';
 import { setCategories } from '@/store/slices/bannerSlice.slice';
+import {contentGetJson, CONTENT_MMKV_KEYS} from '@/Utils/contentMmkv';
 
-export const HAS_SET_NEWPIN = 'new_pin';
-const HAS_LOCK_APP = 'HAS_LOCK_APP';
+export const HAS_SET_NEWPIN = AUTH_MMKV_KEYS.HAS_SET_NEWPIN;
+const HAS_LOCK_APP = AUTH_MMKV_KEYS.HAS_LOCK_APP;
 
 const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "getStarted" | "pin"}) => {
   const {replace, navigate, getParent} = useNavigation<AuthParamsNavigator>();
@@ -59,7 +60,7 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
 
   async function handleLogin() {
     if (lock) {
-      const hasPin = await getData(HAS_SET_NEWPIN);
+      const hasPin = await authGet(HAS_SET_NEWPIN);
       console.log(hasPin)
       if (hasPin) {
         if(handleFunc){
@@ -83,7 +84,7 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
   }
 
   async function getLockState() {
-    const lockState = await getData(HAS_LOCK_APP);
+    const lockState = await authGet(HAS_LOCK_APP);
     if (lockState) {
       setLock(JSON.parse(lockState));
       console.log(lockState)
@@ -147,13 +148,13 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
   }
 
   async function handleFetchCache(){
-      const dataC = await getData('category');
-      const dataG = await getData('genre');
-      const dataB = await getData('banner');
+      const dataC = contentGetJson<unknown[]>(CONTENT_MMKV_KEYS.CATEGORY);
+      const dataG = contentGetJson<unknown[]>(CONTENT_MMKV_KEYS.GENRE);
+      const dataB = contentGetJson<unknown>(CONTENT_MMKV_KEYS.BANNER);
 
-      if(dataC) dispatch(setCategories(JSON.parse(dataC)))
-      if(dataG) dispatch(setCategories(JSON.parse(dataG)))
-      if(dataB) dispatch(setCategories(JSON.parse(dataB)))
+      if(dataC) dispatch(setCategories(dataC as any))
+      if(dataG) dispatch(setCategories(dataG as any))
+      if(dataB) dispatch(setCategories(dataB as any))
   }
 
   useEffect(() =>{

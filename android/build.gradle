@@ -1,17 +1,22 @@
 buildscript {
     ext {
-        buildToolsVersion = "35.0.0"
-        minSdkVersion = 24
+        buildToolsVersion = "36.0.0"
+        minSdkVersion = 26
         compileSdkVersion = 36
-        targetSdkVersion = 35
-        ndkVersion = "26.1.10909125"
-        kotlinVersion = "2.0.0"
+        targetSdkVersion = 36
+        ndkVersion = "27.1.12297006"
+        kotlinVersion = "2.1.20"
 
         useExoplayerIMA = true
     // useExoplayerRtsp = true
     // useExoplayerSmoothStreaming = true
     // useExoplayerDash = true
     useExoplayerHls = true
+
+        // Pin exact versions — inappbrowser-reborn defaults to dynamic "1.5.+" / "1.4.+"
+        // which require online maven-metadata resolution and fail on flaky DNS.
+        androidXAnnotation = "1.9.1"
+        androidXBrowser = "1.8.0"
     }
     repositories {
         google()
@@ -19,9 +24,9 @@ buildscript {
         
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:8.9.1")
+        classpath("com.android.tools.build:gradle")
         classpath("com.facebook.react:react-native-gradle-plugin")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
         classpath("com.google.gms:google-services:4.4.2")
          classpath("com.google.firebase:firebase-crashlytics-gradle:3.0.6")
     }
@@ -29,16 +34,20 @@ buildscript {
 
 allprojects {
     repositories {
+        mavenLocal()
         google()
         mavenCentral()
         maven {
             url "$rootDir/../node_modules/react-native-video-cache/android/libs"
         }
     }
-    configurations.all {
+    configurations.configureEach {
         resolutionStrategy {
             force "com.google.android.gms:play-services-cast-framework:21.4.0"
             force "com.google.android.gms:play-services-cast:21.4.0"
+            force "androidx.annotation:annotation:1.9.1"
+            force "androidx.annotation:annotation-jvm:1.9.1"
+            force "androidx.browser:browser:1.8.0"
         }
     }
 }

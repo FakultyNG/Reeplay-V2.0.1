@@ -61,7 +61,7 @@ import {
   setFullVideoProps,
 } from '@/store/slices/fullScreenVideo.slice';
 import FastImage from 'react-native-fast-image';
-import convertToProxyURL from 'react-native-video-cache';
+import { resolvePlaybackSource } from '@/components/video/playbackConfig';
 
 
 const AnimatedLinear = Animated.createAnimatedComponent(LinearGradient);
@@ -446,7 +446,7 @@ const FullScreenModal = () => {
                   source={{
                     uri: coverImg,
                     priority: FastImage.priority.normal,
-                    cache: FastImage.cacheControl.web,
+                    cache: FastImage.cacheControl.immutable,
                   }}
                   resizeMode={FastImage.resizeMode.cover}
                   style={{
@@ -771,9 +771,7 @@ const FullScreenModal = () => {
                 <AppVideo
                   poster={coverImg}
                   posterResizeMode='cover'
-                  source={{
-                    uri: convertToProxyURL(videoURL),
-                  }}
+                  source={resolvePlaybackSource(videoURL, 'vod')}
                   videoRef={videoRef}
                   style={{
                     width: '100%',
@@ -791,12 +789,7 @@ const FullScreenModal = () => {
                   onSeek={onSeek}
                   onBuffer={onBuffer}
                   onReadyForDisplay={onReadyForDisplay}
-                  bufferConfig={{
-                    minBufferMs: 2500,
-                    maxBufferMs: 3000,
-                    bufferForPlaybackMs: 2500,
-                    bufferForPlaybackAfterRebufferMs: 2500,
-                  }}
+                  preferredForwardBufferDuration={12}
                   useTextureView={false}
                   controls={false}
                   disableFocus={true}

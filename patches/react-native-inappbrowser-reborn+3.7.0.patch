@@ -1,0 +1,12 @@
+diff --git a/node_modules/react-native-inappbrowser-reborn/android/build.gradle b/node_modules/react-native-inappbrowser-reborn/android/build.gradle
+index ba37f5e..86c075f 100644
+--- a/node_modules/react-native-inappbrowser-reborn/android/build.gradle
++++ b/node_modules/react-native-inappbrowser-reborn/android/build.gradle
+@@ -45,6 +45,7 @@ android {
+ }
+ 
+ repositories {
++  mavenLocal()
+   mavenCentral()
+ }
+ 

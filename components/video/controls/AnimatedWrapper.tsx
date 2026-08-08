@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import React, {useEffect} from 'react';
+import {StyleSheet} from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  Easing,
   runOnJS,
 } from 'react-native-reanimated';
 
@@ -20,36 +21,29 @@ export const AnimatedWrapper = ({
   children,
   onAnimationEnd,
 }: AnimatedWrapperProps) => {
-  const opacity = useSharedValue(0);
-  const display = useSharedValue<'flex' | 'none'>('none');
+  // Seed from `visible` so first paint isn't blank when controls start shown.
+  const opacity = useSharedValue(visible ? 1 : 0);
 
   useEffect(() => {
-    if (visible) {
-      display.value = 'flex';
-    }
-
     opacity.value = withTiming(
       visible ? 1 : 0,
-      { duration: animationDuration },
+      {duration: animationDuration, easing: Easing.out(Easing.cubic)},
       finished => {
-        if (finished && !visible) {
-          display.value = 'none';
-        }
-
         if (finished && onAnimationEnd) {
           runOnJS(onAnimationEnd)();
         }
-      }
+      },
     );
-  }, [visible, animationDuration, onAnimationEnd]);
+  }, [visible, animationDuration, onAnimationEnd, opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    display: display.value,
   }));
 
   return (
-    <Animated.View style={[styles.controls, animatedStyle]}>
+    <Animated.View
+      style={[styles.controls, animatedStyle]}
+      pointerEvents={visible ? 'box-none' : 'none'}>
       {children}
     </Animated.View>
   );
@@ -57,7 +51,6 @@ export const AnimatedWrapper = ({
 
 const styles = StyleSheet.create({
   controls: {
-    position: 'relative',
-    height: '100%',
+    ...StyleSheet.absoluteFillObject,
   },
 });

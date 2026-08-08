@@ -38,7 +38,7 @@ import {
   SettingScreenNav,
 } from '@/types/typings';
 import {RootStackParamList} from '@/navigation/AppNavigator';
-import {getData, removeData, storeData} from '@/Utils/useAsyncStorage';
+import {authGet, authRemove, authSet, AUTH_MMKV_KEYS} from '@/Utils/authMmkv';
 import ReactNativeBiometrics, {BiometryTypes} from 'react-native-biometrics';
 import Animated, {
   useAnimatedStyle,
@@ -56,7 +56,7 @@ import { getDeviceId } from 'react-native-device-info';
 import messaging from '@react-native-firebase/messaging';
 import { registerNotificationDevice } from '@/api/notification.api';
 
-export const HAS_LOCK_APP = 'HAS_LOCK_APP';
+export const HAS_LOCK_APP = AUTH_MMKV_KEYS.HAS_LOCK_APP;
 
 const SettingScreen = () => {
   // const {navigate} = useNavigation<LanguageScreenNav>();
@@ -149,9 +149,9 @@ const SettingScreen = () => {
 
   async function handleLock() {
     if (lock) {
-      await storeData(HAS_LOCK_APP, 'true');
+      await authSet(HAS_LOCK_APP, 'true');
     } else {
-      await storeData(HAS_LOCK_APP, 'false');
+      await authSet(HAS_LOCK_APP, 'false');
     }
   }
 
@@ -174,7 +174,7 @@ const SettingScreen = () => {
   }
 
   async function getLockState() {
-    const lockState = await getData(HAS_LOCK_APP);
+    const lockState = await authGet(HAS_LOCK_APP);
     if (lockState) {
       setLock(JSON.parse(lockState));
       console.log(JSON.parse(lockState));
@@ -211,7 +211,7 @@ const getToken = async () => {
     
     if (token) {
       console.log("FCM Token Generated:", token);
-      await storeData('FCM_TOKEN', token);
+      await authSet(AUTH_MMKV_KEYS.FCM_TOKEN, token);
       
       const t = await registerNotificationDevice({
         device_id: deviceId,
@@ -257,22 +257,24 @@ const getToken = async () => {
       navigation.navigate(routes.INTEREST_SCREEN, {isSettings: true});
   }
 
-   async function handleSettings() {
+   async function handleSettings(nextNotifications?: boolean) {
   try {
-    // let currentToken = await getData('FCM_TOKEN');
+    const allow =
+      typeof nextNotifications === 'boolean'
+        ? nextNotifications
+        : notifications !== null
+          ? notifications
+          : allow_notifications;
 
-    if (notifications !== null) {
-      if (notifications) {
-        await handleInitializations(); 
-        // currentToken = await getData('FCM_TOKEN'); 
-      } else {
-        messaging().deleteToken().catch(() => {});
-        await removeData('FCM_TOKEN');
-      }
+    if (allow) {
+      await handleInitializations();
+    } else {
+      messaging().deleteToken().catch(() => {});
+      await authRemove(AUTH_MMKV_KEYS.FCM_TOKEN);
     }
 
     const res = await notificationApi({
-      allow_notifications: notifications !== null ? notifications : allow_notifications,
+      allow_notifications: allow,
       upcoming_events,
       new_arrivals,
       live_channels,
@@ -289,10 +291,6 @@ const getToken = async () => {
     // Alert.alert('Error', 'Unable to update settings');
   }
 }
-  
-    useEffect(() => {
-      handleSettings();
-    }, [notifications]);
 
   useEffect(() => {
    if(notifications === null){
@@ -414,7 +412,12 @@ const getToken = async () => {
                     notifications ? 'bg-red' : 'bg-[#bbbbbb]'
                   }`}
                   activeOpacity={1}
-                  onPress={() => [setNotifications(!notifications), handleAnimation3()]}>
+                  onPress={() => {
+                    const next = !notifications;
+                    setNotifications(next);
+                    handleAnimation3();
+                    handleSettings(next);
+                  }}>
                   <Animated.View style={[animatedStyle3, styles.circle]} />
                 </TouchableOpacity>
               : (tabs.toLowerCase().includes('clear') || isInterest) ? (

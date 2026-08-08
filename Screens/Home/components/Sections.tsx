@@ -3,50 +3,75 @@ import React from 'react';
 import {AppView} from '@/components';
 import Size from '@/Utils/useResponsiveSize';
 import ContentWrapper from '@/components/ContentWrapper';
-import { useAppSelector } from '@/Hooks/reduxHook';
-import { selectCategories } from '@/store/slices/bannerSlice.slice';
+import {useAppSelector} from '@/Hooks/reduxHook';
+import {selectCategories} from '@/store/slices/bannerSlice.slice';
+import LiveEmptyState from '@/Screens/Live/components/LiveEmptyState';
+import {FHomeIcon} from '@/assets/icons';
 
 interface Props {
   isSkipped: boolean;
+  /** When true, only first few category rows fetch/render network. */
+  deferHeavy?: boolean;
 }
 
-const Sections = ({isSkipped}: Props) => {
+const IMMEDIATE_ROW_COUNT = 3;
+
+const Sections = ({isSkipped, deferHeavy = false}: Props) => {
   const cat = useAppSelector(selectCategories);
 
-  if(cat.length === 0) return <></>
+  if (cat.length === 0) {
+    return (
+      <LiveEmptyState
+        icon={<FHomeIcon width={36} height={20} />}
+        title="No categories yet"
+        message="Home sections will appear here when titles are available. Check back later."
+      />
+    );
+  }
+
+  const immediate = cat.slice(0, IMMEDIATE_ROW_COUNT);
+  const deferred = cat.slice(IMMEDIATE_ROW_COUNT, cat.length - 1);
+  const rows = deferHeavy ? immediate : [...immediate, ...deferred];
+
   return (
     <>
-      {/* {isSkipped && ( */}
-        <AppView style={[!isSkipped && {height:0}]} className="mt-10 pl-5">
-          <ContentWrapper
-              enums={cat[0]}
-              showPagination
-            />
+      {isSkipped && (
+        <AppView className="mt-10 pl-5">
+          <ContentWrapper enums={cat[0]} showPagination enabled />
         </AppView>
-      {/* // )} */}
-      <AppView style={{marginTop: isSkipped ? 24 : 40}} className="pl-5">
-            {cat.length > 1 && <ContentWrapper
-              enums={cat[1]}
-            />}
+      )}
+      <AppView
+        style={{marginTop: isSkipped ? 24 : 32}}
+        className="pl-5">
+        {cat.length > 1 && <ContentWrapper enums={cat[1]} enabled />}
       </AppView>
 
-      {cat.slice(2, cat.length-1).map((x,i) =>{
-        const isTop10 = x.name.toLowerCase().includes('top 10') 
-        const isComingSoon = x.name.toLowerCase().includes('comming soon')
-        const isLive = x.name.toLowerCase().includes('live')
-        const isMusic = x.name.toLowerCase().includes('music')
+      {rows.slice(2).map((x, i) => {
+        const isTop10 = x.name.toLowerCase().includes('top 10');
+        const isComingSoon = x.name.toLowerCase().includes('comming soon');
+        const isLive = x.name.toLowerCase().includes('live');
+        const isMusic = x.name.toLowerCase().includes('music');
         return (
-          <AppView key={i} className={`mt-6 pl-5 ${isComingSoon ? 'mb-[40px]' :''}`}>
-             <ContentWrapper
+          <AppView
+            key={x._id ?? i}
+            className={`mt-6 pl-5 ${isComingSoon ? 'mb-[40px]' : ''}`}>
+            <ContentWrapper
               enums={x}
-              style={{marginRight: Size.calcHeight((isTop10 || isComingSoon) ? 8 : 12)}}
-              imageStyle={(isComingSoon || isTop10) ? {} : isMusic ? styles.videoBackdrop:{}}
+              style={{
+                marginRight: Size.calcHeight(
+                  isTop10 || isComingSoon ? 8 : 12,
+                ),
+              }}
+              imageStyle={
+                isComingSoon || isTop10 ? {} : isMusic ? styles.videoBackdrop : {}
+              }
               tag={isTop10}
               live={isLive}
               isMusic={isMusic}
+              enabled
             />
           </AppView>
-        )
+        );
       })}
     </>
   );

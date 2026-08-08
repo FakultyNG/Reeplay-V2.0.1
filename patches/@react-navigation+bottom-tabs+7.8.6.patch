@@ -1,0 +1,88 @@
+diff --git a/node_modules/@react-navigation/bottom-tabs/lib/module/unstable/NativeBottomTabView.native.js b/node_modules/@react-navigation/bottom-tabs/lib/module/unstable/NativeBottomTabView.native.js
+index 188a36d..1d514f5 100644
+--- a/node_modules/@react-navigation/bottom-tabs/lib/module/unstable/NativeBottomTabView.native.js
++++ b/node_modules/@react-navigation/bottom-tabs/lib/module/unstable/NativeBottomTabView.native.js
+@@ -11,7 +11,8 @@ import { jsx as _jsx } from "react/jsx-runtime";
+ export function NativeBottomTabView({
+   state,
+   navigation,
+-  descriptors
++  descriptors,
++  tabBarHidden
+ }) {
+   const {
+     dark,
+@@ -79,6 +80,7 @@ export function NativeBottomTabView({
+   };
+   return /*#__PURE__*/_jsx(SafeAreaProviderCompat, {
+     children: /*#__PURE__*/_jsx(BottomTabs, {
++      tabBarHidden: tabBarHidden,
+       tabBarItemLabelVisibilityMode: currentOptions?.tabBarLabelVisibilityMode,
+       tabBarControllerMode: currentOptions?.tabBarControllerMode,
+       tabBarMinimizeBehavior: currentOptions?.tabBarMinimizeBehavior,
+diff --git a/node_modules/@react-navigation/bottom-tabs/lib/typescript/src/unstable/types.d.ts b/node_modules/@react-navigation/bottom-tabs/lib/typescript/src/unstable/types.d.ts
+index 8d0bec8..26e86a3 100644
+--- a/node_modules/@react-navigation/bottom-tabs/lib/typescript/src/unstable/types.d.ts
++++ b/node_modules/@react-navigation/bottom-tabs/lib/typescript/src/unstable/types.d.ts
+@@ -275,7 +275,14 @@ export type NativeBottomTabNavigationOptions = NativeHeaderOptions & {
+ };
+ export type NativeBottomTabDescriptor = Descriptor<NativeBottomTabNavigationOptions, NativeBottomTabNavigationProp<ParamListBase>, RouteProp<ParamListBase>>;
+ export type NativeBottomTabDescriptorMap = Record<string, NativeBottomTabDescriptor>;
+-export type NativeBottomTabNavigationConfig = {};
++export type NativeBottomTabNavigationConfig = {
++    /**
++     * Hides the native tab bar (e.g. during fullscreen video).
++     *
++     * @platform android, ios
++     */
++    tabBarHidden?: boolean;
++};
+ export type NativeBottomTabBarProps = {
+     state: TabNavigationState<ParamListBase>;
+     descriptors: NativeBottomTabDescriptorMap;
+diff --git a/node_modules/@react-navigation/bottom-tabs/src/unstable/NativeBottomTabView.native.tsx b/node_modules/@react-navigation/bottom-tabs/src/unstable/NativeBottomTabView.native.tsx
+index 6f194e6..d8f4251 100644
+--- a/node_modules/@react-navigation/bottom-tabs/src/unstable/NativeBottomTabView.native.tsx
++++ b/node_modules/@react-navigation/bottom-tabs/src/unstable/NativeBottomTabView.native.tsx
+@@ -38,7 +38,12 @@ type Props = NativeBottomTabNavigationConfig & {
+   descriptors: NativeBottomTabDescriptorMap;
+ };
+ 
+-export function NativeBottomTabView({ state, navigation, descriptors }: Props) {
++export function NativeBottomTabView({
++  state,
++  navigation,
++  descriptors,
++  tabBarHidden,
++}: Props) {
+   const { dark, colors, fonts } = useTheme();
+ 
+   const focusedRouteKey = state.routes[state.index].key;
+@@ -129,6 +134,7 @@ export function NativeBottomTabView({ state, navigation, descriptors }: Props) {
+   return (
+     <SafeAreaProviderCompat>
+       <BottomTabs
++        tabBarHidden={tabBarHidden}
+         tabBarItemLabelVisibilityMode={
+           currentOptions?.tabBarLabelVisibilityMode
+         }
+diff --git a/node_modules/@react-navigation/bottom-tabs/src/unstable/types.tsx b/node_modules/@react-navigation/bottom-tabs/src/unstable/types.tsx
+index 6a68331..7264589 100644
+--- a/node_modules/@react-navigation/bottom-tabs/src/unstable/types.tsx
++++ b/node_modules/@react-navigation/bottom-tabs/src/unstable/types.tsx
+@@ -340,7 +340,14 @@ export type NativeBottomTabDescriptorMap = Record<
+   NativeBottomTabDescriptor
+ >;
+ 
+-export type NativeBottomTabNavigationConfig = {};
++export type NativeBottomTabNavigationConfig = {
++  /**
++   * Hides the native tab bar (e.g. during fullscreen video).
++   *
++   * @platform android, ios
++   */
++  tabBarHidden?: boolean;
++};
+ 
+ export type NativeBottomTabBarProps = {
+   state: TabNavigationState<ParamListBase>;

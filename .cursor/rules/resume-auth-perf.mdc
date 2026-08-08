@@ -1,0 +1,17 @@
+---
+description: Resume handoff for auth Keychain/MMKV work and Netflix-style home cache performance. Use when user says resume session, auth cache, or home perf.
+alwaysApply: true
+---
+
+# Session resume (auth + home cache)
+
+If the user is continuing after a pause, read **`.cursor/RESUME-auth-perf.md`** first for full context.
+
+## Snapshot
+
+- **Blocked on test:** backend login currently broken; auth/home cache changes need verification after backend is fixed.
+- **Auth:** tokens in Keychain (`Utils/secureTokenStorage.ts`) with in-memory cache; auth flags in MMKV (`Utils/authMmkv.ts`); refresh is single-flight in `api/profile.api.ts`; session modal gated by `PUBLIC_ROUTES` in `App.tsx` via `isSessionExpired` (not persisted). `apiCall` only expires session when a request had a token and refresh+retry still 401s.
+- **Home perf:** MMKV snapshot (`Utils/contentMmkv.ts`), hydrate on Home mount, parallel boot APIs, FastImage `immutable` (not `web`), no RNFS poster map; progressive sections/genres.
+- **Do not** introduce WatermelonDB for home/image speed unless product needs true offline relational sync.
+
+When resuming testing, follow the checklist in `.cursor/RESUME-auth-perf.md`.

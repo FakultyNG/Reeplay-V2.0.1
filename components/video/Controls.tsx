@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { PlayButton } from './controls/PlayButton';
 import { VideoPlayerProps } from 'react-native-video-player';
 import { AnimatedWrapper } from './controls/AnimatedWrapper';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Text, Pressable, StyleSheet, View } from 'react-native';
 import { DurationText, ProgressingDuration } from './controls/Durations';
 import { MotiView } from 'moti';
 import { Mute } from './controls/Mute';
@@ -22,7 +22,7 @@ import AppImage from '../AppImage';
 import { IContentData } from './DynamicVideoComponent';
 import EyesIcon from '@/assets/icons/eyes.svg'
 import { useSocket } from '../../Hooks/useSocket';
-import { formatAmount } from '@/Utils/formatAmount';
+import { formatLikesNumber } from '@/Utils/formatAmount';
 
 const AnimatedLinear = Animated.createAnimatedComponent(LinearGradient);
 
@@ -50,6 +50,12 @@ interface ControlsProps
   contentData:IContentData
   isTime: boolean
   handleGoBackFunc?:() => void
+  subtitleTracks?: {title: string; language: string}[]
+  selectedSubtitleIndex?: number
+  onSelectSubtitle?: (index: number) => void
+  onSubtitlePickerOpenChange?: (open: boolean) => void
+  onBrightnessGestureStart?: () => void
+  onBrightnessGestureEnd?: () => void
 }
 
 export interface ProgressRef {
@@ -66,7 +72,7 @@ export const Controls = ({
   disableFullscreen,
   onMutePress,
   isMuted,
-  animationDuration,
+  animationDuration = 280,
   isControlsVisible,
   type,
   ctaType,
@@ -81,6 +87,12 @@ export const Controls = ({
   handleGoBackFunc,
   progress,
   isTime,
+  subtitleTracks = [],
+  selectedSubtitleIndex = -1,
+  onSelectSubtitle,
+  onSubtitlePickerOpenChange,
+  onBrightnessGestureStart,
+  onBrightnessGestureEnd,
   ...seekbarProps
 }: ControlsProps) => {
   const { _id, logo, title } = contentData;
@@ -146,42 +158,9 @@ const [pendingSeekProgress, setPendingSeekProgress] =
   /* MINIMAL CONTROLS (NO OVERLAY MODE)  */
   /* ---------------------------------- */
 
+  // Hide chrome when auto-hide fires (preview + fullscreen). Live stays always-on.
   if (!isControlsVisible && !isLoading && type !== 'live') {
-    return (
-      <View className="mt-auto mb-1">
-        {/* <Seekbar
-          fullWidth={true}
-          // ref={seekbarRef}
-          {...seekbarProps}
-         progress={displayedProgress}
-              onSeeking={setSeekingProgress}
-           onSeek={(seconds) => {
-  const nextProgress = seconds / duration;
-
-  setSeekingProgress(null);
-  setPendingSeekProgress(nextProgress);
-  onSeek(seconds);
-}}
-          isPlaying={isPlaying}
-          duration={duration}
-          seekBarBackgroundCustomStyles={
-            customStyles?.seekBarBackground
-          }
-          seekBarCustomStyles={customStyles?.seekBar}
-          seekBarFullWidthCustomStyles={
-            customStyles?.seekBarFullWidth
-          }
-          seekBarKnobCustomStyles={customStyles?.seekBarKnob}
-          seekBarKnobSeekingCustomStyles={
-            customStyles?.seekBarKnobSeeking
-          }
-          seekBarProgressCustomStyles={
-            customStyles?.seekBarProgress
-          }
-          isFullscreeen={isFullscreeen}
-        /> */}
-      </View>
-    );
+    return null;
   }
 
   /* ----------------------- */
@@ -197,11 +176,11 @@ const [pendingSeekProgress, setPendingSeekProgress] =
         {/* TOP GRADIENT */}
         {isFullscreeen && (
           <AnimatedLinear
-            colors={['rgba(0, 0, 0, 0.6)', 'transparent']}
+            colors={['rgba(0, 0, 0, 0.85)', 'rgba(0, 0, 0, 0.35)', 'transparent']}
             style={{
               position: 'absolute',
               top: 0,
-              height: 70,
+              height: 110,
               width: '100%',
               zIndex: -20,
             }}
@@ -213,24 +192,24 @@ const [pendingSeekProgress, setPendingSeekProgress] =
           <AnimatedLinear
             colors={[
               'transparent',
-              'rgba(0, 0, 0, 0.6)',
-              'rgba(0, 0, 0, 1)',
+              'rgba(0, 0, 0, 0.55)',
+              'rgba(0, 0, 0, 0.92)',
             ]}
             style={{
               position: 'absolute',
               bottom: 0,
-              height: 40,
+              height: 56,
               width: '100%',
               zIndex: -20,
             }}
           />
         ) : (
           <AnimatedLinear
-            colors={['transparent', 'rgb(0, 0, 0)']}
+            colors={['transparent', 'rgba(0, 0, 0, 0.55)', 'rgba(0, 0, 0, 0.95)']}
             style={{
               position: 'absolute',
               bottom: 0,
-              height: 81,
+              height: 120,
               width: '100%',
               zIndex: -20,
             }}
@@ -239,21 +218,26 @@ const [pendingSeekProgress, setPendingSeekProgress] =
       </>
 
       <View
-        style={[isFullscreeen && { width: '90%', marginHorizontal: 'auto' }]}
-        className="flex-1 mb-2.5"
+        style={[
+          styles.chrome,
+          isFullscreeen && styles.chromeFullscreen,
+        ]}
       >
         {/* TOP PART */}
-        <View className="m-2 mr-4">
+        <View className="m-2 mr-4 mt-3">
           {!isFullscreeen ? (
-            <View className="flex-row items-center gap-x-6 ml-auto">
+            <View className="flex-row items-center gap-x-5 ml-auto">
               <Casting handleCastingFunc={handleVideoCastingFunc} />
-              <TouchableOpacity onPress={goBack}>
+              <Pressable
+                onPress={goBack}
+                hitSlop={12}
+                style={({pressed}) => ({opacity: pressed ? 0.65 : 1})}>
                 <PreviewCloseIcon />
-              </TouchableOpacity>
+              </Pressable>
             </View>
           ) : (
             <View className="flex-row items-center justify-between">
-              <View className="ml-7 flex-row items-center">
+              <View className="ml-4 flex-row items-center flex-1 pr-4">
                 {logo && (
                   <AppImage
                     source={
@@ -262,19 +246,23 @@ const [pendingSeekProgress, setPendingSeekProgress] =
                         : require('@/assets/images/user.png')
                     }
                     style={{
-                      width: 28,
-                      height: 28,
+                      width: 30,
+                      height: 30,
                       borderRadius: 99,
-                      marginRight: 8,
+                      marginRight: 10,
                     }}
                   />
                 )}
-                <Text className="font-ROBOTO_500 text-white text-[11px]">
+                <Text
+                  numberOfLines={1}
+                  className="font-ROBOTO_500 text-white text-[13px] flex-shrink">
                   {title}
                 </Text>
               </View>
 
-              <TouchableOpacity
+              <Pressable
+                hitSlop={12}
+                style={({pressed}) => ({opacity: pressed ? 0.65 : 1})}
                 onPress={() => [
                   isPlaying && onPlayPress(),
                   handleGoBackFunc
@@ -283,46 +271,56 @@ const [pendingSeekProgress, setPendingSeekProgress] =
                 ]}
               >
                 <BigClose />
-              </TouchableOpacity>
+              </Pressable>
             </View>
           )}
         </View>
 
-        {!isLoading && (
-          <>
+        {/* Always show chrome — do not hide mute/play behind loading. */}
+        <>
             {/* CENTER PART */}
             <View className="flex-1 items-center justify-center">
               {isFullscreeen && (
                 <Animated.View
                   style={{
                     position: 'absolute',
-                    width: '6%',
+                    width: 56,
                     height: '78%',
                     zIndex: 999,
                     top: 40,
-                    left: -18,
+                    left: 8,
                     justifyContent: 'center',
+                    alignItems: 'center',
                   }}
                 >
-                  <View style={{ alignSelf: 'center' }} className="ml-[5px]">
+                  <View style={{alignSelf: 'center', marginBottom: 8}}>
                     <BrightnessIcon />
                   </View>
 
-                  <View className="relative mt-3 overflow-hidden h-[180px] w-[60%]">
-                    <View className="h-[180px] w-[6px] absolute right-0 bg-[#535353] rounded-[5px]" />
+                  <View style={{height: 180, width: 56, alignItems: 'center'}}>
                     <BrightnessBar
                       brightLevel={brightLevel}
                       setLevel={setLevel}
+                      onGestureStart={onBrightnessGestureStart}
+                      onGestureEnd={onBrightnessGestureEnd}
                     />
                   </View>
                 </Animated.View>
               )}
 
-              <View className="flex-row gap-x-20 items-center justify-center">
+              <View
+                className="flex-row gap-x-16 items-center justify-center"
+                style={{opacity: isLoading ? 0.35 : 1}}>
                 {isFullscreeen && type !== 'live' && !isTime && (
-                  <TouchableOpacity onPress={handleSeekBackward}>
+                  <Pressable
+                    onPress={handleSeekBackward}
+                    hitSlop={18}
+                    style={({pressed}) => ({
+                      opacity: pressed ? 0.6 : 1,
+                      transform: [{scale: pressed ? 0.92 : 1}],
+                    })}>
                     <SeekBackIcon />
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
 
                 <PlayButton
@@ -332,20 +330,24 @@ const [pendingSeekProgress, setPendingSeekProgress] =
                 />
 
                 {isFullscreeen && type !== 'live' && !isTime && (
-                  <TouchableOpacity
-                    style={{ marginLeft: -8 }}
+                  <Pressable
                     onPress={handleSeekForward}
-                  >
+                    hitSlop={18}
+                    style={({pressed}) => ({
+                      opacity: pressed ? 0.6 : 1,
+                      transform: [{scale: pressed ? 0.92 : 1}],
+                      marginLeft: -8,
+                    })}>
                     <SeekForwardIcon />
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
               </View>
             </View>
 
             {/* BOTTOM PART */}
-            <View>
+            <View className={isFullscreeen ? 'mb-1' : undefined}>
               {!isFullscreeen && (
-                <View className="ml-auto mr-3">
+                <View className="ml-auto mr-3 mb-1">
                   <Mute
                     isMuted={isMuted}
                     onMutePress={onMutePress}
@@ -357,7 +359,7 @@ const [pendingSeekProgress, setPendingSeekProgress] =
               {!(type === 'live' && isTime) && (
                 <View
                   style={{
-                    marginBottom: !isFullscreeen ? -3 : 8,
+                    marginBottom: !isFullscreeen ? -3 : 10,
                   }}
                   className="flex-row items-center gap-x-3"
                 >
@@ -373,7 +375,7 @@ const [pendingSeekProgress, setPendingSeekProgress] =
                   progress={displayedProgress}
               onSeeking={setSeekingProgress}
             onSeek={(seconds) => {
-  const nextProgress = seconds / duration;
+  const nextProgress = duration > 0 ? seconds / duration : 0;
 
   setSeekingProgress(null);
   setPendingSeekProgress(nextProgress);
@@ -415,27 +417,27 @@ const [pendingSeekProgress, setPendingSeekProgress] =
 
               {/* BOTTOM BUTTONS */}
               {isFullscreeen && (
-                <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center justify-between pb-1">
                   <View className="flex-row items-center">
                     <View
-                      style={{ width: 65 }}
+                      style={{ width: 72 }}
                       className="flex-row items-center gap-x-2"
                     >
                       {type === 'live' && isTime && (
                         <>
                           <MotiView
-                            from={{ opacity: 0 }}
+                            from={{ opacity: 0.25 }}
                             animate={{ opacity: 1 }}
                             transition={{
                               type: 'timing',
-                              duration: 1000,
+                              duration: 900,
                               easing: Easing.out(Easing.ease),
                               loop: true,
                             }}
                           >
-                            <View className="w-[9px] h-[9px] rounded-full bg-red" />
+                            <View className="w-[8px] h-[8px] rounded-full bg-red" />
                           </MotiView>
-                          <Text className="font-ROBOTO_500 text-[11px] text-white">
+                          <Text className="font-ROBOTO_700 text-[11px] text-white tracking-wide">
                             LIVE
                           </Text>
                         </>
@@ -451,15 +453,22 @@ const [pendingSeekProgress, setPendingSeekProgress] =
                       <View className="flex-row items-center gap-x-2 ml-5">
                         <EyesIcon />
                         <Text className="font-ROBOTO_400 text-white text-[13px]">
-                          {formatAmount(viewsCount.toString())}
+                          {formatLikesNumber(viewsCount)}
                         </Text>
                       </View>
                     )}
                   </View>
 
-                  <View className="flex-row items-center gap-x-4">
+                  <View className="flex-row items-center gap-x-5">
                     {type?.includes('series') && <EpisodeNext />}
-                    {type !== 'live' && <Subtitle />}
+                    {type !== 'live' && (
+                      <Subtitle
+                        tracks={subtitleTracks}
+                        selectedIndex={selectedSubtitleIndex}
+                        onSelect={index => onSelectSubtitle?.(index)}
+                        onOpenChange={onSubtitlePickerOpenChange}
+                      />
+                    )}
                     {ctaType && handleCTAFunc && (
                       <CTAButton
                         handleCTAFunc={handleCTAFunc}
@@ -480,9 +489,20 @@ const [pendingSeekProgress, setPendingSeekProgress] =
               )}
             </View>
           </>
-        )}
       </View>
     </AnimatedWrapper>
   );
 };
+
+const styles = StyleSheet.create({
+  chrome: {
+    ...StyleSheet.absoluteFillObject,
+    paddingBottom: 10,
+    justifyContent: 'space-between',
+  },
+  chromeFullscreen: {
+    // Keep controls edge-safe without shrinking the video surface.
+    paddingHorizontal: 16,
+  },
+});
 

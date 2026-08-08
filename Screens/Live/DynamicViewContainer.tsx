@@ -192,27 +192,28 @@ const DynamicViewContainer = ({ scrollY, makeFullscreen }: Props) => {
               podcast={podcasts.others}
               sport={sports.others}
               makeFullscreen={makeFullscreen}
+              loading={isLoading}
             />,
           },
           {
             tab: 'Channels',
-            element: <ChannelsTabs item={channels} scrollY={scrollY} makeFullscreen={makeFullscreen} />,
+            element: <ChannelsTabs item={channels} scrollY={scrollY} makeFullscreen={makeFullscreen} loading={isLoading} />,
           },
           {
             tab: 'Events',
-            element: <EventsTab item={events} scrollY={scrollY} makeFullscreen={makeFullscreen} />,
+            element: <EventsTab item={events} scrollY={scrollY} makeFullscreen={makeFullscreen} loading={isLoading} />,
           },
           {
             tab: 'TV Shows',
-            element: <TvShowsTab item={tvshows} scrollY={scrollY} makeFullscreen={makeFullscreen} />,
+            element: <TvShowsTab item={tvshows} scrollY={scrollY} makeFullscreen={makeFullscreen} loading={isLoading} />,
           },
           {
             tab: 'Sports',
-            element: <SportsTab item={sports} scrollY={scrollY} makeFullscreen={makeFullscreen} />,
+            element: <SportsTab item={sports} scrollY={scrollY} makeFullscreen={makeFullscreen} loading={isLoading} />,
           },
           {
             tab: 'Podcast',
-            element: <PodcastTab item={podcasts} scrollY={scrollY} makeFullscreen={makeFullscreen} />,
+            element: <PodcastTab item={podcasts} scrollY={scrollY} makeFullscreen={makeFullscreen} loading={isLoading} />,
           },
         ]}
         selectedTab={tabTitle}

@@ -8,7 +8,7 @@ import { selectUser, setCredentials } from '@/store/slices/userSlice';
 import fonts from '@/configs/fonts';
 import colors from '@/configs/colors';
 import Size from '@/Utils/useResponsiveSize';
-import { getData, storeData } from '@/Utils/useAsyncStorage';
+import { authGet, authSet } from '@/Utils/authMmkv';
 import { HAS_SET_NEWPIN } from './GetStartedScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bannerApi, fetchEnums } from '@/api/content.api';
@@ -73,11 +73,11 @@ const AppPIN = ({handleFunc}:{handleFunc?: () => void}) => {
          const profileRes = await getProfileDetails();
          if(profileRes.ok && profileRes.data){
            if (profileRes.data.data.profile.pin && profileRes.data.data.profile.pin!==''){
-             await storeData(
+            await authSet(
                HAS_SET_NEWPIN,
                profileRes.data.data.profile.pin,
               );
-              await storeData(hasUserDetails, JSON.stringify(profileRes.data.data))
+              await authSet(hasUserDetails, JSON.stringify(profileRes.data.data))
               setAppPin(
                profileRes.data.data.profile.pin,
               )
@@ -95,7 +95,7 @@ const AppPIN = ({handleFunc}:{handleFunc?: () => void}) => {
   }
 
   async function getPinState() {
-    const hasPin = await getData(HAS_SET_NEWPIN);
+    const hasPin = await authGet(HAS_SET_NEWPIN);
     if (hasPin) {
       setAppPin(hasPin);
     }

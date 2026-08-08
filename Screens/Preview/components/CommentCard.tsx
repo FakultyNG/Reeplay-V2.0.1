@@ -150,7 +150,7 @@ const SingleCommentCard = ({item, isReply, showReplies, setRepliesDetails, showB
   const [userReaction, setUserReaction] = useState<string | null>(null);
   const img = item.author.photoURL || "parentCommentAuthor" in item && item.parentCommentAuthor?.photoURL
   const dispatch = useAppDispatch();
-  const {setIsToken} = useAppPersistStore()
+  const {setIsSessionExpired} = useAppPersistStore()
 
   function handleReplyTo(){
     if(item.loading) return;

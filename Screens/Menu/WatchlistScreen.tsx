@@ -16,7 +16,7 @@ import {useNavigation} from '@react-navigation/native';
 import {WatchlistScreenNav} from '@/types/typings';
 import routes from '@/navigation/routes';
 import {previewContentType, RootNav} from '@/navigation/AppNavigator';
-import {MovieVideo} from '../Home/HomeScreen';
+import {MovieVideo} from '../Home/homeShared';
 import FastImage from 'react-native-fast-image';
 import Placeholder from '@/components/SkeletonLoader';
 import { IVODContent } from '@/types/api/content.types';
@@ -157,7 +157,9 @@ const WatchlistScreen = () => {
                      data={loading ? [...Array(20)] : watchList}
                      keyExtractor={(item,index) => loading ? index.toString() : item._id}
                      showsVerticalScrollIndicator={false}
-                     contentContainerStyle={styles.centerContent}
+                     numColumns={3}
+                     columnWrapperStyle={styles.columnWrapper}
+                     contentContainerStyle={styles.listContent}
                      onEndReachedThreshold={1}
                     onEndReached={loadMore}
                  ListFooterComponent={
@@ -235,13 +237,12 @@ const styles = StyleSheet.create({
     height: 133,
     borderRadius: 15,
   },
-  centerContent: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    columnGap: Size.calcHeight(10),
-    rowGap: Size.calcHeight(13),
+  listContent: {
     paddingBottom: 20,
     marginTop: 20,
+  },
+  columnWrapper: {
+    columnGap: Size.calcHeight(10),
+    marginBottom: Size.calcHeight(13),
   },
 });

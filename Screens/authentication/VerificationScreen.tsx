@@ -24,13 +24,14 @@ import Size from '@/Utils/useResponsiveSize';
 import routes from '@/navigation/routes';
 import AppModal from '@/components/AppModal';
 import VerificationModal from './components/VerificationModal';
-import {storeData} from '@/Utils/useAsyncStorage';
+import {saveTokens} from '@/Utils/secureTokenStorage';
+import {authSet} from '@/Utils/authMmkv';
 import {hasUserDetails} from '../Splashscreen/Splashscreen';
 import {
   resendVerificationToken,
   verifyAccount,
 } from '@/api/auth.api';
-import {getProfileDetails} from '@/api/profile.api';
+import {armAuthGrace, getProfileDetails} from '@/api/profile.api';
 import {useAppDispatch} from '@/Hooks/reduxHook';
 import {setCredentials} from '@/store/slices/userSlice';
 import { AuthParamsNavigator } from '@/navigation/AuthNavigation';
@@ -80,11 +81,24 @@ const VerificationScreen = () => {
         });
         console.log(res.data)
         if (res.ok && res.data) {
-          await storeData('AUTH_TOKEN', res.data.data.token);
+          const verifyData = res.data.data as {
+            accessToken?: string;
+            refreshToken?: string;
+            token?: string;
+          };
+          const accessToken = verifyData.accessToken ?? verifyData.token;
+          if (!accessToken) {
+            return;
+          }
+          await saveTokens({
+            accessToken,
+            refreshToken: verifyData.refreshToken,
+          });
+          armAuthGrace(60_000);
           const profileRes = await getProfileDetails();
           console.log(profileRes);
           if (profileRes.ok && profileRes.data) {
-            await storeData(
+            await authSet(
               hasUserDetails,
               JSON.stringify(profileRes.data.data),
             );

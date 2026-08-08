@@ -1,7 +1,7 @@
 import {View, Text} from 'react-native';
 import React, {useEffect, useState} from 'react';
 import {AppHeader, AppScreen, AppText, AppView, OTPInput} from '@/components';
-import {getData} from '@/Utils/useAsyncStorage';
+import {authGet} from '@/Utils/authMmkv';
 import {HAS_SET_NEWPIN} from '../authentication/GetStartedScreen';
 import { resendToken } from '@/api/auth.api';
 import { useAppSelector } from '@/Hooks/reduxHook';
@@ -35,7 +35,7 @@ const ComfirmPin = ({setStep, isPasswordReset}: Props) => {
   };
 
   async function getPinState() {
-    const hasPin = await getData(HAS_SET_NEWPIN);
+    const hasPin = await authGet(HAS_SET_NEWPIN);
     if (hasPin) {
       setAppPin(hasPin);
     }

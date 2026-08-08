@@ -39,7 +39,10 @@ export interface ILoginDataResponse extends IGeneric {
 }
 
 export interface LoginData extends User {
-token:string
+  /** Prefer accessToken; some older responses only send `token`. */
+  accessToken?: string;
+  refreshToken?: string;
+  token?: string;
 }
 
 export interface User {

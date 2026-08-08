@@ -5,7 +5,7 @@ import colors from '@/configs/colors'
 import Size from '@/Utils/useResponsiveSize'
 import FastImage from 'react-native-fast-image'
 import { FadeIn, FadeOut } from 'react-native-reanimated'
-import { AnimatedLin } from '@/Screens/Home/HomeScreen'
+import { AnimatedLin } from '@/Screens/Home/homeShared'
 import { ILiveContent, IVODContent } from '@/types/api/content.types'
 import CloseIcon from '@/assets/icons/close_sm.svg';
 import {
@@ -138,7 +138,7 @@ const LiveInfoModal = ({item, isBanner, makeFullscreen, handleClose}:Props) => {
                 replaceDefaultContent={
                   <View className="flex-row items-center justify-center">
                     {(item.amount && item.currency && !accessStatus) ? <Text className="text-[15px] text-white font-ROBOTO_700 text-center -ml-1">
-                      {getSymbolFromCurrency(item.currency)}{formatAmount(`${item.amount}`)}
+                      {getSymbolFromCurrency(item.currency)}{formatAmount(item.amount, item.currency)}
                       </Text> : <>
                     <SmPlayIcon />
                     <Text className="text-[15px] text-white font-ROBOTO_700 ml-[10px]">

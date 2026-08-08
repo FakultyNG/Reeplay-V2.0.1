@@ -5,50 +5,54 @@ import {
 } from 'react-native';
 import React, {useEffect} from 'react';
 import colors from '@/configs/colors';
-import {getData, storeData} from '@/Utils/useAsyncStorage';
 import {useNavigation} from '@react-navigation/native';
 import {SplashScreenProps} from '@/types/typings';
 import routes from '@/navigation/routes';
 import {useAppDispatch} from '@/Hooks/reduxHook';
 import {setCredentials} from '@/store/slices/userSlice';
-import { HAS_SET_NEWPIN } from '../authentication/GetStartedScreen';
+import {HAS_SET_NEWPIN} from '../authentication/GetStartedScreen';
 import LottieView from 'lottie-react-native';
 import Size from '@/Utils/useResponsiveSize';
+import {authGet, authSet, AUTH_MMKV_KEYS} from '@/Utils/authMmkv';
+import {useAppPersistStore} from '@/store/zustand.store';
 
-export const HAS_ONBOARD = 'isOnboard';
-export const hasUserDetails = 'user';
-const HAS_LOCK_APP = 'HAS_LOCK_APP';
+export const HAS_ONBOARD = AUTH_MMKV_KEYS.HAS_ONBOARD;
+export const hasUserDetails = AUTH_MMKV_KEYS.USER;
+const HAS_LOCK_APP = AUTH_MMKV_KEYS.HAS_LOCK_APP;
 
 const Splashscreen = () => {
   const navigation = useNavigation<SplashScreenProps>();
   const dispatch = useAppDispatch();
-
+  const setIsSessionExpired = useAppPersistStore(s => s.setIsSessionExpired);
 
   async function handleNav() {
-    const hasOnboard = await getData(HAS_ONBOARD);
+    const hasOnboard = await authGet(HAS_ONBOARD);
     if (hasOnboard) {
       navigation.replace(routes.AUTH);
     } else {
-      await storeData(HAS_ONBOARD, 'true');
+      await authSet(HAS_ONBOARD, 'true');
       navigation.replace(routes.ONBOARDING_SCREEN);
     }
   }
 
   async function setDefaultLockState() {
-    const lockState = await getData(HAS_LOCK_APP);
+    const lockState = await authGet(HAS_LOCK_APP);
     if (!lockState) {
-      await storeData(HAS_LOCK_APP, 'true');
+      await authSet(HAS_LOCK_APP, 'true');
     }
   }
 
   useEffect(() => {
+    // Never show session modal on splash / public bootstrap.
+    setIsSessionExpired(false);
+
     const getUser = async () => {
-      const user = await getData(hasUserDetails);
+      const user = await authGet(hasUserDetails);
       if (user) {
         const userDetails = JSON.parse(user);
         dispatch(setCredentials(userDetails));
-        if(userDetails.profile.pin){
-          await storeData(HAS_SET_NEWPIN,userDetails.profile.pin);
+        if (userDetails.profile.pin) {
+          await authSet(HAS_SET_NEWPIN, userDetails.profile.pin);
         }
       }
     };
@@ -60,17 +64,17 @@ const Splashscreen = () => {
   return (
     <SafeAreaView style={[styles.center, styles.container]}>
       <StatusBar hidden />
-        <LottieView
-              source={require('@/assets/lottie/RPlogo.json')}
-              autoPlay
-              loop={false}
-              speed={3}
-              style={{
-                width: Size.calcAverage(800),
-                height: Size.calcAverage(800),
-              }}
-              onAnimationFinish={handleNav}
-            />
+      <LottieView
+        source={require('@/assets/lottie/RPlogo.json')}
+        autoPlay
+        loop={false}
+        speed={3}
+        style={{
+          width: Size.calcAverage(800),
+          height: Size.calcAverage(800),
+        }}
+        onAnimationFinish={handleNav}
+      />
     </SafeAreaView>
   );
 };

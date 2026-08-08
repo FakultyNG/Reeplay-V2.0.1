@@ -37,7 +37,6 @@ import { ILiveContent, IVODContent } from '@/types/api/content.types';
 import { fetchContentSuggestions, hasPaidContentStatus, randomAds, recentSearches, registerRecentSearch, searchContent } from '@/api/content.api';
 import debounce from 'lodash.debounce';
 import FastImage from 'react-native-fast-image';
-import { useAppPersistStore } from '@/store/zustand.store';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { previewContentType, RootNav } from '@/navigation/AppNavigator';
 import { setPreviewContent } from '@/store/slices/previewContentSlice';
@@ -60,7 +59,6 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
   const [suggestions, setSuggestions] = useState<(IVODContent|ILiveContent)[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [contents, setContents] = useState<(IVODContent|ILiveContent)[]>([])
-  const {setIsToken, isToken} = useAppPersistStore();
   const dispatch = useAppDispatch();
   const isFullscreenContent = useAppSelector(selectFullVideoProps);
   const isLiveModalContent = useAppSelector(selectLiveModalContent);
@@ -97,7 +95,6 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
 
   async function handleSuggestions(){
     const resSug = await fetchContentSuggestions();
-    if(resSug.status === 401) setIsToken(true)
     if(resSug.ok && resSug.data){
       const data = resSug.data.data
       setSuggestions([...data.vods, ...data.lives]);
@@ -105,7 +102,6 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
   }
   async function handleRecentSearches(){
     const res = await recentSearches();
-    if(res.status === 401) setIsToken(true)
     if(res.ok && res.data){
       const data = res.data.data
       setRecentSearches([...data.vods, ...data.lives]);
@@ -113,7 +109,6 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
   }
   async function handleGetAds(){
     const resAds = await randomAds();
-    if(resAds.status === 401) setIsToken(true)
     if(resAds.ok && resAds.data) dispatch(setAdsContent(resAds.data.data))
    
   }
@@ -181,7 +176,7 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
     handleGetAds();
     handleRecentSearches();
     handleSuggestions();
-  }, [isToken]);
+  }, []);
 
    useEffect(() =>{
       if(!currentContentState) setContentState(isFullscreenContent)

@@ -16,7 +16,6 @@ import {
   type ViewStyle,
   type TextStyle,
   type ImageStyle,
-  BackHandler,
   TouchableOpacity,
 } from 'react-native';
 import {
@@ -27,28 +26,28 @@ import {
   type ReactVideoProps,
   type ReactVideoSource,
 } from 'react-native-video';
-import { RenderVideo, VideoInternalRef } from './VideoPlayer';
-import { StartButton, Thumbnail } from './controls/Thumbnail';
-import { useBackButtonHandler } from '@/Hooks/nativeBackFunc';
-import { useNavigation } from '@react-navigation/native';
-import { deleteContinueWatchingById } from '@/api/content.api';
-import { removeContinueWatchingById } from '@/store/slices/bannerSlice.slice';
-import { useAppDispatch } from '@/Hooks/reduxHook';
-import { BigClose } from '@/assets/icons';
+import {RenderVideo, VideoInternalRef} from './VideoPlayer';
+import {Thumbnail} from './controls/Thumbnail';
+import {useBackButtonHandler} from '@/Hooks/nativeBackFunc';
+import {useNavigation} from '@react-navigation/native';
+import {deleteContinueWatchingById} from '@/api/content.api';
+import {removeContinueWatchingById} from '@/store/slices/bannerSlice.slice';
+import {useAppDispatch} from '@/Hooks/reduxHook';
+import {BigClose} from '@/assets/icons';
 
 export interface VideoPlayerRef extends VideoRef {
   stop: () => void;
 }
 
-export interface IContentData{
-  _id:string;
-  title:string;
-  desc:string;
-  logo:string|null;
-  viewsCount:number
-  vidClass:string
-  seekTo?:number
-    watchedDocumentId?:string
+export interface IContentData {
+  _id: string;
+  title: string;
+  desc: string;
+  logo: string | null;
+  viewsCount: number;
+  vidClass: string;
+  seekTo?: number;
+  watchedDocumentId?: string;
 }
 
 export interface CustomStyles {
@@ -106,20 +105,21 @@ export interface VideoPlayerProps extends ReactVideoProps {
   thumbnail?: ImageSourcePropType;
   videoHeight?: number;
   videoWidth?: number;
-onToggleFullScreen:() =>void,
-handleCTAFunc?: () => void;
-handleNEXT?: () => void;
-handleSUBTITLE?: () => void;
-type?: string;
-isTime:boolean
-isFullscreen:boolean
-ctaType?:'vote'|'donate';
-handleGoBackFunc?:() => void;
-contentData:IContentData
-isSaveProgress?:boolean
-seekTo?:number
+  onToggleFullScreen: () => void;
+  handleCTAFunc?: () => void;
+  handleNEXT?: () => void;
+  handleSUBTITLE?: () => void;
+  type?: string;
+  isTime: boolean;
+  isFullscreen: boolean;
+  ctaType?: 'vote' | 'donate';
+  handleGoBackFunc?: () => void;
+  contentData: IContentData;
+  isSaveProgress?: boolean;
+  seekTo?: number;
 }
 
+/** Pre–quarter-flash-fix layout: onLayout width → 16:9 sizeStyles. */
 const DynamicVideoComponent = forwardRef<VideoPlayerRef, VideoPlayerProps>(
   (props, ref) => {
     const {
@@ -148,13 +148,19 @@ const DynamicVideoComponent = forwardRef<VideoPlayerRef, VideoPlayerProps>(
     } = props;
 
     const videoRef = useRef<VideoInternalRef>(null);
-    const {goBack} = useNavigation()
-    const dispatch = useAppDispatch()
+    const {goBack} = useNavigation();
+    const dispatch = useAppDispatch();
+
+    const [isStarted, setIsStarted] = useState(autoplay);
+    const [hasEnded, setHasEnded] = useState(false);
+    const [width, setWidth] = useState(200);
 
     useImperativeHandle(ref, () => ({
       ...videoRef.current!,
       resume: () => {
-        if (!isStarted) setIsStarted(true);
+        if (!isStarted) {
+          setIsStarted(true);
+        }
         videoRef.current?.resume();
       },
       stop: () => {
@@ -164,93 +170,87 @@ const DynamicVideoComponent = forwardRef<VideoPlayerRef, VideoPlayerProps>(
       },
     }));
 
-    const [isStarted, setIsStarted] = useState(autoplay);
-    const [hasEnded, setHasEnded] = useState(false);
-    const [width, setWidth] = useState(200);
-
     const sizeStyles = useMemo(() => {
       const ratio = videoHeight / videoWidth;
-      return { height: width * ratio, width: width };
+      return {height: width * ratio, width};
     }, [videoWidth, videoHeight, width]);
 
     const _onStart = useCallback(() => {
-      if (onStart) onStart();
+      onStart?.();
       setIsStarted(true);
       setHasEnded(false);
-
-      // force re-render to make sure video is already mounted and videoRef is available
       setTimeout(() => videoRef.current?.onStart(), 0);
     }, [onStart]);
 
-    async function removeWatched(_id:string){
+    async function removeWatched(_id: string) {
       const res = await deleteContinueWatchingById(_id);
-      console.log(res.data, _id)
-      if(res.ok){
-        dispatch(removeContinueWatchingById(_id))
+      if (res.ok) {
+        dispatch(removeContinueWatchingById(_id));
       }
     }
 
     const _onEnd = useCallback(() => {
-      if (onEnd) onEnd();
+      onEnd?.();
       if (endWithThumbnail || endThumbnail) {
         setIsStarted(false);
         setHasEnded(true);
         videoRef.current?.dismissFullscreenPlayer();
         videoRef.current?.seek(0);
         videoRef.current?.pause();
-        if(props.contentData.watchedDocumentId) removeWatched(props.contentData.watchedDocumentId)
+        if (props.contentData.watchedDocumentId) {
+          removeWatched(props.contentData.watchedDocumentId);
+        }
       }
-    }, [onEnd, endWithThumbnail, endThumbnail, setIsStarted, setHasEnded]);
+    }, [onEnd, endWithThumbnail, endThumbnail, props.contentData.watchedDocumentId]);
 
     const onLayout = useCallback((event: LayoutChangeEvent) => {
-      const { width: containerWidth } = event.nativeEvent.layout;
+      const {width: containerWidth} = event.nativeEvent.layout;
       setWidth(containerWidth);
     }, []);
 
-    
-        useEffect(() =>{
-          if(seekTo){
-            videoRef.current?.seek(seekTo)
-          } 
-        }, [seekTo, autoplay]);
+    useEffect(() => {
+      if (seekTo) {
+        videoRef.current?.seek(seekTo);
+      }
+    }, [seekTo, autoplay]);
 
-    useBackButtonHandler(() => isFullscreen ? [handleGoBackFunc ? handleGoBackFunc() : onToggleFullScreen()]: goBack())
+    useBackButtonHandler(() =>
+      isFullscreen
+        ? [handleGoBackFunc ? handleGoBackFunc() : onToggleFullScreen()]
+        : goBack(),
+    );
 
-    const renderContent = useCallback(() => {
-      return (
-        <View className='w-full h-full relative'>
-            {((hasEnded && endThumbnail) || (!isStarted && thumbnail)) && 
-          <View className='absolute w-full h-full' style={{zIndex:999}}> 
-            <Thumbnail
-            thumbnailSource={
-              hasEnded && endThumbnail ? endThumbnail : thumbnail!
-            }
-            style={style}
-            sizeStyles={sizeStyles}
-            onStart={_onStart}
-            customStylesThumbnail={customStyles.thumbnail}
-            customStylesThumbnailImage={customStyles.thumbnailImage}
-            customStylesPlayButton={customStyles.playButton}
-            customStylesPlayArrow={customStyles.playArrow}
-            isFullscreen={isFullscreen}
-            />
-
-          {/* {!isStarted && <View style={[styles.preloadingPlaceholder, sizeStyles, style]}>
-            <StartButton
-            isFullscreen={isFullscreen}
-              onStart={_onStart}
-              customStylesPlayButton={customStyles.playButton}
-              customStylesPlayArrow={customStyles.playArrow}
-            />
-            </View>} */}
-           {isFullscreen && <TouchableOpacity 
-           onPress={() => [handleGoBackFunc ? handleGoBackFunc() : onToggleFullScreen()]}
-            className='absolute top-5 right-10'>
-              <BigClose />
-            </TouchableOpacity>}
-          </View>
-            }
-
+    return (
+      <View onLayout={onLayout} style={[customStyles.wrapper, {flex: 1}]}>
+        <View className="w-full h-full relative">
+          {((hasEnded && endThumbnail) || (!isStarted && thumbnail)) && (
+            <View className="absolute w-full h-full" style={{zIndex: 999}}>
+              <Thumbnail
+                thumbnailSource={
+                  hasEnded && endThumbnail ? endThumbnail : thumbnail!
+                }
+                style={style}
+                sizeStyles={sizeStyles}
+                onStart={_onStart}
+                customStylesThumbnail={customStyles.thumbnail}
+                customStylesThumbnailImage={customStyles.thumbnailImage}
+                customStylesPlayButton={customStyles.playButton}
+                customStylesPlayArrow={customStyles.playArrow}
+                isFullscreen={isFullscreen}
+              />
+              {isFullscreen && (
+                <TouchableOpacity
+                  onPress={() =>
+                    handleGoBackFunc
+                      ? handleGoBackFunc()
+                      : onToggleFullScreen()
+                  }
+                  className="absolute top-5 right-10">
+                  <BigClose />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           <RenderVideo
             ref={videoRef}
@@ -273,27 +273,9 @@ const DynamicVideoComponent = forwardRef<VideoPlayerRef, VideoPlayerProps>(
             isSaveProgress={isSaveProgress}
           />
         </View>
-      );
-    }, [
-      hasEnded,
-      endThumbnail,
-      isStarted,
-      thumbnail,
-      style,
-      sizeStyles,
-      _onStart,
-      customStyles,
-      rest,
-      autoplay,
-      _onEnd,
-    ]);    
-
-    return (
-      <View onLayout={onLayout} style={[customStyles.wrapper, {flex:1}]}>
-        {renderContent()}
       </View>
     );
-  }
+  },
 );
 
 export default DynamicVideoComponent;

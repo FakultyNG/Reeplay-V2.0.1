@@ -14,7 +14,7 @@ import {useNavigation} from '@react-navigation/native';
 import {DownloadScreenNav} from '@/types/typings';
 import routes from '@/navigation/routes';
 import {previewContentType} from '@/navigation/AppNavigator';
-import {MovieVideo} from '../Home/HomeScreen';
+import {MovieVideo} from '../Home/homeShared';
 import AppModal from '@/components/AppModal';
 import DownloadModal from '../Preview/components/DownloadModal';
 import useToggle from '@/Hooks/useToggle';

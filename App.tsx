@@ -20,23 +20,45 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import { getData, storeData } from './Utils/useAsyncStorage';
-import { addEventListener } from '@react-native-community/netinfo';
+import {authGet, authSet, AUTH_MMKV_KEYS} from './Utils/authMmkv';
+import {addEventListener} from '@react-native-community/netinfo';
 import NetInfo from '@react-native-community/netinfo';
 import Orientation from 'react-native-orientation-locker';
-import "./global.css"
-import { useAppPersistStore } from './store/zustand.store';
+import './global.css';
+import {useAppPersistStore} from './store/zustand.store';
 import NetworkComponent from './components/NetworkComponent';
 import SessionComponent from './components/SessionComponent';
 import ModalComponent from './components/LockComponent';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import Toast, { BaseToastProps, InfoToast } from 'react-native-toast-message';
-import { generateAESKeys, getAESKeys, saveAESKeys } from '@/Screens/Preview/utils/downloadUtils';
-import { SocketContextProvider } from './context/socketContent';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
+import AppToast from '@/components/AppToast';
+import {
+  generateAESKeys,
+  getAESKeys,
+  saveAESKeys,
+} from '@/Screens/Preview/utils/downloadUtils';
+import {SocketContextProvider} from './context/socketContent';
 import codePush from '@revopush/react-native-code-push';
 import ErrorBoundaryWrapper from './context/ErrorBoundary';
+import routes from '@/navigation/routes';
+import {hideSystemNavigationBar} from '@/Utils/systemNav';
 
-const LEFT_APP_TIME = 'LEFT_APP_TIME';
+const LEFT_APP_TIME = AUTH_MMKV_KEYS.LEFT_APP_TIME;
+
+const PUBLIC_ROUTES = new Set<string>([
+  routes.SPLASH_SCREEN,
+  routes.ONBOARDING_SCREEN,
+  routes.AUTH,
+  routes.GET_STARTED_SCREEN,
+  routes.LOGIN_SCREEN,
+  routes.SIGNUP_SCREEN,
+  routes.RESET_PASSWORD_SCREEN,
+  routes.VEERIFY_PHONE,
+  routes.PROFILE_PIC_UPDATE,
+  routes.SET_PIN,
+  routes.SET_NEW_PIN,
+  routes.APP_PIN,
+  routes.INTEREST_SCREEN,
+]);
 
 function App(): React.JSX.Element {
   const appState = useRef(AppState.currentState);
@@ -44,8 +66,9 @@ function App(): React.JSX.Element {
   const [network, setNetwork] = useState<boolean | null>(true);
   const [showNetworkModal, setShowNetworkModal] = useState<boolean>(false);
   const navigationRef = useRef<any>(null);
-  const date = new Date(1711214160358);
-  const {isToken, isLock, setIsLock, setIsToken} = useAppPersistStore();
+  const [currentRouteName, setCurrentRouteName] = useState<string | undefined>();
+  const {isSessionExpired, isLock, setIsLock, setIsSessionExpired} =
+    useAppPersistStore();
 
   // const requestUserPermission = async () => {
   //   await PermissionsAndroid.request(
@@ -90,7 +113,7 @@ function App(): React.JSX.Element {
 
   async function checkLockAppLogic() {
     const date = new Date();
-    const lastLeftTime = await getData(LEFT_APP_TIME);
+    const lastLeftTime = await authGet(LEFT_APP_TIME);
     if (lastLeftTime) {
       if (date.getTime() >= Number(lastLeftTime)) {
         console.log(
@@ -105,19 +128,10 @@ function App(): React.JSX.Element {
     }
   }
 
- const toastConfig = {
-    info: (props:BaseToastProps) => (
-       <InfoToast 
-          {...props}
-          style={{ borderLeftColor: '#F3C63F' }}
-       /> 
-    )
-}
-
   async function setLeftAppTime() {
     const date = new Date();
 
-    await storeData(
+    await authSet(
       LEFT_APP_TIME,
       date.setTime(date.getTime() + 10 * 60 * 1000).toString(),
     );
@@ -138,6 +152,8 @@ function App(): React.JSX.Element {
   }
 
   useEffect(() => {
+    hideSystemNavigationBar();
+
     const subscription = AppState.addEventListener('change', nextAppState => {
       if (
         appState.current.match(/inactive|background/) &&
@@ -145,6 +161,7 @@ function App(): React.JSX.Element {
       ) {
         console.log('App has come to the foreground!');
         checkLockAppLogic();
+        hideSystemNavigationBar();
       }
 
       appState.current = nextAppState;
@@ -192,6 +209,11 @@ function App(): React.JSX.Element {
       background: '#000',
     },
   };
+  const showSessionModal =
+    !!isSessionExpired &&
+    !!currentRouteName &&
+    !PUBLIC_ROUTES.has(currentRouteName);
+
   return (
     <ErrorBoundaryWrapper>
     <Provider store={store}>
@@ -199,16 +221,28 @@ function App(): React.JSX.Element {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000' }}>
         <SafeAreaProvider style={{flex:1}}>
         <StatusBar backgroundColor="#000" />
-        <NavigationContainer ref={navigationRef} theme={navTheme}>
+        <NavigationContainer
+          ref={navigationRef}
+          theme={navTheme}
+          onReady={() => {
+            setCurrentRouteName(navigationRef.current?.getCurrentRoute()?.name);
+          }}
+          onStateChange={() => {
+            const routeName = navigationRef.current?.getCurrentRoute()?.name;
+            setCurrentRouteName(routeName);
+            if (routeName && PUBLIC_ROUTES.has(routeName)) {
+              setIsSessionExpired(false);
+            }
+          }}>
           {stage !== 'downloadScreen' && <AppNavigator />}
           {isLock && <ModalComponent />}
-          {isToken && <SessionComponent />}
+          {showSessionModal && <SessionComponent />}
           {!network && <NetworkComponent 
           refreshNetwork={refreshNetwork} 
           setStage={setStage}
           stage={stage}
           />}
-           <Toast visibilityTime={4000} config={toastConfig} />
+          <AppToast />
         </NavigationContainer>
         </SafeAreaProvider>
       </GestureHandlerRootView>

@@ -1,48 +1,55 @@
-import {Animated, StyleSheet, View} from 'react-native';
-import React, {useEffect, useState} from 'react';
+import {Animated, View} from 'react-native';
+import React from 'react';
 import Swiper from './Swiper';
-import {TrendingNow} from '@/configs/data';
 import Size from '@/Utils/useResponsiveSize';
-import {AppText, AppView} from '@/components';
+import {AppView} from '@/components';
 import OthersView from './OthersView';
 import {IEvent} from '../DynamicViewContainer';
+import LiveEmptyState from './LiveEmptyState';
 
 interface Props {
   scrollY: Animated.Value;
   item: IEvent;
-  makeFullscreen: () => void
+  makeFullscreen: () => void;
+  loading?: boolean;
 }
 
-const EventsTab = ({scrollY, item, makeFullscreen}: Props) => {
+const EventsTab = ({scrollY, item, makeFullscreen, loading}: Props) => {
+  const hasContent = item.pop.length > 0 || item.others.length > 0;
+
+  if (loading || !hasContent) {
+    return (
+      <LiveEmptyState
+        loading={loading}
+        title="No events right now"
+        message="Live events will appear here when scheduled. Check back a little later."
+      />
+    );
+  }
+
   return (
     <View>
-      {item.pop.length > 0 || item.others.length > 0 ? (
-        <>
-          {item.pop.length > 0 && (
-            <Swiper
-              data={item.pop}
-              title="Popular Events"
-              containerStyle={{height: 171, width: Size.getWidth()}}
-              mainStyle={{paddingLeft: 0}}
-              spacing={8}
-              scrollY={scrollY}
-              headerStyle={{marginLeft: 20}}
-              makeFullscreen={makeFullscreen}
-            />
-          )}
+      {item.pop.length > 0 && (
+        <Swiper
+          data={item.pop}
+          title="Popular Events"
+          containerStyle={{height: 171, width: Size.getWidth()}}
+          mainStyle={{paddingLeft: 0}}
+          spacing={8}
+          scrollY={scrollY}
+          headerStyle={{marginLeft: 20}}
+          makeFullscreen={makeFullscreen}
+        />
+      )}
 
-          {item.others.length > 0 && (
-            <AppView className="px-5 mt-8 mb-20">
-              <OthersView data={item.others} title="Others in Events" makeFullscreen={makeFullscreen} />
-            </AppView>
-          )}
-        </>
-      ) : (
-        <AppText
-          style={{alignSelf: 'center'}}
-          className="mt-16 text-center font-ROBOTO_400 text-sm text-dark_grey max-w-[170]">
-          No content available now, kindly check back later
-        </AppText>
+      {item.others.length > 0 && (
+        <AppView className="px-5 mt-8 mb-20">
+          <OthersView
+            data={item.others}
+            title="Others in Events"
+            makeFullscreen={makeFullscreen}
+          />
+        </AppView>
       )}
     </View>
   );

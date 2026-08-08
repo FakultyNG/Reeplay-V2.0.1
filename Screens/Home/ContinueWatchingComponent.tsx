@@ -21,7 +21,6 @@ import { ImageStyle } from 'react-native-fast-image';
 import { ILiveContent } from '@/types/api/content.types';
 import { useAppDispatch } from '@/Hooks/reduxHook';
 import { setFullVideoProps, setLiveModalContent } from '@/store/slices/fullScreenVideo.slice';
-import ToastNotification from '@/components/ToastNotifications';
 import { hasPaidContentStatus } from '@/api/content.api';
 
 const ITEM_WIDTH: number = Size.calcWidth(232);
@@ -54,8 +53,8 @@ const ContinueWatchingComponent = ({
           const res = await hasPaidContentStatus({contentType:'live', _id:item._id})
           if(res.ok && res.data){
             setAccessStatus(res.data.data.canView)
-          }else{
-            ToastNotification('error', `${res.data?.message}`)
+          } else {
+            setAccessStatus(false);
           }
         }
       }

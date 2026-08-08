@@ -11,7 +11,7 @@ import {
 } from '@/types/api/auth.types';
 import {BASE_URL} from '@env';
 import {create} from 'apisauce';
-import { apiCall } from './profile.api';
+import { apiCall } from './httpClient';
 
 
 export const baseApi = create({

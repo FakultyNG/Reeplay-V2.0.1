@@ -3,7 +3,6 @@ import ToastNotification from "@/components/ToastNotifications";
 import { useAppDispatch, useAppSelector } from "@/Hooks/reduxHook";
 import { addCommentReducers, addReplyByCommentId, selectPreviewVODComments, setContentComments } from "@/store/slices/previewContentSlice";
 import { selectUser, selectUserProfilePic } from "@/store/slices/userSlice";
-import { useAppPersistStore } from "@/store/zustand.store";
 import { IComment, ICommentData, IReplyData } from "@/types/api/comment.types";
 import { useState } from "react";
 
@@ -23,7 +22,6 @@ export const useCommentHook = ({reply, resetFunc, handleFinalFunc, text, vodId, 
     const commentList = useAppSelector(selectPreviewVODComments)
     const dispatch = useAppDispatch();
     const [loading, setLoading] = useState<boolean>(false);
-    const {setIsToken} = useAppPersistStore()
 
 
     // TODO: REDO THIS FUNCTION FOR LESSER COST
@@ -36,9 +34,6 @@ export const useCommentHook = ({reply, resetFunc, handleFinalFunc, text, vodId, 
         type: reply ? 'REPLY'
           : 'COMMENT'}
       );
-      if (response.status === 401)
-        setIsToken(true);
-      // console.log(response.data)
       if (response.ok && response.data) {
         const data = response.data.data;
         const replyData = 'parentCommentId' in data && data;

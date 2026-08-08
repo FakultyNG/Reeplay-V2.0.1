@@ -1,35 +1,53 @@
-import Toast, {ToastType} from 'react-native-toast-message';
+export type ToastType = 'success' | 'error' | 'info';
 
-interface Props {
+export type AppToastPayload = {
   type: ToastType;
-  text?: string;
+  text: string;
+};
+
+type Listener = (toast: AppToastPayload | null) => void;
+
+let listener: Listener | null = null;
+let hideTimer: ReturnType<typeof setTimeout> | null = null;
+const VISIBILITY_MS = 4000;
+
+export function subscribeAppToast(next: Listener) {
+  listener = next;
+  return () => {
+    if (listener === next) {
+      listener = null;
+    }
+  };
+}
+
+export function hideAppToast() {
+  if (hideTimer) {
+    clearTimeout(hideTimer);
+    hideTimer = null;
+  }
+  listener?.(null);
 }
 
 const ToastNotification = (type: ToastType, text?: string) => {
-  switch (type) {
-    case 'success':
-      Toast.show({
-        type: 'success',
-        text1: '',
-        text2: 'SUCCESSFULL',
-        // text2:text
-      });
-      break;
-    case 'info':
-      Toast.show({
-        type: 'info',
-        text1: '',
-        text2: 'UPDATED',
-      });
-      break;
-    case 'error':
-      Toast.show({
-        type: 'error',
-        text1: '',
-        // text2: text ? text : 'Sorry for the inconveneince',
-        text2: 'FAILED',
-      });
+  const message =
+    typeof text === 'string' && text.trim() && text !== 'undefined'
+      ? text.trim()
+      : type === 'success'
+        ? 'SUCCESSFULL'
+        : type === 'info'
+          ? 'UPDATED'
+          : 'FAILED';
+
+  if (hideTimer) {
+    clearTimeout(hideTimer);
+    hideTimer = null;
   }
+
+  listener?.({ type, text: message });
+  hideTimer = setTimeout(() => {
+    hideTimer = null;
+    listener?.(null);
+  }, VISIBILITY_MS);
 };
 
 export default ToastNotification;

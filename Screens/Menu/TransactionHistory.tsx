@@ -6,7 +6,6 @@ import SearchIcon from '@/assets/icons/Search.svg'
 import fonts from '@/configs/fonts'
 import { SectionList } from 'react-native'
 import { transactionHistory } from '@/api/payment.api'
-import { useAppPersistStore } from '@/store/zustand.store'
 import { ITransactionHistory } from '@/types/api/payment.type'
 import ToastNotification from '@/components/ToastNotifications'
 import { formatToMonthDayYear, formatToTime } from '@/Utils/formatTime'
@@ -20,14 +19,12 @@ const TransactionHistory = () => {
     const [filteredTransactions, setFilteredTransactions] = useState<ITransactionHistory[]>([])
       const [page, setPage] = useState<number>(1);
       const [hasMore, setHasMore] = useState<boolean>(true);
-      const {setIsToken, isToken} = useAppPersistStore();
       const [searchText, setSearchText] = useState('');
   
      async function handleGetTransaction(page?: number) {
       try {
         setLoading(true);
         const res = await transactionHistory({page: page ?? 1, limit: 20});
-        if (res.data?.status === 401) setIsToken(true);
         if (res.ok && res.data) {
           const data = res.data.data
            const newTransactions = data.map(transaction => {
@@ -145,7 +142,7 @@ const TransactionHistory = () => {
                 <View className='w-[85%] my-3 mb-3 ml-auto pr-6'>
                     <View className='flex-row items-center justify-between'>
                       <Text style={{fontFamily:fonts.INTER_700}} className='text-white text-sm capitalize'>{item.message}</Text>
-                      <Text style={{fontFamily:fonts.INTER_700}} className='text-white text-sm'>{getSymbolFromCurrency(item.currency)}{formatAmount(item.amount.toString())}</Text>
+                      <Text style={{fontFamily:fonts.INTER_700}} className='text-white text-sm'>{getSymbolFromCurrency(item.currency)}{formatAmount(item.amount, item.currency)}</Text>
                     </View>
                     <View className='flex-row items-center justify-between mt-1.5'>
                       <Text style={{color: item.status.toLowerCase() === 'failed' ?'#FF1313' : item.status.toLowerCase() === 'success' ? '#117B34': '#F3C63F'}} className='text-[10px] font-MANROPE_400 capitalize'>{item.status}</Text>

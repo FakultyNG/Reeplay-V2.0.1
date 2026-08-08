@@ -17,8 +17,8 @@ const OnboardingScreen = () => {
   const onboardingRef = useRef<Onboarding>(null);
 
   const handleNext = () => {
-    onboardingRef.current?.goNext();
-    setCurrentIndex(currentIndex + 1);
+    const nextPage = Math.min(currentIndex + 1, 2);
+    (onboardingRef.current as any)?.goToPage?.(nextPage, true);
   };
 
   const handlePageCallBack = (pageNumber: number) => {
@@ -65,7 +65,6 @@ const OnboardingScreen = () => {
             image: (
               <>
                 <OnboardingPage
-                  index={currentIndex}
                   source={require('@/assets/images/ONBOARDING1.jpg')}
                   mainText="Watch everything"
                   mainText2="in one place"
@@ -87,7 +86,6 @@ const OnboardingScreen = () => {
             image: (
               <>
                 <OnboardingPage
-                  index={currentIndex}
                   source={require('@/assets/images/ONBOARDING2.jpg')}
                   subImage={<ImageView />}
                   mainText="Watch"
@@ -110,7 +108,6 @@ const OnboardingScreen = () => {
             image: (
               <>
                 <OnboardingPage
-                  index={currentIndex}
                   source={require('@/assets/images/ONBOARDING3.jpg')}
                   subImage={<ImageView2 />}
                   mainText="Download Movies"

@@ -7,10 +7,12 @@ import ToastNotification from '@/components/ToastNotifications';
 import { deleteProfile } from '@/api/profile.api';
 import { RootNav } from '@/navigation/AppNavigator';
 import routes from '@/navigation/routes';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAppDispatch } from '@/Hooks/reduxHook';
-import { hasUserDetails } from '../Splashscreen/Splashscreen';
-import { HAS_LOCK_APP } from '../Settings/SettingScreen';
+import {authMultiRemove, AUTH_MMKV_KEYS} from '@/Utils/authMmkv';
+import {useAppDispatch} from '@/Hooks/reduxHook';
+import {hasUserDetails} from '../Splashscreen/Splashscreen';
+import {HAS_LOCK_APP} from '../Settings/SettingScreen';
+import {clearTokens} from '@/Utils/secureTokenStorage';
+import {useAppPersistStore} from '@/store/zustand.store';
 
 const DeleteScreen = () => {
   const {goBack} = useNavigation();
@@ -23,7 +25,13 @@ const DeleteScreen = () => {
       setLoading(true);
       const res = await deleteProfile();
       if(res.ok){
-        AsyncStorage.multiRemove([hasUserDetails,HAS_LOCK_APP, 'FCM_TOKEN'])
+        await clearTokens();
+        await authMultiRemove([
+          hasUserDetails,
+          HAS_LOCK_APP,
+          AUTH_MMKV_KEYS.FCM_TOKEN,
+        ]);
+        useAppPersistStore.getState().setIsSessionExpired(false);
             dispatch({type: 'logout'});
         nav.navigate(routes.AUTH);
 

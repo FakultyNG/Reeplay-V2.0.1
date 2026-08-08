@@ -62,7 +62,7 @@ const VerificationModal = ({
       {isPayment && (
         <View>
           <Text style={styles.paymentText}>
-            ₦{formatAmount(amount ? amount.toString() : '')}
+            ₦{formatAmount(amount ?? '', 'NGN')}
           </Text>
           <Text style={styles.paymentText_SM}>
             {tab === 'topup'

@@ -49,13 +49,37 @@ export const generateAESKeys = async () => {
 };
 
 
+const AES_KEYCHAIN_SERVICE = 'com.reeplay.aes';
+
 export const saveAESKeys = async (key: string, iv: string) => {
   const credentials = JSON.stringify({ key, iv });
-  await Keychain.setGenericPassword(AES_CREDENTIALS_KEY, credentials);
+  await Keychain.setGenericPassword(AES_CREDENTIALS_KEY, credentials, {
+    service: AES_KEYCHAIN_SERVICE,
+    accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+  });
 };
 
 export const getAESKeys = async (): Promise<{ key: string; iv: string } | null> => {
-  const result = await Keychain.getGenericPassword();
+  // Prefer dedicated service; fall back to legacy default service once.
+  let result = await Keychain.getGenericPassword({
+    service: AES_KEYCHAIN_SERVICE,
+  });
+
+  if (!result) {
+    const legacy = await Keychain.getGenericPassword();
+    if (legacy && legacy.username === AES_CREDENTIALS_KEY) {
+      result = legacy;
+      try {
+        await Keychain.setGenericPassword(AES_CREDENTIALS_KEY, legacy.password, {
+          service: AES_KEYCHAIN_SERVICE,
+          accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+        });
+      } catch {
+        // Ignore migration write failures; read path still works from legacy.
+      }
+    }
+  }
+
   if (result && result.username === AES_CREDENTIALS_KEY) {
     try {
       return JSON.parse(result.password);

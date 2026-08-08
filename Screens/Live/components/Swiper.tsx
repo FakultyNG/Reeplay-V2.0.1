@@ -48,7 +48,7 @@ import LottieView from 'lottie-react-native';
 import { checkTimeStatus } from '@/Utils/timeStatus';
 import { useCountdownTimer } from '@/Hooks/useCountdown';
 import { ILiveContent } from '@/types/api/content.types';
-import convertToProxyURL from 'react-native-video-cache';
+import { resolvePlaybackSource } from '@/components/video/playbackConfig';
 import { useAppDispatch } from '@/Hooks/reduxHook';
 import { setFullVideoProps, setLiveModalContent } from '@/store/slices/fullScreenVideo.slice';
 import { hasPaidContentStatus } from '@/api/content.api';
@@ -460,7 +460,7 @@ export const NonChannelComp = ({
         </>
       )}
       <AppVideo
-        source={{ uri: convertToProxyURL(videoURL) }}
+        source={resolvePlaybackSource(videoURL, 'vod')}
         videoRef={(ref: VideoRef | null) => {
           videoRefs.current[index] = ref;
         }}
@@ -493,29 +493,40 @@ export const ChannelComp = ({
 }: NonChannelCompprops) => {
   const navigation = useNavigation<RootNav>();
   const isPlaying = playingIndexes.includes(index);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isBuffering, setIsBuffering] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isBufferingLoad, setIsBufferingLoad] = useState(false);
   const [muteVideo, setMuteVideo] = useToggle(false);
-  const [videoURL, setVideoURL] = useState<string>('');
+  const [videoURL, setVideoURL] = useState('');
   const isTime = checkTimeStatus(item.start, item.expiry);
+  const isLiveNow =
+    isTime === 'now' && item.active !== false && item.expired !== true;
+  const playbackMode = isLiveNow ? 'live' : 'vod';
 
-  async function handleVideo() {
-    if (isTime === 'normal' || isTime === 'countdown') {
-      setVideoURL(item.previewVideo ?? '')
+  useEffect(() => {
+    if (isLiveNow) {
+      setVideoURL(item.stream_url || item.previewVideo || '');
     } else {
-      //USE SOCKET AND ADD RTMP_HTML_URL
+      setVideoURL(item.previewVideo ?? '');
     }
-  }
+  }, [item, isLiveNow]);
 
-  const onLoad = (data: OnLoadData) => {
+  useEffect(() => {
+    if (isPlaying) {
+      setIsLoading(true);
+      setIsBufferingLoad(true);
+    } else {
+      setIsLoading(false);
+      setIsBufferingLoad(false);
+    }
+  }, [isPlaying]);
+
+  const onLoad = () => {
     setIsLoading(false);
   };
 
   const onLoadStart = () => setIsLoading(true);
 
-  const onBuffer = ({ isBuffering }: { isBuffering: boolean }) => {
-    setIsBuffering(isBuffering);
+  const onBuffer = ({isBuffering}: {isBuffering: boolean}) => {
     if (isBuffering) {
       setIsBufferingLoad(true);
     }
@@ -523,11 +534,8 @@ export const ChannelComp = ({
 
   const onReadyForDisplay = () => {
     setIsBufferingLoad(false);
+    setIsLoading(false);
   };
-
-  useEffect(() => {
-    handleVideo();
-  }, [item, index]);
 
   return (
     <AppView
@@ -541,22 +549,19 @@ export const ChannelComp = ({
           <BigPlayIcon />
         </TouchableOpacity>
       ) : (
-        <>
-          {isBufferingLoad ||
-            (isLoading && (
-              <AppView className="absolute z-20 pb-3">
-                <LottieView
-                  source={require('@/assets/icons/RPlay.json')}
-                  style={{
-                    width: 300,
-                    height: 300,
-                  }}
-                  autoPlay
-                  loop
-                />
-              </AppView>
-            ))}
-        </>
+        (isBufferingLoad || isLoading) && (
+          <AppView className="absolute z-20 pb-3">
+            <LottieView
+              source={require('@/assets/icons/RPlay.json')}
+              style={{
+                width: 200,
+                height: 200,
+              }}
+              autoPlay
+              loop
+            />
+          </AppView>
+        )
       )}
 
       {isPlaying && (
@@ -573,11 +578,11 @@ export const ChannelComp = ({
           />
           <AppView className="absolute w-full bottom-[14px] mb-1 px-2 flex-row items-center justify-between z-30">
             <AppView className="flex-row items-center gap-x-4">
-              <AppView className="flex-row items-center gap-x-1">
-                {isTime === 'now' && (
+              {isLiveNow && (
+                <AppView className="flex-row items-center gap-x-1">
                   <MotiView
-                    from={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                    from={{opacity: 0}}
+                    animate={{opacity: 1}}
                     transition={{
                       type: 'timing',
                       duration: 1500,
@@ -587,13 +592,13 @@ export const ChannelComp = ({
                     }}>
                     <AppView className="w-[7px] h-[7px] rounded-full bg-red" />
                   </MotiView>
-                )}
-                <AppText className="font-ROBOTO_500 text-[10px] text-white">
-                  LIVE
-                </AppText>
-              </AppView>
+                  <AppText className="font-ROBOTO_500 text-[10px] text-white">
+                    LIVE
+                  </AppText>
+                </AppView>
+              )}
 
-              <TouchableOpacity style={{ height: 17 }} onPress={setMuteVideo}>
+              <TouchableOpacity style={{height: 17}} onPress={setMuteVideo}>
                 {muteVideo ? (
                   <AppView className="mt-[3px]">
                     <MutedIcon />
@@ -611,7 +616,7 @@ export const ChannelComp = ({
                   channelImage: item.channelLogo,
                   title: item.title,
                   _id: item._id,
-                  isTime: isTime === 'now',
+                  isTime: isLiveNow,
                   coverImg: item.coverPhoto ?? '',
                 })
               }>
@@ -621,30 +626,32 @@ export const ChannelComp = ({
         </>
       )}
 
-      {/* {!isPlaying && (
+      {!isPlaying && (
         <AppImage
-          className="absolute rounded-[5px] top-0 bottom-0 z-10"
-          style={styles.image}
-          source={{uri: item.coverPhoto??''}}
+          style={[styles.image, {position: 'absolute', top: 0, bottom: 0, zIndex: 10}]}
+          source={{uri: item.coverPhoto ?? ''}}
         />
-      )} */}
+      )}
 
-      <AppVideo
-        source={{ uri: convertToProxyURL(videoURL) }}
-        videoRef={(ref: VideoRef | null) => {
-          videoRefs.current[index] = ref;
-        }}
-        poster={item.coverPhoto ?? ''}
-        style={{ width: 303, height: 161, borderRadius: 5 }}
-        resizeMode="cover"
-        muted={muteVideo}
-        repeat
-        paused={!isPlaying}
-        onLoad={onLoad}
-        onLoadStart={onLoadStart}
-        onBuffer={onBuffer}
-        onReadyForDisplay={onReadyForDisplay}
-      />
+      {/* Mount the player only while playing — avoids preloading every card. */}
+      {isPlaying && !!videoURL && (
+        <AppVideo
+          source={resolvePlaybackSource(videoURL, playbackMode)}
+          videoRef={(ref: VideoRef | null) => {
+            videoRefs.current[index] = ref;
+          }}
+          poster={item.coverPhoto ?? ''}
+          style={{width: 303, height: 161, borderRadius: 5}}
+          resizeMode="cover"
+          muted={muteVideo}
+          repeat={!isLiveNow}
+          paused={false}
+          onLoad={onLoad}
+          onLoadStart={onLoadStart}
+          onBuffer={onBuffer}
+          onReadyForDisplay={onReadyForDisplay}
+        />
+      )}
     </AppView>
   );
 };

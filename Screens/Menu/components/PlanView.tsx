@@ -67,7 +67,7 @@ const PlanView = ({setStage, plans, setSelectedPlan}: Props) => {
 
                 <AppView className="ml-5">
                   <AppText className="font-LEXEND_600 text-base text-black mb-1">
-                    ₦{formatAmount(plan.price.toString())} /{' '}
+                    ₦{formatAmount(plan.price, 'NGN')} /{' '}
                     {plan.months_duration}{' '}
                     {plan.months_duration > 1 ? 'months' : 'month'}
                   </AppText>

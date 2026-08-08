@@ -9,7 +9,6 @@ import {RightArrow} from '@/assets/icons';
 import fonts from '@/configs/fonts';
 
 interface OnboardingOptions {
-  index: number;
   mainText: string;
   mainText2: string;
   source: Source;
@@ -22,7 +21,6 @@ interface OnboardingOptions {
 }
 
 const OnboardingPage = ({
-  index,
   mainText,
   mainText2,
   source,

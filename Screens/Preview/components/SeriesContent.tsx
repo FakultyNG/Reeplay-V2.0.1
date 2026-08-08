@@ -8,7 +8,6 @@ import {
 } from '@/assets/icons';
 import LockWhite from '@/assets/icons/lock-white.svg'
 import { IDownloadData, IEpisode, ISeasonData, IVODContent } from '@/types/api/content.types';
-import { useAppPersistStore } from '@/store/zustand.store';
 import { fetchSeasonsForSeries } from '@/api/content.api';
 import ToastNotification from '@/components/ToastNotifications';
 import { OnLoadData, OnProgressData } from 'react-native-video';
@@ -17,6 +16,7 @@ import { downloadAndSave, encryptFile, getAESKeys } from '../utils/downloadUtils
 import RNFS from 'react-native-fs';
 import {createThumbnail} from 'react-native-create-thumbnail';
 import DownloadedCompleteIcon from '@/assets/icons/Download.svg';
+import {useAppPersistStore} from '@/store/zustand.store';
 
 
 interface Props{
@@ -33,13 +33,11 @@ const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}
       const [hasMore, setHasMore] = useState<boolean>(true);
       const [loading, setLoading] = useState<boolean>(false);
       const [collapsedSections, setCollapsedSections] = useState(new Set());
-      const {setIsToken, isToken} = useAppPersistStore();
 
       async function handleGetSeasons(page?: number) {
       try {
         setLoading(true);
         const res = await fetchSeasonsForSeries({_id:vod._id, pagination:{page: page ?? 1, limit}});
-        if (res.data?.status === 401) setIsToken(true);
         if (res.ok && res.data) {
           const data = res.data.data
 

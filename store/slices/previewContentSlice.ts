@@ -54,11 +54,35 @@ const previewVODSlice = createSlice({
     initialState,
     reducers: {
         setPreviewContent: (state, action:PayloadAction<IVODContent>) => {
-          if (state.content._id !== action.payload._id) {
-        state.comments = [];
-        state.replies = {};
-      }
-            state.content = action.payload;
+          const next = action.payload;
+          if (!next || typeof next !== 'object') {
+            return;
+          }
+          if (state.content._id !== next._id) {
+            state.comments = [];
+            state.replies = {};
+          }
+          state.content = {
+            ...initialState.content,
+            ...next,
+            genre: Array.isArray(next.genre) ? next.genre : [],
+            category: Array.isArray(next.category) ? next.category : [],
+            cast: Array.isArray(next.cast) ? next.cast : [],
+            likes: Array.isArray(next.likes) ? next.likes : [],
+            upcomingSubscribers: Array.isArray(next.upcomingSubscribers)
+              ? next.upcomingSubscribers
+              : [],
+            seasons: Array.isArray(next.seasons) ? next.seasons : [],
+            title: next.title ?? '',
+            type: next.type ?? '',
+            vidClass: next.vidClass ?? '',
+            trailer: next.trailer ?? '',
+            video: next.video ?? '',
+            portraitPhoto: next.portraitPhoto ?? '',
+            landscapePhoto: next.landscapePhoto ?? '',
+            description: next.description ?? '',
+            primaryColor: next.primaryColor ?? '#333333',
+          };
         },
         setContentComments:(state, action:PayloadAction<IComment[]>) =>{
           state.comments = action.payload

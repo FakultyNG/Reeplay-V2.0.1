@@ -2,13 +2,9 @@ import {
   FlatList,
   Pressable,
   StyleSheet,
-  Text,
-  Touchable,
-  View,
 } from 'react-native';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {AppImage, AppText, AppView, TouchableOpacity} from '@/components';
-import {GenreTabs} from '@/configs/data';
 import SwiperFlatList from 'react-native-swiper-flatlist';
 import fonts from '@/configs/fonts';
 import {MotiView} from 'moti';
@@ -18,66 +14,105 @@ import Size from '@/Utils/useResponsiveSize';
 import routes from '@/navigation/routes';
 import {previewContentType, RootNav} from '@/navigation/AppNavigator';
 import {useNavigation} from '@react-navigation/native';
-import {MovieVideo} from '../HomeScreen';
-import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
-import { selectGenres } from '@/store/slices/bannerSlice.slice';
-import { IVODContent } from '@/types/api/content.types';
-import { getVODbyEnumID, getVODbyGenreID } from '@/api/content.api';
+import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
+import {selectGenres} from '@/store/slices/bannerSlice.slice';
+import {ICategoryData, IVODContent} from '@/types/api/content.types';
+import {getDefaultLibrary, getVODbyGenreID} from '@/api/content.api';
 import Placeholder from '@/components/SkeletonLoader';
 import FastImage from 'react-native-fast-image';
-import { setPreviewContent } from '@/store/slices/previewContentSlice';
+import {setPreviewContent} from '@/store/slices/previewContentSlice';
+import {getVodRowCache, setVodRowCache} from '@/Utils/contentMmkv';
+import LiveEmptyState from '@/Screens/Live/components/LiveEmptyState';
+import {FHomeIcon} from '@/assets/icons';
 
-interface GenreList {
-  title: string;
-  images: any[];
-}
+const ALL_TAB_ID = '__all__';
+const ALL_TAB: ICategoryData = {
+  _id: ALL_TAB_ID,
+  name: 'All',
+  createdAt: '',
+  updatedAt: '',
+  position: -1,
+};
+const HOME_GENRE_LIMIT = 9;
 
 const SwiperContainer = () => {
-  const genres = useAppSelector(selectGenres)
+  const genres = useAppSelector(selectGenres) ?? [];
+  const tabs = useMemo(() => [ALL_TAB, ...genres], [genres]);
   const {navigate} = useNavigation<RootNav>();
   const [activeIndex, setActiveIndex] = useState(0);
-  const [prevImages, setPrevImages] = useState<IVODContent[]>([]);
-  const [contents, setContents] = useState<Record<string, IVODContent[]>>( genres.length > 0 ? { [genres[0].name]: [] } : {})
-  const dispatch = useAppDispatch()
+  const [contents, setContents] = useState<Record<string, IVODContent[]>>({});
+  const dispatch = useAppDispatch();
 
- async function handleFetchContent() {
-  const items: Record<string, IVODContent[]> = {};
+  async function fetchTab(tab: ICategoryData) {
+    if (!tab) {
+      return;
+    }
+    const cacheKey =
+      tab._id === ALL_TAB_ID ? 'library.default' : `genre.${tab._id}`;
+    const cached = getVodRowCache(cacheKey);
+    if (cached?.length) {
+      setContents(prev => ({...prev, [tab.name]: cached}));
+    }
 
-  await Promise.allSettled(
-    genres.map(async (genre) => {
-      const res = await getVODbyGenreID({
-        enumId: genre._id,
-        pagination: { page: 1, limit: 9 },
-      });
-      if (res.ok && res.data){
-         items[genre.name] = res.data.data
-        }else{
-          items[genre.name] = []
-        };
-    })
-  );
-  setContents(items);
-  setPrevImages(items[genres[0].name]);
-}
+    const res =
+      tab._id === ALL_TAB_ID
+        ? await getDefaultLibrary({
+            pagination: {page: 1, limit: HOME_GENRE_LIMIT},
+          })
+        : await getVODbyGenreID({
+            enumId: tab._id,
+            pagination: {page: 1, limit: HOME_GENRE_LIMIT},
+          });
 
-  function handleTab(lists: string, index: number) {
-    setActiveIndex(index);
-    setPrevImages(contents[lists] ?? []);
+    if (res.ok && res.data) {
+      const data = (res.data.data ?? []).slice(0, HOME_GENRE_LIMIT);
+      setContents(prev => ({...prev, [tab.name]: data}));
+      setVodRowCache(cacheKey, data);
+    } else if (!cached?.length) {
+      setContents(prev => ({...prev, [tab.name]: []}));
+    }
   }
 
-  useEffect(() =>{
-    handleFetchContent();
+  function handleTab(tabName: string, index: number) {
+    setActiveIndex(index);
+    const tab = tabs[index];
+    if (tab && !(tabName in contents)) {
+      fetchTab(tab);
+    }
+  }
+
+  useEffect(() => {
+    if (!tabs.length) {
+      return;
+    }
+    // Default to All (same default-library source as Library).
+    fetchTab(tabs[0]);
   }, [genres]);
 
+  if (genres.length === 0) {
+    return (
+      <LiveEmptyState
+        icon={<FHomeIcon width={36} height={20} />}
+        title="No genres yet"
+        message="Browse by genre will appear here when titles are available. Check back later."
+      />
+    );
+  }
+
+  const activeTab = tabs[activeIndex];
+  const activeGenreName = activeTab?.name;
+  const genreItems = activeGenreName ? contents[activeGenreName] : undefined;
+  const genreLoaded = activeGenreName != null && activeGenreName in contents;
+  const showGenreEmpty = genreLoaded && (genreItems?.length ?? 0) === 0;
+
   return (
-    <AppView>
+    <AppView style={styles.container}>
       <AppView
         style={{width: Size.getWidth(), overflow: 'hidden'}}
         className="pl-5">
-        {/* HeaderTabs */}
         <FlatList
-          data={genres}
-          keyExtractor={(_, i) => i.toString()}
+          data={tabs}
+          keyExtractor={item => item._id || item.name}
           horizontal
           showsHorizontalScrollIndicator={false}
           removeClippedSubviews={true}
@@ -89,8 +124,7 @@ const SwiperContainer = () => {
             return (
               <Pressable
                 style={{marginHorizontal: 6}}
-                onPress={() => handleTab(item.name, index)}
-                >
+                onPress={() => handleTab(item.name, index)}>
                 <AppText
                   style={show && {fontFamily: fonts.MANROPE_700}}
                   className="text-center font-MANROPE_400 text-[12px] text-white capitalize px-4">
@@ -112,33 +146,56 @@ const SwiperContainer = () => {
         />
       </AppView>
 
-      {/* Main images */}
-      {(genres.length > 0 && Object.keys(contents).length > 0) && <AppView>
-        <SwiperFlatList
-          showPagination={true}
-          paginationActiveColor={colors.RED}
-          paginationDefaultColor="rgba(255, 19, 19, 0.4)"
-          paginationStyleItem={styles.pagination}
-          removeClippedSubviews={true}
-          data={contents[genres[activeIndex].name].length > 0 ? contents[genres[activeIndex].name] : [...Array(1)]}
-          renderItem={({item, index}) => (
-            <>
-           {contents[genres[activeIndex].name].length > 0 ? <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() =>
-                [dispatch(setPreviewContent(item)), navigate(routes.PREVIEW_SCREEN, {
-                  content: previewContentType.film,
-                  videoURL: item.trailer,
-                })]
-              }>
-              <AppImage key={index} style={styles.image} source={{uri: item.portraitPhoto, priority:FastImage.priority.high}} />
-            </TouchableOpacity> : 
-            <Placeholder style={styles.image} noAnimate />
-            }
-            </>
-          )}
+      {showGenreEmpty ? (
+        <LiveEmptyState
+          icon={<FHomeIcon width={36} height={20} />}
+          title={`No ${activeGenreName} titles`}
+          message="Titles in this genre will appear here when they are available. Check back later."
         />
-      </AppView>}
+      ) : (
+        <AppView>
+          <SwiperFlatList
+            showPagination={true}
+            paginationActiveColor={colors.RED}
+            paginationDefaultColor="rgba(255, 19, 19, 0.4)"
+            paginationStyleItem={styles.pagination}
+            removeClippedSubviews={true}
+            data={
+              (genreItems?.length ?? 0) > 0 ? genreItems! : [...Array(1)]
+            }
+            renderItem={({item, index}) => (
+              <>
+                {(genreItems?.length ?? 0) > 0 ? (
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      if (!item?._id) {
+                        return;
+                      }
+                      dispatch(setPreviewContent(item));
+                      navigate(routes.PREVIEW_SCREEN, {
+                        content: previewContentType.film,
+                        videoURL: item.trailer ?? '',
+                      });
+                    }}>
+                    <AppImage
+                      key={index}
+                      style={styles.image}
+                      source={{
+                        uri: item.portraitPhoto,
+                        priority: FastImage.priority.high,
+                        cache: FastImage.cacheControl.immutable,
+                      }}
+                    />
+                  </TouchableOpacity>
+                ) : (
+                  <Placeholder style={styles.image} noAnimate />
+                )}
+              </>
+            )}
+          />
+        </AppView>
+      )}
     </AppView>
   );
 };
@@ -146,6 +203,9 @@ const SwiperContainer = () => {
 export default SwiperContainer;
 
 const styles = StyleSheet.create({
+  container: {
+    paddingBottom: Size.calcHeight(18),
+  },
   bar: {
     width: '100%',
     backgroundColor: colors.RED,

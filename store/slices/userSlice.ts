@@ -53,8 +53,35 @@ const userSlice = createSlice({
   // `createSlice` will infer the state type from the `initialState` argument
   initialState,
   reducers: {
-    setCredentials: (state, action: PayloadAction<IProfile>) => {
-      state.userInfo = action.payload;
+    setCredentials: (state, action: PayloadAction<IProfile | null | undefined>) => {
+      const payload = action.payload;
+      if (!payload || typeof payload !== 'object') {
+        return;
+      }
+      // Normalize older/alternate API shapes that put name fields at the root.
+      if (!payload.profile || typeof payload.profile !== 'object') {
+        const root = payload as Record<string, unknown>;
+        state.userInfo = {
+          photo_url:
+            typeof root.photo_url === 'string' ? root.photo_url : state.userInfo.photo_url,
+          profile: {
+            ...state.userInfo.profile,
+            ...(root as Partial<IProfile['profile']>),
+          },
+        };
+        return;
+      }
+      state.userInfo = {
+        photo_url: payload.photo_url ?? '',
+        profile: {
+          ...state.userInfo.profile,
+          ...payload.profile,
+          settings_info: {
+            ...state.userInfo.profile.settings_info,
+            ...(payload.profile.settings_info ?? {}),
+          },
+        },
+      };
     },
     setCredentialsEmail: (state, action) => {
       state.userInfo.profile.email = action.payload;
@@ -63,7 +90,7 @@ const userSlice = createSlice({
       state.walletInfo = action.payload;
     },
     setWatchListContents: (state, action:PayloadAction<IVODContent[]>) => {
-      state.watchList = action.payload;
+      state.watchList = Array.isArray(action.payload) ? action.payload : [];
     },
     deleteWatchlistById: (state, action:PayloadAction<string>) => {
     const idToDelete = action.payload;
@@ -95,11 +122,15 @@ const userSlice = createSlice({
 
 export const {setCredentials, setHideTabBar, deleteWatchlistById, clearWatchlist, setNoticationsList, updateNotificationById, setWatchListContents, setWalletInfo, setCredentialsEmail, logout} = userSlice.actions;
 // Other code such as selectors can use the imported `RootState` type
-export const selectUser = (state: RootState) => state.user.userInfo.profile;
-export const selectUserProfilePic = (state: RootState) => state.user.userInfo.photo_url;
+export const selectUser = (state: RootState) =>
+  state.user?.userInfo?.profile ?? initialState.userInfo.profile;
+export const selectUserProfilePic = (state: RootState) =>
+  state.user?.userInfo?.photo_url ?? '';
 export const selectWalletInfo = (state: RootState) => state.user.walletInfo;
-export const selectWatchListContents = (state: RootState) => state.user.watchList;
-export const selectNotificationList = (state: RootState) => state.user.notifications;
+export const selectWatchListContents = (state: RootState) =>
+  Array.isArray(state.user.watchList) ? state.user.watchList : [];
+export const selectNotificationList = (state: RootState) =>
+  Array.isArray(state.user.notifications) ? state.user.notifications : [];
 export const selectHideTabBar = (state: RootState) => state.user.hideTabBar;
 
 export const selectHasUnviewedNotifications = createSelector(

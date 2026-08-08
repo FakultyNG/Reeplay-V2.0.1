@@ -34,7 +34,7 @@ import {
 } from '@/api/upcomingEvents.api';
 import Animated, { FadeInLeft } from 'react-native-reanimated';
 import { IDownloadData, ILiveContent, IVODContent } from '@/types/api/content.types';
-import convertToProxyURL from 'react-native-video-cache';
+import { resolvePlaybackSource } from '@/components/video/playbackConfig';
 
 
 const AnimatedView = Animated.createAnimatedComponent(AppView);
@@ -171,7 +171,7 @@ const UpcomingView = ({
               source={{
                 uri: 'start' in items ? items.coverPhoto ?? '' : items.landscapePhoto,
                 priority: FastImage.priority.high,
-                cache: FastImage.cacheControl.web,
+                cache: FastImage.cacheControl.immutable,
               }}
               style={{
                 width: Size.wp(92),
@@ -248,7 +248,7 @@ const UpcomingView = ({
 
         {isPlaying && (
           <AppVideo
-            source={{ uri: convertToProxyURL(videoURL) }}
+            source={resolvePlaybackSource(videoURL, 'vod')}
             videoRef={(ref: VideoRef | null) => {
               videoRefs.current[index] = ref;
             }}

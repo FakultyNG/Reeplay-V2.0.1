@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {AppHeader, AppImage, AppScreen, AppText, AppView} from '@/components';
 import { FlatList } from 'react-native';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
-import { useAppPersistStore } from '@/store/zustand.store';
 import { selectGroupedNotifications, selectNotificationList, setNoticationsList } from '@/store/slices/userSlice';
 import { INotification } from '@/types/api/notification.types';
 import ToastNotification from '@/components/ToastNotifications';
@@ -17,7 +16,6 @@ const NotificationScreen = () => {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
-  const {setIsToken, isToken} = useAppPersistStore();
   const [searchText, setSearchText] = useState('');
 
    async function handleNotifications(page?: number) {
@@ -25,7 +23,6 @@ const NotificationScreen = () => {
       setLoading(true);
       const res = await getAllNotifications({page: page ?? 1, limit: 20});
       // console.log(res.data)
-      if (res.data?.status === 401) setIsToken(true);
       if (res.ok && res.data) {
         const existing = new Set(notifications.map(x => x._id));
         const merged = [
@@ -71,7 +68,7 @@ const NotificationScreen = () => {
 
   useEffect(() => {
     handleNotifications();
-  }, [isToken]);
+  }, []);
 
   return (
     <AppScreen containerStyle={{paddingTop: 30, position: 'relative'}}>

@@ -105,7 +105,10 @@ const VoteScreen = () => {
                   style={{alignSelf: 'center'}}
                   className="text-white text-xl font-LEXEND_500 mt-6 text-center w-[80%]">
                   To vote, select one of the options below and continue. ₦
-                  {voteInfo ? formatAmount(voteInfo.price.toString()) : 0} /
+                  {voteInfo
+                    ? formatAmount(voteInfo.price, voteInfo.currency || 'NGN')
+                    : 0}{' '}
+                  /
                   Vote{' '}
                 </AppText>
               </AppView>

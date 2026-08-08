@@ -24,7 +24,7 @@ import { useIsFocused, useNavigation } from '@react-navigation/native';
 import routes from '@/navigation/routes';
 import { previewContentType, RootNav } from '@/navigation/AppNavigator';
 import LinearGradient from 'react-native-linear-gradient';
-import { AnimatedLin } from '../HomeScreen';
+import { AnimatedLin } from '../homeShared';
 import { checkTimeStatus } from '@/Utils/timeStatus';
 import { FadeIn, FadeOut } from 'react-native-reanimated';
 import { ILiveContent, IVODContent } from '@/types/api/content.types';
@@ -36,7 +36,6 @@ import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
 import { setPreviewContent } from '@/store/slices/previewContentSlice';
 import { selectUserPremiumCost } from '@/store/slices/bannerSlice.slice';
 import { hasPaidContentStatus } from '@/api/content.api';
-import ToastNotification from '@/components/ToastNotifications';
 import { getWatchTag } from '@/Utils/contentUtils';
 import { setFullVideoProps } from '@/store/slices/fullScreenVideo.slice';
 
@@ -68,27 +67,36 @@ handleVODTrailer
   const [imgLoad, setImgLoad] = useState<boolean>(true);
   const [modal, setModal] = useState<string|null>(null);
   const isFocused = useIsFocused();
-  const startTime = 'start' in item ? item.start : item.releaseDate;
-  const endTime = 'start' in item ? item.expiry : item.expiryDate
-  const isTime = checkTimeStatus(startTime, endTime);
+  const startTime = item && 'start' in item ? item.start : item?.releaseDate;
+  const endTime = item && 'start' in item ? item.expiry : item?.expiryDate
+  const isTime = checkTimeStatus(startTime ?? '', endTime ?? '');
   const dispatch = useAppDispatch()
-  const [contentIsPaid, setContentIsPaid] = useState<boolean>('adminId' in item ? false : item.canView)
+  const [contentIsPaid, setContentIsPaid] = useState<boolean>(item && 'adminId' in item ? false : !!(item as ILiveContent)?.canView)
   const data = useAppSelector(selectUserPremiumCost)
 
   async function handleContentStatusUpdate(){
+            if (!item?._id) {
+              setContentIsPaid(false);
+              return;
+            }
             if(item.vidClass === 'free'){
               setContentIsPaid(true);
             }else{
               const res = await hasPaidContentStatus({contentType: live ?'live':'vod', _id:item._id})
               if(res.ok && res.data){
                 setContentIsPaid(res.data.data.canView)
-              }else{
-                ToastNotification('error', `${res.data?.message}`)
+              } else {
+                // Silent fail on home hero — toasting here spams FAILED for every carousel slide.
+                setContentIsPaid(false);
               }
             }
           }
 
    useEffect(() => {
+     if (!item) {
+       setImgLoad(false);
+       return;
+     }
      function preloadMedia() {
       try {
         let uri = '';
@@ -109,7 +117,51 @@ handleVODTrailer
       preloadMedia();
       handleContentStatusUpdate();
     }
-  }, [isFocused]);
+  }, [isFocused, item?._id]);
+
+  if (!item) {
+    return <View style={{width: WIDTH, height: 410}} />;
+  }
+
+  const title = item.title ?? '';
+  const contentType = item.type ?? '';
+  const openPreview = () => {
+    dispatch(setPreviewContent(item as IVODContent));
+    navigate(routes.PREVIEW_SCREEN, {
+      content: contentType.toLowerCase().includes('series')
+        ? previewContentType['tv series']
+        : contentType.toLowerCase().includes('video')
+          ? previewContentType['music video']
+          : previewContentType.film,
+      videoURL: 'adminId' in item ? item.trailer ?? '' : '',
+    });
+  };
+
+  const openPaywallOrPlay = () => {
+    if (contentIsPaid) {
+      watchLive?.();
+      if (live) {
+        dispatch(setFullVideoProps(item));
+      }
+      handleVODTrailer?.();
+      return;
+    }
+    navigate(routes.MAIN, {
+      screen: routes.SUBSCRIPTION_SCREEN,
+      params: {
+        tab: getWatchTag(item.vidClass, live ?? false),
+        currency:
+          item.vidClass === 'premium' && data
+            ? data.currencyCode
+            : item.currency,
+        amount: `${
+          item.vidClass === 'premium' && data ? data.amount : item.amount
+        }`,
+        stage: 'paymentSummary',
+        metadata: live ? {liveId: item._id} : {videoId: item._id},
+      },
+    });
+  };
 
   return (
     <Animated.View
@@ -123,16 +175,16 @@ handleVODTrailer
       }}>
       {!live && colorsArr.length > 0 && (
         <AppView
-          style={{ width: ITEM_WIDTH, height: '100%', bottom: -1 }}
-          className="overflow-hidden absolute z-[1] rounded-b-[7px]">
+          style={{width: ITEM_WIDTH, height: '55%', bottom: -1}}
+          className="overflow-hidden absolute z-[1] rounded-b-[7px]"
+          pointerEvents="none">
           <LinearGradient
             colors={colorsArr}
-            style={[
-              {
-                width: ITEM_WIDTH,
-                height: '100%',
-              },
-            ]}
+            locations={[0, 0.35, 0.75, 1]}
+            style={{
+              width: ITEM_WIDTH,
+              height: '100%',
+            }}
           />
         </AppView>
       )}
@@ -205,27 +257,32 @@ handleVODTrailer
                   )}
         </TouchableOpacity>}
         <AppText className="text-white text-sm uppercase font-MANROPE_400 mt-[2px]">
-          {item.type}
+          {contentType}
         </AppText>
         </View>
         <AppText
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.55}
           style={{
-            maxWidth: item.title.length > 13 ? 270 : 248,
+            maxWidth: ITEM_WIDTH - Size.calcWidth(24),
+            fontSize: Math.min(40, Math.max(26, Size.calcWidth(40))),
+            lineHeight: Math.min(49, Math.max(32, Size.calcWidth(49))),
           }}
-          className={`text-[40px] ${!live ? 'leading-[49px]' : 'leading-[50px]'} font-LEXEND_700 text-white mb-1 text-center`}> 
-          {item.title}
+          className="font-LEXEND_700 text-white mb-1 text-center">
+          {title}
         </AppText>
         {!live && (
           <AppView className="flex-row items-center justify-center">
             {'adminId' in item &&
-              item.genre &&
+              Array.isArray(item.genre) &&
               item.genre.map((tag, i) => {
                 return (
                   <Fragment key={i}>
                     <AppText className="font-ROBOTO_400 text-sm text-grey_200">
-                      {tag.name}
+                      {tag?.name}
                     </AppText>
-                    {item.genre && i !== item.genre.length - 1 && (
+                    {i !== item.genre.length - 1 && (
                       <AppView className="w-1.5 h-1.5 rounded-full bg-white mt-[2.5px] mx-1.5" />
                     )}
                   </Fragment>
@@ -237,16 +294,7 @@ handleVODTrailer
         <AppView className="flex-row items-center justify-center mt-1.5">
           <AppButton
             bgColor={live ? colors.GREY_600 : colors.RED}
-            onPress={() =>
-              !live
-                ? [dispatch(setPreviewContent(item as IVODContent)),
-                  navigate(routes.PREVIEW_SCREEN, {
-                      content: item.type.includes('series') ? previewContentType['tv series'] : item.type.includes('video') ? previewContentType['music video'] : previewContentType.film,
-                      videoURL: 'adminId' in item ? item.trailer :'',
-                    })
-                ]
-                : setModal('live')
-            }
+            onPress={() => (!live ? openPreview() : setModal('live'))}
             replaceDefaultContent={
                 <InfoIcon />
             }
@@ -261,15 +309,7 @@ handleVODTrailer
           />
           <AppButton
             bgColor={colors.RED}
-            onPress={() => contentIsPaid ? [watchLive?.(), live && dispatch(setFullVideoProps(item)), handleVODTrailer && handleVODTrailer()] :navigate(routes.MAIN, {
-              screen: routes.SUBSCRIPTION_SCREEN, 
-              params:{
-                tab: getWatchTag(item.vidClass.toLowerCase(), live ?? false), 
-                    currency: item.vidClass === 'premium'&& data ? data.currencyCode : item.currency, 
-                    amount: `${item.vidClass === 'premium'&& data ? data.amount : item.amount}`,
-                    stage:'paymentSummary',
-                    metadata: live ? {liveId:item._id} : {videoId: item._id}
-              }}) }
+            onPress={openPaywallOrPlay}
             style={{
               width: Size.calcHeight(152),
               borderRadius: 4,
@@ -281,10 +321,10 @@ handleVODTrailer
               <AppView className="flex-row items-center justify-center">
                 {!contentIsPaid ?
                 (item.vidClass === 'premium'&& data && data.currencyCode && data.amount) ? <Text className="text-[15px] text-white font-ROBOTO_700 text-center -ml-1">
-                  {getSymbolFromCurrency(data.currencyCode)}{formatAmount(`${data.amount}`)}
+                  {getSymbolFromCurrency(data.currencyCode)}{formatAmount(data.amount, data.currencyCode)}
                   </Text>  : 
                 (item.amount && item.currency) ? <Text className="text-[15px] text-white font-ROBOTO_700 text-center -ml-1">
-                  {getSymbolFromCurrency(item.currency)}{formatAmount(`${item.amount}`)}
+                  {getSymbolFromCurrency(item.currency)}{formatAmount(item.amount, item.currency)}
                   </Text> : <>
                 <SmPlayIcon />
                 <AppText className="text-[15px] text-white font-ROBOTO_700 ml-[10px]">

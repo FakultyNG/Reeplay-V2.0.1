@@ -30,7 +30,7 @@ import {previewContentType, RootNav} from '@/navigation/AppNavigator';
 import routes from '@/navigation/routes';
 import BlurView from 'react-native-blur-effect';
 import {BlurView as Blur} from '@react-native-community/blur';
-import {MovieVideo} from '@/Screens/Home/HomeScreen';
+import {MovieVideo} from '@/Screens/Home/homeShared';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { CastScreenRoute } from '@/types/typings';
 import FastImage from 'react-native-fast-image';

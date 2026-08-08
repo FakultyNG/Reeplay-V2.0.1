@@ -14,7 +14,7 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import {
   SetNEWPINRouteProps,
 } from '@/types/typings';
-import {getData, storeData} from '@/Utils/useAsyncStorage';
+import {authSet, AUTH_MMKV_KEYS} from '@/Utils/authMmkv';
 import routes from '@/navigation/routes';
 import AppModal from '@/components/AppModal';
 import VerificationModal from './components/VerificationModal';
@@ -23,7 +23,7 @@ import {useAppSelector} from '@/Hooks/reduxHook';
 import {selectUser} from '@/store/slices/userSlice';
 import { RootNav } from '@/navigation/AppNavigator';
 
-const HAS_SET_NEWPIN = 'new_pin';
+const HAS_SET_NEWPIN = AUTH_MMKV_KEYS.HAS_SET_NEWPIN;
 
 const SetNewPIN = () => {
   const {replace, reset} = useNavigation<RootNav>();
@@ -54,7 +54,7 @@ const SetNewPIN = () => {
           email: user.email,
         });
         if (res.ok && res.data) {
-          await storeData(HAS_SET_NEWPIN, pin);
+          await authSet(HAS_SET_NEWPIN, pin);
           setIsShowModal(true);
           setTimeout(() => {
             setIsShowModal(false);

@@ -5,25 +5,26 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import type { CustomStyles, VideoPlayerProps } from 'react-native-video-player';
-import { useCallback, useRef, useState } from 'react';
+import type {CustomStyles, VideoPlayerProps} from 'react-native-video-player';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   Easing,
-  useAnimatedReaction,
 } from 'react-native-reanimated';
-import { ProgressRef } from '../Controls';
-import colors from '@/configs/colors';
 
 const parsePadding = (value: DimensionValue, layoutWidth: number) => {
-  if (typeof value === 'number') return value;
+  if (typeof value === 'number') {
+    return value;
+  }
   if (typeof value === 'string' && value.endsWith('%')) {
     return (parseFloat(value) / 100) * layoutWidth;
   }
   return 0;
 };
+
+const clamp01 = (value: number) => Math.min(Math.max(value, 0), 1);
 
 export interface SeekbarProps {
   autoplay: VideoPlayerProps['autoplay'];
@@ -66,23 +67,23 @@ export const Seekbar = ({
 }: SeekbarProps) => {
   const [isSeeking, setIsSeeking] = useState(false);
   const seekBarWidth = useRef(200);
-  const seekTouchStart = useRef(0);
-  const seekProgressStart = useRef(0);
+  const barPageX = useRef(0);
+  const seekProgressRef = useRef(progress);
   const wasPlayingBeforeSeek = useRef(autoplay || isPlaying);
+  const isSeekingRef = useRef(false);
 
-  // Reanimated shared value
   const progressValue = useSharedValue(progress);
 
-  // useReaction updates the progressValue whenever the prop changes
-  useAnimatedReaction(
-    () => progress,
-    (value) => {
-      progressValue.value = withTiming(value, {
-        duration: 200,
-        easing: Easing.out(Easing.ease),
-      });
+  useEffect(() => {
+    if (isSeekingRef.current) {
+      return;
     }
-  );
+    seekProgressRef.current = progress;
+    progressValue.value = withTiming(progress, {
+      duration: 180,
+      easing: Easing.out(Easing.ease),
+    });
+  }, [progress, progressValue]);
 
   const progressAnimatedStyle = useAnimatedStyle(() => ({
     flexGrow: progressValue.value,
@@ -93,7 +94,7 @@ export const Seekbar = ({
   }));
 
   const onSeekBarLayout = useCallback(
-    ({ nativeEvent }: LayoutChangeEvent) => {
+    ({nativeEvent}: LayoutChangeEvent) => {
       const layoutWidth = nativeEvent.layout.width;
       const customStyle = seekBarCustomStyles;
 
@@ -110,41 +111,65 @@ export const Seekbar = ({
         : 0;
 
       const totalPadding = paddingHorizontal || paddingLeft + paddingRight;
-      seekBarWidth.current = layoutWidth - totalPadding;
+      seekBarWidth.current = Math.max(layoutWidth - totalPadding, 1);
     },
-    [seekBarCustomStyles]
+    [seekBarCustomStyles],
   );
 
-  const onSeekGrant = useCallback(
-    (e: GestureResponderEvent) => {
-      seekTouchStart.current = e.nativeEvent.pageX;
-      seekProgressStart.current = progress;
-      wasPlayingBeforeSeek.current = isPlaying;
-
-      setIsSeeking(true);
-      setIsPlaying(false);
+  const applySeekProgress = useCallback(
+    (next: number) => {
+      const clamped = clamp01(next);
+      seekProgressRef.current = clamped;
+      progressValue.value = clamped;
+      onSeeking(clamped);
     },
-    [isPlaying, progress, setIsPlaying]
+    [onSeeking, progressValue],
   );
 
-  const onSeekMove = useCallback(
-    (e: GestureResponderEvent) => {
-      const diff = e.nativeEvent.pageX - seekTouchStart.current;
-      const ratio = diff / seekBarWidth.current;
-      const nextProgress = Math.min(Math.max(seekProgressStart.current + ratio, 0), 1);
-      onSeeking(nextProgress);
-    },
-    [onSeeking]
-  );
+  const endSeek = useCallback(() => {
+    if (!isSeekingRef.current) {
+      return;
+    }
 
-  const onSeekRelease = useCallback(() => {
+    const next = seekProgressRef.current;
+    isSeekingRef.current = false;
     setIsSeeking(false);
     setIsPlaying(wasPlayingBeforeSeek.current);
-    onSeek(progress * duration);
+    onSeek(next * duration);
     showControls();
-  }, [duration, onSeek, progress, setIsPlaying, showControls]);
+  }, [duration, onSeek, setIsPlaying, showControls]);
 
-  // console.log(progress)
+  const canSeek = !fullWidth && !disableSeek && duration > 0;
+
+  const onGrant = useCallback(
+    (e: GestureResponderEvent) => {
+      if (!canSeek) {
+        return;
+      }
+
+      const {pageX, locationX} = e.nativeEvent;
+      barPageX.current = pageX - locationX;
+      isSeekingRef.current = true;
+      wasPlayingBeforeSeek.current = isPlaying;
+      setIsSeeking(true);
+      setIsPlaying(false);
+
+      const width = Math.max(seekBarWidth.current, 1);
+      applySeekProgress(locationX / width);
+    },
+    [applySeekProgress, canSeek, isPlaying, setIsPlaying],
+  );
+
+  const onMove = useCallback(
+    (e: GestureResponderEvent) => {
+      if (!isSeekingRef.current) {
+        return;
+      }
+      const width = Math.max(seekBarWidth.current, 1);
+      applySeekProgress((e.nativeEvent.pageX - barPageX.current) / width);
+    },
+    [applySeekProgress],
+  );
 
   return (
     <View
@@ -155,34 +180,36 @@ export const Seekbar = ({
         fullWidth && seekBarFullWidthCustomStyles,
       ]}
       onLayout={onSeekBarLayout}
-    >
+      onStartShouldSetResponder={() => canSeek}
+      onMoveShouldSetResponder={() => canSeek}
+      onResponderTerminationRequest={() => false}
+      onResponderGrant={onGrant}
+      onResponderMove={onMove}
+      onResponderRelease={endSeek}
+      onResponderTerminate={endSeek}>
       <Animated.View
+        pointerEvents="none"
         style={[progressAnimatedStyle, seekBarProgressCustomStyles]}
-        className={`bg-red ${isFullscreeen ? 'h-[6px]' : 'h-1'} rounded-[5px]`}
+        className={`bg-red ${isFullscreeen ? 'h-[3px]' : 'h-1'} rounded-full`}
       />
 
-      {!fullWidth && !disableSeek && (
+      {canSeek && (
         <View
+          pointerEvents="none"
           style={[
             styles.seekBarKnob,
-            isFullscreeen && { width: 18, height: 18 },
+            isFullscreeen && {width: 14, height: 14},
             seekBarKnobCustomStyles,
             isSeeking && styles.seekBarKnobSeeking,
             isSeeking && seekBarKnobSeekingCustomStyles,
           ]}
-          hitSlop={{ top: 20, bottom: 20, left: 10, right: 20 }}
-          onStartShouldSetResponder={() => true}
-          onMoveShouldSetResponder={() => true}
-          onResponderGrant={onSeekGrant}
-          onResponderMove={onSeekMove}
-          onResponderRelease={onSeekRelease}
-          onResponderTerminate={onSeekRelease}
         />
       )}
 
       <Animated.View
+        pointerEvents="none"
         style={[backgroundAnimatedStyle, seekBarBackgroundCustomStyles]}
-        className={`bg-grey_white_90 ${isFullscreeen ? 'h-[6px]' : 'h-1'} rounded-[5px]`}
+        className={`bg-white/25 ${isFullscreeen ? 'h-[3px]' : 'h-1'} rounded-full`}
       />
     </View>
   );
@@ -191,7 +218,7 @@ export const Seekbar = ({
 const styles = StyleSheet.create({
   seekBar: {
     alignItems: 'center',
-    height: 30,
+    height: 36,
     flexGrow: 1,
     flexDirection: 'row',
     paddingHorizontal: 10,
@@ -208,16 +235,21 @@ const styles = StyleSheet.create({
     height: 4,
   },
   seekBarKnob: {
-    width: 16,
-    height: 16,
-    marginHorizontal: -8,
+    width: 14,
+    height: 14,
+    marginHorizontal: -7,
     marginVertical: -10,
     borderRadius: 99,
     backgroundColor: '#fff',
-    transform: [{ scale: 0.8 }],
+    transform: [{scale: 0.85}],
     zIndex: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 3,
+    shadowOffset: {width: 0, height: 1},
+    elevation: 3,
   },
   seekBarKnobSeeking: {
-    transform: [{ scale: 1 }],
+    transform: [{scale: 1.15}],
   },
 });

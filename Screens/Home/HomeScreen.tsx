@@ -1,249 +1,91 @@
 import {
   Animated as Ani,
-  FlatList,
-  Modal,
-  Platform,
-  Pressable,
   RefreshControl,
-  ScrollView,
   StatusBar,
-  StyleSheet,
-  Text,
-  View,
 } from 'react-native';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import Header from './Header';
-
 import Slider from './components/SliderContainer';
 import colors from '@/configs/colors';
-import ContinueWatchingComponent from './ContinueWatchingComponent';
-import { AppText, AppView, TouchableOpacity } from '@/components';
+import {AppView} from '@/components';
 import SwiperContainer from './components/SwiperContainer';
 import SectionHeader from './components/SectionHeader';
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import AppCategories from '@/components/AppCategories';
 import Size from '@/Utils/useResponsiveSize';
 import Sections from './components/Sections';
-import { useNavigation } from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 import routes from '@/navigation/routes';
-import BlurView from 'react-native-blur-effect';
-import { BlurView as Blur } from '@react-native-community/blur';
-import { HAS_SKIPPED } from '../authentication/components/AuthFormComponent';
-import { getData, storeData } from '@/Utils/useAsyncStorage';
-import Orientation, { PORTRAIT } from 'react-native-orientation-locker';
-import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
+import {PORTRAIT} from 'react-native-orientation-locker';
+import {useAppSelector} from '@/Hooks/reduxHook';
 import {
-  setOrientations,
-} from '@/store/slices/orientationSlize';
-import { getProfileDetails } from '@/api/profile.api';
-import { setCredentials, setHideTabBar, setNoticationsList, setWalletInfo } from '@/store/slices/userSlice';
-import { hasUserDetails } from '../Splashscreen/Splashscreen';
-import Animated from 'react-native-reanimated';
-import { getSponsoredLiveEvents } from '@/api/live.api';
-import { setSponsoredEventProps } from '@/store/slices/liveEvents/sponsoredSlice';
-import LinearGradient from 'react-native-linear-gradient';
-import { bannerApi, contentCostApi, deleteContinueWatchingById, fetchEnums, getContinueWatching, randomAds } from '@/api/content.api';
-import { selectBannerContent, selectCategories, selectContinueWatching, setBannerContent, setCategories, setContinueWatching, setGenres, setPremiumContentCost, setSelectedPremiumCost } from '@/store/slices/bannerSlice.slice';
-import { setAdsContent } from '@/store/slices/adsSlice.slice';
-import ContentWrapper from '@/components/ContentWrapper';
-import ContinueWatchingComp from '@/components/ContinueWatchingComp';
-import { useAppPersistStore } from '@/store/zustand.store';
-import { walletBalance } from '@/api/payment.api';
-import { TabNavParams } from '@/navigation/TabNavigation';
-import { resetFullVideo } from '@/store/slices/fullScreenVideo.slice';
-import { useCurrencyByIP } from '@/Hooks/useCurrencyByIP';
-import { getAllNotifications } from '@/api/notification.api';
-import { OrientationInjectedProps } from '@/components/OrientationWrapper';
+  selectBannerContent,
+  selectContinueWatching,
+} from '@/store/slices/bannerSlice.slice';
+import {TabNavParams} from '@/navigation/TabNavigation';
+import {OrientationInjectedProps} from '@/components/OrientationWrapper';
 import DownloadFullscreenModalPlayer from '../Download/FullscreenModalPlayer';
-import { IDownloadData } from '@/types/api/content.types';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  IDownloadData,
+  ILiveContent,
+  IVODContent,
+} from '@/types/api/content.types';
+import FeaturedExtras, {
+  FeaturedExtrasAvailability,
+} from './components/FeaturedExtras';
+import HomeContinueRow from './components/HomeContinueRow';
+import {useHomeBootstrap} from './hooks/useHomeBootstrap';
 
-
-const AnimatedView = Animated.createAnimatedComponent(AppView);
-export const AnimatedLin = Animated.createAnimatedComponent(LinearGradient);
-
-export const SeriesVideo: string =
-  'https://res.cloudinary.com/dag4n1g6h/video/upload/f_auto:video,q_auto/video_rhsuqs';
-export const MusicVideo: string =
-  'https://res.cloudinary.com/dag4n1g6h/video/upload/f_auto:video,q_auto/gv1dw19vqjuv5mfbvbsl';
-export const MovieVideo: string =
-  'https://res.cloudinary.com/demo/video/upload/f_auto:video,q_auto/tz2nkki28sk5idwthlpk.mp4';
-
-const HomeScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedProps) => {
+const HomeScreen = ({
+  isFullscreen,
+  makeFullscreen,
+  makePortrait,
+}: OrientationInjectedProps) => {
   const scrollY = useRef(new Ani.Value(0)).current;
   const [isScrolled, setIsScrolled] = useState(0);
-  const { navigate } = useNavigation<TabNavParams>();
-  const dispatch = useAppDispatch();
-  const [orientation, setOrientation] = useState<string | null>(null);
-  const [isSkipped, setIsSkipped] = useState<boolean>(false);
-  const [showModal, setShowModal] = useState<boolean>(false);
-  const vods = useAppSelector(selectBannerContent).vods
-  const cat = useAppSelector(selectCategories)
-  const ContinueWatching = useAppSelector(selectContinueWatching);
-  const {setIsToken} = useAppPersistStore();
-  const [isFullscreenContent, setFullscreenContent] = useState<IDownloadData|null>(null)
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const {navigate} = useNavigation<TabNavParams>();
+  const vods = useAppSelector(selectBannerContent).vods ?? [];
+  const continueWatching = useAppSelector(selectContinueWatching) ?? [];
+  const [isFullscreenContent, setFullscreenContent] =
+    useState<IDownloadData | null>(null);
+  const [activeFeatured, setActiveFeatured] = useState<IVODContent | null>(
+    null,
+  );
+  const [extrasAvailable, setExtrasAvailable] =
+    useState<FeaturedExtrasAvailability>(null);
 
+  const {orientation, isRefreshing, deferHeavyRows, handleRefresh} =
+    useHomeBootstrap(isFullscreen);
 
-  async function getSkippedState() {
-    const hasSkipped = await getData(HAS_SKIPPED);
-    if (hasSkipped) {
-      setIsSkipped(true);
-    }
-  }
-
-    async function getWallet() {
-      const res = await walletBalance();
-      if (res.ok && res.data) {
-        dispatch(setWalletInfo(res.data.data));
+  const handleActiveFeaturedChange = useCallback(
+    (item: IVODContent | ILiveContent | null) => {
+      if (item && 'adminId' in item) {
+        setActiveFeatured(prev => (prev?._id === item._id ? prev : item));
+        return;
       }
-    }
+      setActiveFeatured(null);
+      setExtrasAvailable(false);
+    },
+    [],
+  );
 
-    async function handlePremiumContentCost(){
-      const res = await contentCostApi();
-      if(res.ok && res.data) dispatch(setPremiumContentCost(res.data.data));
-    }
-
-    async function handleCache(key:string, data:string){
-      await storeData(key, data)
-    }
-
-  async function userProfile() {
-    const res = await getProfileDetails();
-    const banner = await bannerApi();
-    const categories = await fetchEnums('categories');
-    const genres = await fetchEnums('genres');
-    const cW = await getContinueWatching({page:1, limit:10});
-     const resAds = await randomAds();
-     if(cW.status === 401 || res.status === 401 || resAds.status === 401) setIsToken(true)
-     if(resAds.ok && resAds.data){ 
-      dispatch(setAdsContent(resAds.data.data));
-    }
-    if(cW.ok && cW.data) {
-const allContent = cW.data.data;
-    const completedContent = allContent.filter(x => x.duration === x.totalDuration);
-    const inProgressContent = allContent.filter(x => x.duration !== x.totalDuration);
-    
-    await Promise.all(
-      completedContent.map(x => deleteContinueWatchingById(x.watchedDocumentId))
-    )
-      dispatch(setContinueWatching(inProgressContent))
-    }
-    if (categories.ok && categories.data) {
-      dispatch(setCategories(categories.data.data))
-      const dataC = JSON.stringify(categories.data.data);
-      handleCache('category', dataC);
-    }
-    if (genres.ok && genres.data) {
-      dispatch(setGenres(genres.data.data))
-      const dataG = JSON.stringify(genres.data.data);
-      handleCache('genre', dataG);
-    };
-    if (banner.ok && banner.data){ 
-      dispatch(setBannerContent(banner.data.data));
-      const dataB = JSON.stringify(banner.data.data);
-      handleCache('banner', dataB);
-    }
-    if (res.ok && res.data) {
-      dispatch(setCredentials(res.data.data));
-      await storeData(hasUserDetails, JSON.stringify(res.data.data));
-    }
-  }
-
-
-  // LIVE EVENTS FUNCTIONS
-  async function getSponsoredEvents() {
-    try {
-      const res = await getSponsoredLiveEvents();
-      if (res.ok && res.data) dispatch(setSponsoredEventProps(res.data.data));
-    } catch (error) { }
-  }
-
-  async function handleNotifications() {
-    const res = await getAllNotifications({page:1, limit: 20});
-    if (res.ok && res.data) {
-      dispatch(setNoticationsList(res.data.data));
-    }
-  }
+  const showContinueAfterHero = extrasAvailable === false;
+  const showContinueAfterGenres = extrasAvailable === true;
 
   useEffect(() => {
-    const listernerID = scrollY.addListener(({ value }) => {
-      if (value < 0) return;
+    const listenerId = scrollY.addListener(({value}) => {
+      if (value < 0) {
+        return;
+      }
       setIsScrolled(value);
     });
-
     return () => {
-      scrollY.removeListener(listernerID);
+      scrollY.removeListener(listenerId);
     };
   }, [scrollY]);
-
-  async function loadFunc(){
-    Orientation.lockToPortrait();
-    checkOrientation();
-    userProfile();
-    getSponsoredEvents();
-    dispatch(resetFullVideo());
-    getSkippedState();
-    getWallet();
-    handlePremiumContentCost();
-    handleNotifications();
-  }
-
-    async function handleRefresh(){
-      try {
-        setIsRefreshing(true);
-        await loadFunc()
-      } finally{
-        setIsRefreshing(false);
-      }
-  }
-
-  useEffect(() => {
-    if(!isFullscreen) loadFunc();
-  }, [isFullscreen]);
-
-  function checkOrientation() {
-    Orientation.getOrientation(orient => {
-      if (orientation !== orient) dispatch(setOrientations(orient));
-
-      if (orient !== PORTRAIT) {
-        Orientation.lockToPortrait();
-        checkOrientation();
-      } else {
-        setOrientation(orient);
-      }
-      // dispatch(set(orientation))
-    });
-  }
-
-  useEffect(() =>{
-    dispatch(setHideTabBar(isFullscreen))
-  }, [isFullscreen])
-
 
   return (
     <>
       {!isFullscreen && orientation === PORTRAIT && (
         <>
-          {/* //Header */}
-          <AppView
-            style={{
-              minHeight: 70,
-              backgroundColor: 'rgba(0, 0, 0, 0.69)',
-            }}
-            className="absolute bottom-0 w-full z-20">
-            {Platform.OS === 'ios' ? (
-              <Blur
-                blurType="dark"
-                blurAmount={120}
-                style={{
-                  minHeight: 80,
-                  width: '100%',
-                }}
-              />
-            ) : (
-              <BlurView backgroundColor="rgba(0, 0, 0, 0.8)" blurRadius={120} />
-            )}
-          </AppView>
           <Header scroll={isScrolled} />
 
           <StatusBar
@@ -253,87 +95,95 @@ const allContent = cW.data.data;
             backgroundColor="transparent"
           />
 
-          {/* HOME SCROLL */}
           <Ani.ScrollView
-            scrollEnabled={true}
+            scrollEnabled
             onScroll={Ani.event(
-              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-              { useNativeDriver: false },
+              [{nativeEvent: {contentOffset: {y: scrollY}}}],
+              {useNativeDriver: false},
             )}
             scrollEventThrottle={16}
             nestedScrollEnabled
             showsVerticalScrollIndicator={false}
             removeClippedSubviews={false}
-            refreshControl={<RefreshControl 
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-            />}
-            contentContainerStyle={{ paddingBottom: Size.hp(17), width: '100%' }}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+              />
+            }
+            contentContainerStyle={{paddingBottom: Size.hp(17), width: '100%'}}
             style={{
               backgroundColor: colors.DEEP_BLACK,
               position: 'relative',
             }}>
-            <Slider data={vods} makeFullscreen={makeFullscreen} setFullscreenContent={setFullscreenContent} />
+            <Slider
+              data={vods}
+              makeFullscreen={makeFullscreen}
+              setFullscreenContent={setFullscreenContent}
+              onActiveItemChange={handleActiveFeaturedChange}
+            />
 
-            <AppView className="mt-8 pl-5">
-              {ContinueWatching.length > 0 ? (
-                <>
-                  <AppText className="text-lg text-white font-MANROPE_700">
-                    Continue watching
-                  </AppText>
-                  <FlatList
-                    data={ContinueWatching}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    bounces={false}
-                    keyExtractor={(_, i) => i.toString()}
-                    renderItem={({ item, index }) => {
-                      return (
-                        <ContinueWatchingComp 
-                        item={item} 
-                        key={index} 
-                        makeFullscreen={makeFullscreen}
-                        setFullscreenContent={setFullscreenContent}
-                        />
-                      );
-                    }}
-                  />
-                </>
-              ) : (
-                <>
-                 {cat.length > 0 && <ContentWrapper 
-                    enums={cat[0]}
-                    showPagination
-                  />}
-                 
-                </>
-              )}
-            </AppView>
+            <FeaturedExtras
+              vod={activeFeatured}
+              featuredVods={vods}
+              onAvailabilityChange={setExtrasAvailable}
+            />
 
-             <AppView className="mt-8">
+            {showContinueAfterHero && (
+              <HomeContinueRow
+                makeFullscreen={makeFullscreen}
+                setFullscreenContent={setFullscreenContent}
+              />
+            )}
+
+            <AppView className="mt-8">
               <AppView className="pl-5">
                 <SectionHeader
                   title="Genres"
                   btnText="SEE ALL"
-                  headerStyle={{ marginRight: 12 }}
+                  headerStyle={{marginRight: 12}}
                   onPress={() => navigate(routes.LIBRARY_SCREEN)}
                 />
               </AppView>
               <SwiperContainer />
             </AppView>
 
-           <Sections isSkipped={ContinueWatching.length > 0} />
+            {showContinueAfterGenres && (
+              <HomeContinueRow
+                afterGenres
+                makeFullscreen={makeFullscreen}
+                setFullscreenContent={setFullscreenContent}
+              />
+            )}
+
+            <Sections
+              isSkipped={continueWatching.length > 0}
+              deferHeavy={deferHeavyRows}
+            />
           </Ani.ScrollView>
         </>
       )}
 
-      {(isFullscreenContent && isFullscreen) && <DownloadFullscreenModalPlayer
+      {isFullscreenContent && isFullscreen && (
+        <DownloadFullscreenModalPlayer
           isFullscreen={isFullscreen}
           content={isFullscreenContent}
-          setFullscreen={() => isFullscreen ? [makePortrait(), setFullscreenContent(null)] : makeFullscreen()} 
-        />}
+          setFullscreen={() =>
+            isFullscreen
+              ? [makePortrait(), setFullscreenContent(null)]
+              : makeFullscreen()
+          }
+        />
+      )}
     </>
   );
 };
 
 export default HomeScreen;
+export {
+  AnimatedLin,
+  AnimatedView,
+  SeriesVideo,
+  MusicVideo,
+  MovieVideo,
+} from './homeShared';

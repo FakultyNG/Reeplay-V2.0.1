@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AppButton,
   AppHeader,
@@ -22,7 +22,7 @@ import useToggle from '@/Hooks/useToggle';
 import fonts from '@/configs/fonts';
 import colors from '@/configs/colors';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
-import {suggestionApi} from '@/api/external.api';
+import { suggestionApi } from '@/api/external.api';
 import AppModal from '@/components/AppModal';
 import VerificationModal from '../authentication/components/VerificationModal';
 import { selectAdsContent } from '@/store/slices/adsSlice.slice';
@@ -36,10 +36,10 @@ const SuggestionScreen = () => {
   const [isVerifyModal, setIsVerifyModal] = useState<boolean>(false);
   const [msg, setMsg] = useState<string>('');
   const [resMsg, setResMsg] = useState<string>('');
-    const ads = useAppSelector(selectAdsContent).ads;
-  
+  const ads = useAppSelector(selectAdsContent).ads;
 
-  const url = (ads && ads.length>0) ? ads[0].link : '';
+
+  const url = (ads && ads.length > 0) ? ads[0].link : '';
 
   const handleLink = async () => {
     await InAppBrowser.open(url);
@@ -49,7 +49,7 @@ const SuggestionScreen = () => {
     try {
       setLoading(true);
 
-      const res = await suggestionApi({message: msg});
+      const res = await suggestionApi({ message: msg });
       if (res.ok && res.data) {
         ToastNotification('info', res.data.message)
         setMsg('');
@@ -94,7 +94,7 @@ const SuggestionScreen = () => {
         handleClose={() => setIsVerifyModal(false)}
       />
 
-     {ads.length > 0 && <AppView className="mt-6 bg-red pt-3 px-1 rounded-[15px]">
+      {ads.length > 0 && <AppView className="mt-6 bg-red pt-3 px-1 rounded-[15px]">
         <AppView className="flex-row items-center justify-between px-3 pb-2">
           <AppView>
             <AppText className="font-LEXEND_400 text-base text-white ">
@@ -115,12 +115,12 @@ const SuggestionScreen = () => {
 
         <AppView className="h-[191px] mb-1 rounded-b-[15px] overflow-hidden border-[2px] border-black">
           <AppImage
-            source={{uri: ads[0].photoUrl}}
+            source={{ uri: ads[0].photoUrl }}
             style={{
-              height:'100%',
-              width:'100%',
-              borderBottomLeftRadius:15,
-              borderBottomRightRadius:15
+              height: '100%',
+              width: '100%',
+              borderBottomLeftRadius: 15,
+              borderBottomRightRadius: 15
             }}
             resizeMode='cover'
           />
@@ -134,7 +134,7 @@ const SuggestionScreen = () => {
         />
       </AppView> */}
 
-      <AppView className="rounded-[15px] overflow-hidden bg-[#1A1A1A]">
+      <AppView className={`${ads.length === 0 ? 'mt-8' : ''} rounded-[15px] overflow-hidden bg-[#1A1A1A]`}>
         <AppView className="bg-[#1A1A1A] rounded-t-[15px] py-3 px-[14px]">
           <AppText className="font-ROBOTO_700 text-white text-lg">
             SUGGESTION
@@ -172,7 +172,7 @@ const SuggestionScreen = () => {
         isDisable={msg.trim() === ''}
         bgColor={colors.RED}
         onPress={handleSubmit}
-        style={{borderRadius: 6, alignSelf: 'center', marginTop: 40}}
+        style={{ borderRadius: 6, alignSelf: 'center', marginTop: 40 }}
       />
     </AppScreen>
   );

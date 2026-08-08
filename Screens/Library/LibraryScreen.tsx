@@ -1,7 +1,6 @@
 import {
   ActivityIndicator,
   FlatList,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,8 +20,6 @@ import Size from '@/Utils/useResponsiveSize';
 import {previewContentType, RootNav} from '@/navigation/AppNavigator';
 import routes from '@/navigation/routes';
 import {useNavigation} from '@react-navigation/native';
-import BlurView from 'react-native-blur-effect';
-import {BlurView as Blur} from '@react-native-community/blur';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
 import { selectCategories, selectGenres } from '@/store/slices/bannerSlice.slice';
 import { ICategoryData, IVODContent } from '@/types/api/content.types';
@@ -118,25 +115,6 @@ const LibraryScreen = () => {
 
   return (
     <>
-      <AppView
-        style={{
-          minHeight: 70,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        }}
-        className="absolute bottom-0 w-full z-20">
-        {Platform.OS === 'ios' ? (
-          <Blur
-            blurType="dark"
-            blurAmount={120}
-            style={{
-              minHeight: 55,
-              width: '100%',
-            }}
-          />
-        ) : (
-          <BlurView backgroundColor="rgba(0, 0, 0, 1)" blurRadius={120} />
-        )}
-      </AppView>
       <AppScreen containerStyle={{position: 'relative', paddingTop: 5}}>
         {genre !== null && (
           <Pressable style={styles.overlay} onPress={resetState} />
@@ -185,7 +163,9 @@ const LibraryScreen = () => {
             data={loading ? [...Array(20)] : contents}
             keyExtractor={(item,index) => loading ? index.toString() : item._id}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.centerContent}
+            numColumns={3}
+            columnWrapperStyle={styles.columnWrapper}
+            contentContainerStyle={styles.listContent}
             onEndReachedThreshold={0.5}
         onEndReached={loadMore}
         ListFooterComponent={
@@ -250,14 +230,12 @@ const styles = StyleSheet.create({
     height: 133,
     borderRadius: 15,
   },
-  centerContent: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    // justifyContent: 'space-evenly',
-    flexWrap: 'wrap',
-    columnGap: Size.calcHeight(10),
-    rowGap: Size.calcHeight(15),
+  listContent: {
     paddingBottom: 20,
+  },
+  columnWrapper: {
+    columnGap: Size.calcHeight(10),
+    marginBottom: Size.calcHeight(15),
   },
   overlay: {
     width: '100%',

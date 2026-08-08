@@ -10,43 +10,60 @@ import Video, {
   AdEvent,
   ISO639_1,
   SelectedTrackType,
-  TextTracks,
   TextTrackType,
+  ViewType,
   type OnLoadData,
   type OnProgressData,
+  type OnReceiveAdEventData,
   type VideoRef,
 } from 'react-native-video';
 import {
-  GestureResponderEvent,
   ImageSourcePropType,
-  PanResponder,
-  Platform,
+  ImageURISource,
+  StyleProp,
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
+  ViewStyle,
 } from 'react-native';
 import { VideoPlayerProps } from 'react-native-video-player';
 import { Controls, ProgressRef } from './Controls';
 import { IContentData } from './DynamicVideoComponent';
 import LottieView from 'lottie-react-native';
 import { getSubtitles, registerContinueWatching, updateViewsCount } from '@/api/content.api';
-import { srtToVtt } from '@/Utils/contentUtils';
+import {
+  cueTextAtTime,
+  ensureWebVtt,
+  normalizeSubtitleUrl,
+  parseVttCues,
+  type VttCue,
+} from '@/Utils/contentUtils';
 import RNFS from 'react-native-fs';
-import Subtitles from 'react-native-subtitles'
-import SubtitlePlayer from 'react-native-video-subtitle'
 import { MediaInfo, useCastSession, useRemoteMediaClient } from 'react-native-google-cast';
 import { throttle } from 'lodash';
 import { IRegisteredContinueWatching } from '@/types/api/content.types';
+import { useAppSelector } from '@/Hooks/reduxHook';
+import { selectUser } from '@/store/slices/userSlice';
+import {
+  getBufferConfigForMode,
+  getPreferredForwardBufferDuration,
+  isLiveNowPlayback,
+  maxBitRateForQuality,
+} from './playbackConfig';
+import {buildSampleEnglishCues} from '@/assets/subtitles/sampleEnglish';
 
-const demoAds = 'https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/vmap_ad_samples&sz=640x480&cust_params=sample_ar%3Dpremidpostoptimizedpodbumper&ciu_szs=300x250&gdfp_req=1&ad_rule=1&output=vmap&unviewed_position_start=1&env=vp&impl=s&cmsid=496&vid=short_onecue&correlator='
+/** Single linear pre-roll (one ad). Avoids VMAP pods that stack multiple ads per break. */
+export const SINGLE_AD_TAG =
+  'https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/single_ad_samples&sz=640x480&cust_params=sample_ct%3Dlinear&ciu_szs=300x250%2C728x90&gdfp_req=1&output=vast&unviewed_position_start=1&env=vp&correlator=';
 
 export interface ISubtitle{
   title:string;
   language:ISO639_1;
   type: TextTrackType;
-  uri:string
+  uri:string;
+  /** Parsed cues for reliable JS overlay (native sideloaded tracks are flaky). */
+  cues?: VttCue[];
 }
 
 export interface VideoInternalRef extends VideoRef {
@@ -83,7 +100,7 @@ type RenderVideoProps = Pick<
   | 'source'
   | 'style'
 > & {
-  sizeStyle: { width: number; height: number };
+  sizeStyle: StyleProp<ViewStyle>;
   onToggleFullScreen: () => void;
   handleCTAFunc?: () => void;
   handleNEXT?: () => void;
@@ -121,6 +138,10 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
 
   /* ---------------- STATE ---------------- */
   const [subtitle, setSubtitle] = useState<ISubtitle[]>([])
+  const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState(-1);
+  const [activeCueText, setActiveCueText] = useState('');
+  const selectedSubtitleIndexRef = useRef(-1);
+  const subtitleRef = useRef<ISubtitle[]>([]);
   const [isPlaying, setIsPlaying] = useState(autoplay);
   const [isMuted, setIsMuted] = useState(!!muted);
   const [progress, setProgress] = useState(0);
@@ -128,17 +149,42 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
     !hideControlsOnStart
   );
   const [duration, setDuration] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [videoKey, setVideoKey] = useState(0);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [isReadyForDisplay, setIsReadyForDisplay] = useState(false);
+  const [isAdPlaying, setIsAdPlaying] = useState(false);
   const session = useCastSession();
   const remoteClient = useRemoteMediaClient();
   const isCasting = !!session && !!remoteClient;
+  const videoQuality = useAppSelector(selectUser).settings_info?.video_quality;
+  const liveNow = isLiveNowPlayback(props.type, props.isTime);
+  const playbackMode = liveNow ? 'live' : 'vod';
+  const maxBitRate = maxBitRateForQuality(videoQuality);
+  const showLoadingOverlay =
+    !isAdPlaying && (!isReadyForDisplay || isBuffering);
+
+  const posterUri = (() => {
+    const thumb = props.thumbnail;
+    if (!thumb || typeof thumb === 'number') {
+      return undefined;
+    }
+    if (Array.isArray(thumb)) {
+      return (thumb[0] as ImageURISource | undefined)?.uri;
+    }
+    return (thumb as ImageURISource).uri;
+  })();
 
   /* ---------------- REFS ---------------- */
   const videoRef = useRef<VideoRef>(null);
   const controlsRef = useRef<ProgressRef>(null);
   const progressRef = useRef(0);
+  const currentTimeRef = useRef(0);
+  const durationRef = useRef(0);
+  /** Content-only duration — never overwritten by IMA ad load/progress. */
+  const contentDurationRef = useRef(0);
+  const isAdPlayingRef = useRef(false);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isSubtitlePickerOpenRef = useRef(false);
+  const isBrightnessSlidingRef = useRef(false);
 
   /* ---------------- HELPERS ---------------- */
   const clearControlsTimeout = () => {
@@ -154,12 +200,20 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
   if (
     disableControlsAutoHide ||
     !isPlaying ||
-    !isControlsVisible
+    !isControlsVisible ||
+    isSubtitlePickerOpenRef.current ||
+    isBrightnessSlidingRef.current
   ) {
     return;
   }
 
   controlsTimeoutRef.current = setTimeout(() => {
+    if (
+      isSubtitlePickerOpenRef.current ||
+      isBrightnessSlidingRef.current
+    ) {
+      return;
+    }
     setIsControlsVisible(false);
   }, controlsTimeout);
 }, [
@@ -175,11 +229,40 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
   };
 
   const hideControls = () => {
-    if(disableControlsAutoHide) return
+    if (
+      disableControlsAutoHide ||
+      isSubtitlePickerOpenRef.current ||
+      isBrightnessSlidingRef.current
+    ) {
+      return;
+    }
     clearControlsTimeout();
-    // console.log('hide controls..');
     setIsControlsVisible(false);
   };
+
+  const handleSubtitlePickerOpenChange = useCallback(
+    (open: boolean) => {
+      isSubtitlePickerOpenRef.current = open;
+      if (open) {
+        clearControlsTimeout();
+        setIsControlsVisible(true);
+        return;
+      }
+      scheduleAutoHide();
+    },
+    [scheduleAutoHide],
+  );
+
+  const handleBrightnessGestureStart = useCallback(() => {
+    isBrightnessSlidingRef.current = true;
+    clearControlsTimeout();
+    setIsControlsVisible(true);
+  }, []);
+
+  const handleBrightnessGestureEnd = useCallback(() => {
+    isBrightnessSlidingRef.current = false;
+    scheduleAutoHide();
+  }, [scheduleAutoHide]);
 
  
   /* ---------------- VIDEO EVENTS ---------------- */
@@ -222,29 +305,144 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
       saveProgress.flush?.();
     }
 
+  const hasPrerollAds =
+    props.contentData.vidClass.toLowerCase() === 'free' &&
+    !disableControlsAutoHide;
+
+  /**
+   * Content duration is sticky: never shrink it to an ad-length value, and never
+   * write while IMA owns the timeline. Ads often fire onLoad before STARTED.
+   */
+  const applyContentDuration = useCallback((nextDuration: number) => {
+    if (!(nextDuration > 0) || !Number.isFinite(nextDuration)) {
+      return;
+    }
+    if (isAdPlayingRef.current) {
+      return;
+    }
+    const existing = contentDurationRef.current;
+    // Reject shorter replacements once we know a longer content length (ad bleed).
+    if (existing > 0 && nextDuration + 0.5 < existing && nextDuration < 120) {
+      return;
+    }
+    contentDurationRef.current = nextDuration;
+    durationRef.current = nextDuration;
+    setDuration(nextDuration);
+  }, []);
+
+  const applyActiveCue = useCallback((time: number) => {
+    const idx = selectedSubtitleIndexRef.current;
+    if (idx < 0) {
+      setActiveCueText(prev => (prev ? '' : prev));
+      return;
+    }
+    const track = subtitleRef.current[idx];
+    const cues = track?.cues;
+    if (!cues?.length) {
+      setActiveCueText(prev => (prev ? '' : prev));
+      return;
+    }
+
+    const next = cueTextAtTime(cues, time);
+    setActiveCueText(prev => (prev === next ? prev : next));
+  }, []);
+
+  const handleSelectSubtitle = useCallback((index: number) => {
+    selectedSubtitleIndexRef.current = index;
+    setSelectedSubtitleIndex(index);
+    if (index < 0) {
+      setActiveCueText('');
+      return;
+    }
+    const track = subtitleRef.current[index];
+    const time = currentTimeRef.current;
+    const atTime = cueTextAtTime(track?.cues, time);
+    if (atTime) {
+      setActiveCueText(atTime);
+      return;
+    }
+    // No cue at this timestamp — show nearest previous/next so selection is obvious.
+    const cues = track?.cues ?? [];
+    const previous = [...cues].reverse().find(c => c.start <= time);
+    const upcoming = cues.find(c => c.start > time);
+    setActiveCueText(previous?.text || upcoming?.text || 'Subtitles on');
+  }, []);
+  const restoreContentDuration = useCallback(() => {
+    const contentDur = contentDurationRef.current;
+    if (!(contentDur > 0)) {
+      return;
+    }
+    durationRef.current = contentDur;
+    setDuration(contentDur);
+    const t = currentTimeRef.current;
+    const next = Math.min(Math.max(t / contentDur, 0), 1);
+    if (Number.isFinite(next)) {
+      progressRef.current = next;
+      setProgress(next);
+      controlsRef.current?.onProgress(next);
+    }
+  }, []);
+
   const handleProgress = useCallback(
     (e: OnProgressData) => {
-      const next = e.currentTime/duration
-      progressRef.current = next;
-      setProgress(next); 
-      controlsRef.current?.onProgress(next);
-      
-      // handles views count
-       if (props.type !== 'live') {
-      const isFree = props.contentData.vidClass === 'free';
-        if(isSaveProgress && !disableControlsAutoHide && !isLoading) {
-          lastWatchedRef.current = e.currentTime;
-          saveProgress(e.currentTime)
-        }
-      if (isFree && next >= 0.6) {      // Free video, watched at least 60%
-        handleViews();
-      } else if (!isFree && next >= 0.3) {  // Paid or other video, watched at least 30%
-        handleViews();
+      // Ads report their own timeline — never drive the content scrubber/duration from them.
+      if (isAdPlayingRef.current) {
+        return;
       }
-    }
-      
+
+      currentTimeRef.current = e.currentTime;
+      // Captions must update even before content duration is known.
+      applyActiveCue(e.currentTime);
+
+      const seekable = (e as {seekableDuration?: number}).seekableDuration;
+      if (
+        Number.isFinite(seekable) &&
+        (seekable as number) > 0 &&
+        // Prefer seekable once content is playing; still guarded against ad lengths.
+        (!hasPrerollAds ||
+          contentDurationRef.current <= 0 ||
+          (seekable as number) >= contentDurationRef.current * 0.9)
+      ) {
+        applyContentDuration(seekable as number);
+      }
+
+      const knownDuration = contentDurationRef.current;
+      if (!(knownDuration > 0)) {
+        return;
+      }
+
+      const next = Math.min(Math.max(e.currentTime / knownDuration, 0), 1);
+      if (!Number.isFinite(next)) {
+        return;
+      }
+
+      progressRef.current = next;
+      setProgress(next);
+      controlsRef.current?.onProgress(next);
+
+      if (props.type !== 'live') {
+        const isFree = props.contentData.vidClass === 'free';
+        if (isSaveProgress && !disableControlsAutoHide && isReadyForDisplay) {
+          lastWatchedRef.current = e.currentTime;
+          saveProgress(e.currentTime);
+        }
+        if (isFree && next >= 0.6) {
+          handleViews();
+        } else if (!isFree && next >= 0.3) {
+          handleViews();
+        }
+      }
     },
-    [duration, isLoading, disableControlsAutoHide]
+    [
+      applyActiveCue,
+      applyContentDuration,
+      hasPrerollAds,
+      isReadyForDisplay,
+      disableControlsAutoHide,
+      isSaveProgress,
+      props.type,
+      props.contentData.vidClass,
+    ],
   );
 
   async function handleViews(){
@@ -253,54 +451,256 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
     // console.log('updated views count....', res.data,props.contentData._id)
   }
   
-  async function fetchAndConvertSubtitles(url: string): Promise<string> {
-  const res = await fetch(url);
-  const srtText = await res.text();
-  return srtToVtt(srtText);
-}
+  async function fetchAndConvertSubtitles(
+    src: string,
+    bucket?: string,
+    key?: string,
+  ): Promise<string> {
+    const url = normalizeSubtitleUrl(src, bucket, key);
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Subtitle fetch failed (${res.status}) for ${url}`);
+    }
+    const text = await res.text();
+    if (!text?.trim()) {
+      throw new Error(`Empty subtitle body for ${url}`);
+    }
+    // HTML error pages / JSON responses are not captions.
+    const trimmed = text.trimStart();
+    if (
+      trimmed.startsWith('<!DOCTYPE') ||
+      trimmed.startsWith('<html') ||
+      trimmed.startsWith('{')
+    ) {
+      throw new Error(`Subtitle URL did not return caption text: ${url}`);
+    }
+    return ensureWebVtt(text);
+  }
 
+  async function saveVttFile(vtt: string, fileName = 'subtitles.vtt') {
+    const path = `${RNFS.CachesDirectoryPath}/${fileName}`;
+    await RNFS.writeFile(path, vtt, 'utf8');
+    return `file://${path}`;
+  }
 
-async function saveVttFile(vtt: string, fileName = 'subtitles.vtt') {
-  const path = `${RNFS.CachesDirectoryPath}/${fileName}`;
-  await RNFS.writeFile(path, vtt, 'utf8');
-  return `file://${path}`;
-}
+  function toLangCode(language: string): ISO639_1 {
+    const raw = (language || 'en').trim().toLowerCase();
+    const two = raw.slice(0, 2);
+    const known: ISO639_1[] = [
+      'en',
+      'fr',
+      'es',
+      'de',
+      'pt',
+      'ar',
+      'ha',
+      'ig',
+      'yo',
+      'zh',
+      'hi',
+      'it',
+      'nl',
+      'ru',
+      'ja',
+      'ko',
+    ];
+    if (known.includes(two as ISO639_1)) {
+      return two as ISO639_1;
+    }
+    if (raw.includes('english')) return 'en';
+    if (raw.includes('french')) return 'fr';
+    if (raw.includes('spanish')) return 'es';
+    if (raw.includes('arabic')) return 'ar';
+    if (raw.includes('hausa')) return 'ha';
+    if (raw.includes('igbo')) return 'ig';
+    if (raw.includes('yoruba')) return 'yo';
+    return 'en';
+  }
 
- async function handleSubtitles() {
-  const res = await getSubtitles({ parentId: '690a1202b672324134d81710' });
+  function buildDevTestTrack(): ISubtitle {
+    return {
+      language: 'en',
+      title: 'English (Test)',
+      uri: '',
+      type: TextTrackType.VTT,
+      cues: buildSampleEnglishCues(),
+    };
+  }
 
-  if (!res.ok || !res.data) return;
+  async function handleSubtitles() {
+    if (props.type === 'live') {
+      return;
+    }
 
-  const data: ISubtitle[] = await Promise.all(
-    res.data.data.map(async (x) => {
-      const vtt = await fetchAndConvertSubtitles(x.src);
-      const vttUri = await saveVttFile(vtt, `${x.language}.vtt`);
-      // console.log(vtt)
+    const parentId = props.contentData._id;
+    // English (Test) is Metro/dev only — never shipped in release/prod bundles.
+    const includeDevTest = typeof __DEV__ !== 'undefined' && __DEV__;
+    let data: ISubtitle[] = includeDevTest ? [buildDevTestTrack()] : [];
 
-      return {
-        language: 'en',
-        title: x.language,
-        uri: x.src,
-        type: TextTrackType.VTT,
-      };
-    })
-  );
+    if (includeDevTest) {
+      subtitleRef.current = data;
+      setSubtitle(data);
+    }
 
-  setSubtitle(data);
-    setVideoKey((k) => k + 1);
+    try {
+      if (parentId) {
+        const res = await getSubtitles({parentId});
+        if (res.ok && res.data?.data?.length) {
+          const apiTracks = (
+            await Promise.all(
+              res.data.data.map(async (x, index) => {
+                try {
+                  const vtt = await fetchAndConvertSubtitles(
+                    x.src,
+                    x.bucket,
+                    x.key,
+                  );
+                  const cues = parseVttCues(vtt);
+                  if (!cues.length) {
+                    console.warn(
+                      '[subtitles] parsed 0 cues',
+                      x.language,
+                      x.src,
+                    );
+                    return null;
+                  }
+                  const safeName = (x.language || `track-${index}`)
+                    .replace(/[^a-z0-9_-]/gi, '_')
+                    .toLowerCase();
+                  const vttUri = await saveVttFile(
+                    vtt,
+                    `${parentId}-${safeName}.vtt`,
+                  );
 
-}
+                  return {
+                    language: toLangCode(x.language),
+                    title: x.language || `Track ${index + 1}`,
+                    uri: vttUri,
+                    type: TextTrackType.VTT,
+                    cues,
+                  };
+                } catch (err) {
+                  console.warn(
+                    '[subtitles] failed to load track',
+                    x.language,
+                    x.src,
+                    err,
+                  );
+                  return null;
+                }
+              }),
+            )
+          ).filter(Boolean) as ISubtitle[];
+
+          data = includeDevTest
+            ? [...apiTracks, buildDevTestTrack()]
+            : apiTracks;
+        }
+      }
+    } catch (err) {
+      console.warn('[subtitles] fetch failed', err);
+    }
+
+    subtitleRef.current = data;
+    setSubtitle(data);
+  }
 
   const handleBuffer = useCallback((e: { isBuffering: boolean }) => {
-  setIsLoading(e.isBuffering);
-}, []);
-
-  const handleLoad = useCallback((e: OnLoadData) => {
-    setDuration(e.duration);
-    setIsLoading(false);
-    console.log(props.contentData.seekTo)
-    if(props.contentData.seekTo) handleSeek(props.contentData.seekTo)
+    setIsBuffering(e.isBuffering);
   }, []);
+
+  const handleReadyForDisplay = useCallback(() => {
+    setIsReadyForDisplay(true);
+    setIsBuffering(false);
+  }, []);
+
+  const handleAdEvent = useCallback(
+    (e: OnReceiveAdEventData) => {
+      switch (e.event) {
+        case AdEvent.LOADED:
+        case AdEvent.STARTED:
+        case AdEvent.AD_BREAK_STARTED:
+        case AdEvent.CONTENT_PAUSE_REQUESTED:
+        case AdEvent.AD_PERIOD_STARTED:
+          isAdPlayingRef.current = true;
+          setIsAdPlaying(true);
+          setActiveCueText('');
+          // If only a short (ad-length) duration was captured before LOADED/STARTED,
+          // discard it so we don't restore ad length after the break.
+          if (
+            contentDurationRef.current > 0 &&
+            contentDurationRef.current < 90
+          ) {
+            contentDurationRef.current = 0;
+            durationRef.current = 0;
+            setDuration(0);
+            progressRef.current = 0;
+            setProgress(0);
+          } else if (contentDurationRef.current > 0) {
+            durationRef.current = contentDurationRef.current;
+            setDuration(contentDurationRef.current);
+          }
+          clearControlsTimeout();
+          setIsControlsVisible(false);
+          break;
+        case AdEvent.COMPLETED:
+        case AdEvent.ALL_ADS_COMPLETED:
+        case AdEvent.AD_BREAK_ENDED:
+        case AdEvent.CONTENT_RESUME_REQUESTED:
+        case AdEvent.AD_PERIOD_ENDED:
+        case AdEvent.SKIPPED:
+        case AdEvent.ERROR:
+          isAdPlayingRef.current = false;
+          setIsAdPlaying(false);
+          restoreContentDuration();
+          showControls();
+          break;
+        default:
+          break;
+      }
+    },
+    [restoreContentDuration],
+  );
+
+  const handleLoad = useCallback(
+    (e: OnLoadData) => {
+      // IMA fires load for ads too — ignore while an ad break owns the player.
+      if (isAdPlayingRef.current) {
+        return;
+      }
+
+      const loadedDuration =
+        Number.isFinite(e.duration) && e.duration > 0 ? e.duration : 0;
+      if (loadedDuration > 0) {
+        applyContentDuration(loadedDuration);
+
+        const known = contentDurationRef.current;
+        if (!(known > 0)) {
+          return;
+        }
+
+        const time =
+          currentTimeRef.current > 0
+            ? currentTimeRef.current
+            : props.contentData.seekTo || 0;
+        const next = Math.min(Math.max(time / known, 0), 1);
+        if (Number.isFinite(next)) {
+          progressRef.current = next;
+          setProgress(next);
+          controlsRef.current?.onProgress(next);
+        }
+      }
+
+      const resumeAt =
+        currentTimeRef.current > 1
+          ? currentTimeRef.current
+          : props.contentData.seekTo || 0;
+      if (resumeAt > 0) {
+        handleSeek(resumeAt);
+      }
+    },
+    [applyContentDuration, handleSeek, props.contentData.seekTo],
+  );
 
   const handleEnd = useCallback(() => {
     controlsRef.current?.onProgress(1);
@@ -366,127 +766,200 @@ if(isSaveProgress) {
 
 useEffect(() =>{
   handleSubtitles();
-}, []);
+}, [props.contentData._id, props.type]);
 
-// console.log(props.contentData.watchedDocumentId)
-
+  useEffect(() => {
+    setIsReadyForDisplay(false);
+    setIsBuffering(true);
+    durationRef.current = 0;
+    contentDurationRef.current = 0;
+    progressRef.current = 0;
+    currentTimeRef.current = 0;
+    isAdPlayingRef.current = false;
+    setIsAdPlaying(false);
+    setDuration(0);
+    setProgress(0);
+    selectedSubtitleIndexRef.current = -1;
+    setSelectedSubtitleIndex(-1);
+    setActiveCueText('');
+  }, [typeof source?.uri === 'string' ? source.uri : source?.uri]);
 
   /* ---------------- RENDER ---------------- */
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{flex: 1}}>
       <Video
-      // key={videoKey}
         ref={videoRef}
-        source={{...source, 
-          ad:{
-            adTagUrl:(props.contentData.vidClass.toLowerCase()==='free' && !disableControlsAutoHide) ? demoAds :undefined 
-          }
+        source={{
+          ...source,
+          ...(liveNow && !(source as {type?: string})?.type
+            ? {type: 'm3u8'}
+            : null),
+          shouldCache: liveNow ? false : source?.shouldCache,
+          bufferConfig:
+            source?.bufferConfig ?? getBufferConfigForMode(playbackMode),
+          minLoadRetryCount: source?.minLoadRetryCount ?? 5,
+          textTracks:
+            subtitle.length > 0
+              ? subtitle
+                  .filter(t => !!t.uri)
+                  .map(({title, language, type, uri}) => ({
+                    title,
+                    language,
+                    type,
+                    uri,
+                  }))
+              : undefined,
+          ad: {
+            adTagUrl:
+              props.contentData.vidClass.toLowerCase() === 'free' &&
+              !disableControlsAutoHide
+                ? SINGLE_AD_TAG
+                : undefined,
+          },
         }}
         style={[styles.video, sizeStyle, style]}
         paused={paused || !isPlaying}
         muted={isMuted}
         resizeMode={resizeMode}
+        // SurfaceView draws above RN views on Android and hides caption overlays.
+        useTextureView
+        viewType={ViewType.TEXTURE}
+        poster={
+          posterUri
+            ? {source: {uri: posterUri}, resizeMode: 'cover'}
+            : undefined
+        }
+        preferredForwardBufferDuration={getPreferredForwardBufferDuration(
+          playbackMode,
+        )}
+        maxBitRate={maxBitRate}
+        progressUpdateInterval={250}
+        preventsDisplaySleepDuringVideoPlayback
+        reportBandwidth
+        hideShutterView
+        shutterColor="transparent"
+        ignoreSilentSwitch="ignore"
+        playInBackground={false}
+        playWhenInactive={false}
+        // Native sideloaded tracks are unreliable on current Android builds —
+        // captions are rendered via the JS cue overlay below.
+        selectedTextTrack={{type: SelectedTrackType.DISABLED}}
+        subtitleStyle={{
+          fontSize: 18,
+          paddingBottom: isFullscreen ? 48 : 24,
+          opacity: 1,
+        }}
         onProgress={handleProgress}
         onLoad={handleLoad}
         onEnd={handleEnd}
         onBuffer={handleBuffer}
-          // selectedTextTrack={{
-          //   type:SelectedTrackType.LANGUAGE,
-          //   value:'en'
-          // }}
-        // onTextTracks={e => console.log(e,subtitle)}
-        // onTextTrackDataChanged={e => console.log(e)}
-        // onReceiveAdEvent={e => e.event === AdEvent.COMPLETED ? console.log('show content') : e.event === AdEvent.AD_PROGRESS ? console.log('hide controls') : null}
+        onReadyForDisplay={handleReadyForDisplay}
+        onReceiveAdEvent={handleAdEvent}
       />
 
-     <View style={{bottom:isControlsVisible?45:4}} className='w-full h-20 absolute z-50'>
-       {/* {subtitle.length > 0 && <Subtitles
-      {...{ currentTime:progress*duration }}
-      containerStyle={{borderWidth:1, borderColor:'white', width:'80%', height:50, marginHorizontal:'auto',}}
-      textStyle={{color:'white'}}
-      selectedsubtitle={{
-        file: subtitle[0].uri,
-      }}
-    />} */}
-    {/* {subtitle.length > 0 && <SubtitlePlayer
-      currentTime={progress*duration}
-            style={{borderWidth:1, borderColor:'white', width:'80%', height:50, marginHorizontal:'auto'}}
-      subtitle={{
-         uri : subtitle[0].uri,
-        //  translationUri:'translation.srt'
-      }}
-    />} */}
-     </View> 
+      {showLoadingOverlay && (
+        <View style={styles.loader} pointerEvents="none">
+          <LottieView
+            source={require('@/assets/icons/RPlay.json')}
+            style={{
+              width: isFullscreen ? 180 : 120,
+              height: isFullscreen ? 180 : 120,
+            }}
+            autoPlay
+            loop
+          />
+        </View>
+      )}
 
-      {(isLoading) && <View className='absolute w-full h-[80%] top-[10%] items-center justify-center z-[99px]'>
-          {isFullscreen ? 
-          <>
-          <View className="mx-16 w-[50px] h-[70px] justify-center -mt-6">
-              <LottieView
-                source={require('@/assets/icons/RPlay.json')}
-                style={{
-                  width: 350,
-                  height: 350,
-                  alignSelf: 'center',
-                }}
-                autoPlay
-                loop
-              />
-            </View>
-          </>
-          :<>
-          <View>
-             <LottieView
-                source={require('@/assets/icons/RPlay.json')}
-                style={{
-                  width: 200,
-                  height: 200,
-                }}
-                autoPlay
-                loop
-              />
+      {!isAdPlaying && (
+        <View style={styles.chromeLayer} pointerEvents="box-none">
+          <TouchableOpacity
+            activeOpacity={1}
+            style={StyleSheet.absoluteFill}
+            onPress={isControlsVisible ? hideControls : showControls}
+          />
+          <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+            <Controls
+              {...props}
+              progress={progress}
+              duration={duration}
+              isPlaying={isPlaying}
+              isMuted={isMuted}
+              isControlsVisible={isControlsVisible}
+              isFullscreeen={isFullscreen}
+              isLoading={showLoadingOverlay}
+              onPlayPress={handlePlayPause}
+              onMutePress={handleMute}
+              onSeek={handleSeek}
+              onToggleFullScreen={onToggleFullScreen}
+              setIsPlaying={setIsPlaying}
+              showControls={showControls}
+              handleGoBackFunc={rest.handleGoBackFunc}
+              subtitleTracks={subtitle}
+              selectedSubtitleIndex={selectedSubtitleIndex}
+              onSelectSubtitle={handleSelectSubtitle}
+              onSubtitlePickerOpenChange={handleSubtitlePickerOpenChange}
+              onBrightnessGestureStart={handleBrightnessGestureStart}
+              onBrightnessGestureEnd={handleBrightnessGestureEnd}
+            />
           </View>
-          </>}
-        </View>}
 
-      <TouchableOpacity
-        activeOpacity={1}
-        style={StyleSheet.absoluteFill}
-        onPress={isControlsVisible ? hideControls : showControls}
-      >
-        <Controls
-          {...props}
-          progress={progress}
-          duration={duration}
-          isPlaying={isPlaying}
-          isMuted={isMuted}
-          isControlsVisible={isControlsVisible}
-          isFullscreeen={isFullscreen}
-          isLoading={isLoading}
-          onPlayPress={handlePlayPause}
-          onMutePress={handleMute}
-          onSeek={handleSeek}
-          onToggleFullScreen={onToggleFullScreen}
-          setIsPlaying={setIsPlaying}
-          showControls={showControls}
-          handleGoBackFunc={rest.handleGoBackFunc}
-        />
-      </TouchableOpacity>
+          {!!activeCueText && (
+            <View
+              pointerEvents="none"
+              style={[
+                styles.subtitleOverlay,
+                {
+                  paddingBottom: isControlsVisible
+                    ? isFullscreen
+                      ? 78
+                      : 36
+                    : isFullscreen
+                      ? 14
+                      : 8,
+                },
+              ]}>
+              <Text style={styles.subtitleText}>{activeCueText}</Text>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  video:
-    +Platform.Version >= 24
-      ? {}
-      : {
-          backgroundColor: 'black',
-        },
-  overlayButton: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    zIndex: 99999,
+  video: {
+    backgroundColor: 'black',
+  },
+  loader: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+  },
+  chromeLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+  },
+  subtitleOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    zIndex: 40,
+  },
+  subtitleText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: '600',
+    textAlign: 'center',
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 6,
+    overflow: 'hidden',
+    maxWidth: '100%',
   },
 });

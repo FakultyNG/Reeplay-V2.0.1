@@ -18,14 +18,15 @@ import { CheckIcon, DropDwn, EyeIcon, EyeIcon_C } from '@/assets/icons';
 import useToggle from '@/Hooks/useToggle';
 import { useNavigation } from '@react-navigation/native';
 import routes from '@/navigation/routes';
-import { getData, removeData, storeData } from '@/Utils/useAsyncStorage';
 import { handleLoginAPI, handleSignUpAPI, resendToken } from '@/api/auth.api';
 import { GUEST_TOKEN, WEB_CLIENT_ID } from '@env';
-import { getProfileDetails } from '@/api/profile.api';
+import { getProfileDetails, armAuthGrace } from '@/api/profile.api';
 import { useAppDispatch } from '@/Hooks/reduxHook';
 import { setCredentials } from '@/store/slices/userSlice';
 import { hasUserDetails } from '@/Screens/Splashscreen/Splashscreen';
 import { HAS_SET_NEWPIN } from '../GetStartedScreen';
+import { saveTokens } from '@/Utils/secureTokenStorage';
+import { authGet, authRemove, authSet, AUTH_MMKV_KEYS } from '@/Utils/authMmkv';
 import { bannerApi, fetchEnums } from '@/api/content.api';
 import { setBannerContent, setCategories, setGenres } from '@/store/slices/bannerSlice.slice';
 import GoogleIcon from '@/assets/icons/LOGO.svg'
@@ -42,7 +43,7 @@ import { useAppPersistStore } from '@/store/zustand.store';
 import PrivacyScreen from '@/Screens/support/PrivacyScreen';
 import TermScreen from '@/Screens/support/TermScreen';
 import CountryFlag from 'react-native-country-flag';
-import {getDeviceId} from 'react-native-device-info';
+import { getDeviceId } from 'react-native-device-info';
 import { registerNotificationDevice } from '@/api/notification.api';
 import messaging from '@react-native-firebase/messaging';
 
@@ -61,13 +62,13 @@ interface Props {
   trigger?: () => void;
   setIsCountryCode?: React.Dispatch<React.SetStateAction<boolean>>;
   setIsGender?: React.Dispatch<React.SetStateAction<boolean>>;
-  gender?:string
+  gender?: string
   countryCode?: {
     cc: string;
     cf: string;
   };
   setEmail?: React.Dispatch<React.SetStateAction<string>>;
-  isSession?:boolean
+  isSession?: boolean
 }
 
 const AuthFormComponent = ({
@@ -93,16 +94,16 @@ const AuthFormComponent = ({
   const [phoneNo, setPhoneNo] = useState<string>('');
   const [toogle, setToogle] = useToggle(true);
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>(''); 
-  const {setIsToken} = useAppPersistStore()
-  const [modal, setModal] = useState<'privacy'|'terms'|null>(null)
-    const deviceId = getDeviceId();
-    const deviceType =
+  const [error, setError] = useState<string>('');
+  const { setIsSessionExpired } = useAppPersistStore()
+  const [modal, setModal] = useState<'privacy' | 'terms' | null>(null)
+  const deviceId = getDeviceId();
+  const deviceType =
     Platform.OS === 'ios'
       ? 'ios'
       : Platform.OS === 'android'
-      ? 'android'
-      : 'other';
+        ? 'android'
+        : 'other';
 
   async function resetState() {
     setEmail('');
@@ -112,60 +113,60 @@ const AuthFormComponent = ({
     setLastName('');
     setPhoneNo('');
     setError('');
-    await removeData(HAS_SKIPPED);
+    await authRemove(HAS_SKIPPED);
   }
 
-     const requestUserPermission = async () => {
-      if (Platform.OS === 'android' && Platform.Version >= 33) {
-        const check = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
-        if (!check) {
-          const status = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
-          if (status !== PermissionsAndroid.RESULTS.GRANTED) return false;
-        }
+  const requestUserPermission = async () => {
+    if (Platform.OS === 'android' && Platform.Version >= 33) {
+      const check = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+      if (!check) {
+        const status = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+        if (status !== PermissionsAndroid.RESULTS.GRANTED) return false;
       }
-    
-      const authStatus = await messaging().requestPermission();
-      const enabled =
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-    
-      return enabled;
-    };
-    const getToken = async () => {
-  try {
-    if (!messaging().isDeviceRegisteredForRemoteMessages) {
-      await messaging().registerDeviceForRemoteMessages();
     }
 
-    const token = await messaging().getToken();
-    
-    if (token) {
-      console.log("FCM Token Generated:", token);
-      await storeData('FCM_TOKEN', token);
-      const t = await registerNotificationDevice({
-        device_id: deviceId,
-        device_type: deviceType,
-        device_token: token,
-      });
-      return t;
-    }
-  } catch (error) {
-    console.error("Token Generation Error:", error);
-  }
-};
-  
-     async function handleInitializations() {
-      if (await requestUserPermission()) {
-        getToken();
-        messaging()
-          .getInitialNotification()
-          .then(async rm => {
-            // if (rm) {
-            //   console.log('Notification: ', rm.notification);
-            // }
-          });
+    const authStatus = await messaging().requestPermission();
+    const enabled =
+      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+    return enabled;
+  };
+  const getToken = async () => {
+    try {
+      if (!messaging().isDeviceRegisteredForRemoteMessages) {
+        await messaging().registerDeviceForRemoteMessages();
       }
+
+      const token = await messaging().getToken();
+
+      if (token) {
+        console.log("FCM Token Generated:", token);
+        await authSet(AUTH_MMKV_KEYS.FCM_TOKEN, token);
+        const t = await registerNotificationDevice({
+          device_id: deviceId,
+          device_type: deviceType,
+          device_token: token,
+        });
+        return t;
+      }
+    } catch (error) {
+      console.error("Token Generation Error:", error);
     }
+  };
+
+  async function handleInitializations() {
+    if (await requestUserPermission()) {
+      getToken();
+      messaging()
+        .getInitialNotification()
+        .then(async rm => {
+          // if (rm) {
+          //   console.log('Notification: ', rm.notification);
+          // }
+        });
+    }
+  }
 
   async function handleLogin() {
     if (email === '' && password === '') {
@@ -178,49 +179,88 @@ const AuthFormComponent = ({
         setLoading(true);
         if (regex.test(email)) {
           const res = await handleLoginAPI({
-            email:email.trim(),
+            email: email.trim(),
             password,
           });
           if (res.ok && res.data) {
-            //@ts-ignore
-            await storeData('AUTH_TOKEN', res.data.data.accessToken);
-            //@ts-ignore
-            await storeData('REFRESH_TOKEN', res.data.data.refreshToken);
+            const raw = res.data as Record<string, unknown>;
+            const loginData = (raw.data ?? raw) as {
+              accessToken?: string;
+              refreshToken?: string;
+              token?: string;
+              access_token?: string;
+              refresh_token?: string;
+            };
+            const accessToken =
+              loginData.accessToken ??
+              loginData.token ??
+              loginData.access_token;
+            const refreshToken =
+              loginData.refreshToken ?? loginData.refresh_token;
+            console.log('[auth] login response tokens', {
+              hasAccessToken: !!accessToken,
+              accessTokenLen: accessToken?.length ?? 0,
+              hasRefreshToken: !!refreshToken,
+              refreshTokenLen: refreshToken?.length ?? 0,
+              loginDataKeys: Object.keys(loginData),
+              rawTopKeys: Object.keys(raw),
+            });
+            if (!accessToken) {
+              console.log('[auth] login payload keys', Object.keys(loginData));
+              setError('Login succeeded but no access token was returned.');
+              setTimeout(() => setError(''), 5000);
+              return;
+            }
+
+            await saveTokens({accessToken, refreshToken});
+            // Prevent home boot / FCM 401s from wiping this fresh session.
+            armAuthGrace(60_000);
+            setIsSessionExpired(false);
+
             const profileRes = await getProfileDetails();
+            console.log('[auth] post-login profile', {
+              ok: profileRes.ok,
+              status: profileRes.status,
+              problem: profileRes.problem,
+            });
             const banner = await bannerApi();
             const categories = await fetchEnums('categories');
             const genres = await fetchEnums('genres');
-            const fcmToken = await getData('FCM_TOKEN');
+            const fcmToken = await authGet(AUTH_MMKV_KEYS.FCM_TOKEN);
 
-            
+
             if (banner.ok && banner.data) dispatch(setBannerContent(banner.data.data))
-              if (categories.ok && categories.data) dispatch(setCategories(categories.data.data))
-                if (genres.ok && genres.data) dispatch(setGenres(genres.data.data))
-                  
-                  if (profileRes.ok && profileRes.data) {
-                    if(fcmToken){
-                      await registerNotificationDevice({
-                       device_id:deviceId,
-                      device_type:deviceType,
-                      device_token:fcmToken,
-                    });
-                    }else if(profileRes.data.data.profile.settings_info.allow_notifications && !fcmToken){
-                        handleInitializations();
-                    }
-                    await storeData(
+            if (categories.ok && Array.isArray(categories.data?.data)) {
+              dispatch(setCategories(categories.data.data))
+            }
+            if (genres.ok && Array.isArray(genres.data?.data)) {
+              dispatch(setGenres(genres.data.data))
+            }
+
+            if (profileRes.ok && profileRes.data) {
+              if (fcmToken) {
+                await registerNotificationDevice({
+                  device_id: deviceId,
+                  device_type: deviceType,
+                  device_token: fcmToken,
+                });
+              } else if (profileRes.data.data.profile.settings_info.allow_notifications && !fcmToken) {
+                handleInitializations();
+              }
+              await authSet(
                 hasUserDetails,
                 JSON.stringify(profileRes.data.data),
               );
-              if (profileRes.data.data.profile.pin && profileRes.data.data.profile.pin!=='')
-                await storeData(
+              if (profileRes.data.data.profile.pin && profileRes.data.data.profile.pin !== '')
+                await authSet(
                   HAS_SET_NEWPIN,
                   profileRes.data.data.profile.pin,
                 );
               dispatch(setCredentials(profileRes.data.data));
+              armAuthGrace(60_000);
+              setIsSessionExpired(false);
 
-              if(isSession){
-                setIsToken(false)
-              }else{
+              if (!isSession) {
                 reset({
                   index: 0,
                   routes: [
@@ -231,6 +271,14 @@ const AuthFormComponent = ({
                 });
               }
               resetState();
+            } else {
+              console.log(
+                '[auth] profile after login failed',
+                profileRes.status,
+                profileRes.problem,
+              );
+              setError('Logged in but could not load your profile. Try again.');
+              setTimeout(() => setError(''), 5000);
             }
           } else {
             if (
@@ -322,7 +370,7 @@ const AuthFormComponent = ({
             fullname: `${firstName} ${lastName}`,
             phoneNo: `${countryCode && countryCode.cc}${phoneNo}`,
           };
-          
+
           formdata.append('first_name', firstName);
           formdata.append('last_name', lastName);
           formdata.append('email', email.trim());
@@ -330,11 +378,11 @@ const AuthFormComponent = ({
           formdata.append('cpassword', password);
           formdata.append('mobile', phoneNo);
           formdata.append('verified', 'true');
-          formdata.append('gender', gender ? gender.toLowerCase():'nil');
+          formdata.append('gender', gender ? gender.toLowerCase() : 'nil');
           formdata.append('dob', dob);
           formdata.append('country', `${country_codes.find(x => x.dial_code === countryCode?.cc)?.name}`);
           formdata.append('country_code', `${countryCode && countryCode.cc}`);
-          
+
           const res = await handleSignUpAPI(formdata);
           if (res.ok && res.data) {
             nav.navigate(routes.VEERIFY_PHONE, {
@@ -367,8 +415,8 @@ const AuthFormComponent = ({
   }
 
   async function handleSkip() {
-    await storeData(HAS_SKIPPED, 'true');
-    await storeData('AUTH_TOKEN', GUEST_TOKEN);
+    await authSet(HAS_SKIPPED, 'true');
+    await saveTokens({accessToken: GUEST_TOKEN});
     //navigate to home
     reset({
       index: 0,
@@ -443,19 +491,19 @@ const AuthFormComponent = ({
             <Pressable
               style={[styles.center, { columnGap: 4 }]}
               onPress={() => setIsCountryCode(true)}>
-               <AppView style={{transform:[{scale:1.2}]}} className="w-7 h-[18px] items-center justify-center overflow-hidden relative">
-                                  {countryCode.cf === '' ? 
-                                <AppImage source={require('@/assets/images/nigerian-flag1.png')} style={{position:'absolute', width:23, height:14}} />
-                                  : <CountryFlag
-                  isoCode={countryCode.cf.toLowerCase()}
-                  size={18}
-                  style={{
-                    width: 23,
-                    height: 14,
-                    marginLeft: -1,
-                  }}
-                />
-}
+              <AppView style={{ transform: [{ scale: 1.2 }] }} className="w-7 h-[18px] items-center justify-center overflow-hidden relative">
+                {countryCode.cf === '' ?
+                  <AppImage source={require('@/assets/images/nigerian-flag1.png')} style={{ position: 'absolute', width: 23, height: 14 }} />
+                  : <CountryFlag
+                    isoCode={countryCode.cf.toLowerCase()}
+                    size={18}
+                    style={{
+                      width: 23,
+                      height: 14,
+                      marginLeft: -1,
+                    }}
+                  />
+                }
               </AppView>
               <AppText style={styles.text}>{countryCode.cc}</AppText>
               <DropDwn />
@@ -471,33 +519,33 @@ const AuthFormComponent = ({
 
           <View className='flex-row gap-x-2 mb-4'>
             <Pressable
-            onPress={() => setDateVisibility(true)}
-            style={[
-              styles.textInput,
-              Platform.OS === 'android' && {
-               paddingTop: Size.calcHeight(14),
+              onPress={() => setDateVisibility(true)}
+              style={[
+                styles.textInput,
+                Platform.OS === 'android' && {
+                  paddingTop: Size.calcHeight(14),
                   paddingBottom: Size.calcHeight(15)
-              },
-            ]}
-            className="flex-row flex-1 items-center">
-                           <AppText style={styles.text}>{dob !== '' ? new Date(dob).toLocaleDateString():'Date of birth'}</AppText> 
+                },
+              ]}
+              className="flex-row flex-1 items-center">
+              <AppText style={styles.text}>{dob !== '' ? new Date(dob).toLocaleDateString() : 'Date of birth'}</AppText>
             </Pressable>
             <AppView
-            style={[
-              styles.textInput,
-              Platform.OS === 'android' && {
-                paddingTop: Size.calcHeight(2),
-                paddingBottom: Size.calcHeight(3),
-              },
-            ]}
-            className="flex-row flex-1 items-center">
-            <Pressable
-              style={[styles.center, { columnGap: 4 }]}
-              className='justify-between w-full pr-4'
-              onPress={() => setIsGender?.(true)}>
-              <AppText style={styles.text}>{gender}</AppText>
-              <DropDwn />
-            </Pressable>
+              style={[
+                styles.textInput,
+                Platform.OS === 'android' && {
+                  paddingTop: Size.calcHeight(2),
+                  paddingBottom: Size.calcHeight(3),
+                },
+              ]}
+              className="flex-row flex-1 items-center">
+              <Pressable
+                style={[styles.center, { columnGap: 4 }]}
+                className='justify-between w-full pr-4'
+                onPress={() => setIsGender?.(true)}>
+                <AppText style={styles.text}>{gender}</AppText>
+                <DropDwn />
+              </Pressable>
             </AppView>
           </View>
         </>
@@ -568,31 +616,31 @@ const AuthFormComponent = ({
 
       {screen === 'login' && (
         <>
-        <View style={{marginTop: Size.calcHeight(24)}} className='flex-row w-full items-center gap-x-1.5'>
-          <View className='flex-1'>
-          <AppButton
-            isLoading={loading}
-            title="Login"
-            bgColor={colors.RED}
-            onPress={handleLogin}
-            style={{
-               borderRadius:0,
-              borderTopLeftRadius: 4,
-              borderBottomLeftRadius: 4,
-              width: '100%',
-              // paddingVertical: 0,
-              // height:10
-            }}
-            labelStyle={{ fontSize: 16 }}
-          />
+          <View style={{ marginTop: Size.calcHeight(24) }} className='flex-row w-full items-center gap-x-1.5'>
+            <View className='flex-1'>
+              <AppButton
+                isLoading={loading}
+                title="Login"
+                bgColor={colors.RED}
+                onPress={handleLogin}
+                style={{
+                  borderRadius: 0,
+                  borderTopLeftRadius: 4,
+                  borderBottomLeftRadius: 4,
+                  width: '100%',
+                  // paddingVertical: 0,
+                  // height:10
+                }}
+                labelStyle={{ fontSize: 16 }}
+              />
+            </View>
+
+            <TouchableOpacity activeOpacity={.7} className='opacity-40 w-[65px] h-[54px] items-center justify-center bg-[#fff4f4] rounded-r-[4px]'>
+              <GoogleIcon />
+            </TouchableOpacity>
           </View>
 
-           <TouchableOpacity activeOpacity={.7} className='opacity-40 w-[65px] h-[54px] items-center justify-center bg-[#fff4f4] rounded-r-[4px]'>
-            <GoogleIcon />
-          </TouchableOpacity>
-        </View>
-
-         {/* {!isSession && <AppButton
+          {/* {!isSession && <AppButton
             title="Skip"
             bgColor={colors.GREY_700}
             onPress={handleSkip}
@@ -610,20 +658,20 @@ const AuthFormComponent = ({
       {screen === 'signUp' && (
         <AppView style={{ marginTop: Size.calcHeight(15) }} className="w-full flex-row  gap-x-1.5 items-center">
           <View className='flex-1'>
-          <AppButton
-            isLoading={loading}
-            title="Create account"
-            bgColor={colors.RED}
-            onPress={handleSignUp}
-            style={{
-              borderRadius:0,
-              borderTopLeftRadius: 4,
-              borderBottomLeftRadius: 4,
-              width: '100%',
-              paddingVertical: Size.calcHeight(15.8),
-            }}
-            labelStyle={{ fontSize: 16 }}
-          />
+            <AppButton
+              isLoading={loading}
+              title="Create account"
+              bgColor={colors.RED}
+              onPress={handleSignUp}
+              style={{
+                borderRadius: 0,
+                borderTopLeftRadius: 4,
+                borderBottomLeftRadius: 4,
+                width: '100%',
+                paddingVertical: Size.calcHeight(15.8),
+              }}
+              labelStyle={{ fontSize: 16 }}
+            />
           </View>
           <TouchableOpacity activeOpacity={.7} className='opacity-40 w-[65px] h-[54px] items-center justify-center bg-[#fff4f4] rounded-r-[4px]'>
             <GoogleIcon />
@@ -669,7 +717,7 @@ const AuthFormComponent = ({
 
       {(screen === 'login' || screen === 'signUp') && !isSession && (
         <AppView
-          style={Platform.OS === 'android' && { marginTop: screen !== 'login' ? -5 :1 }}
+          style={Platform.OS === 'android' && { marginTop: screen !== 'login' ? -5 : 1 }}
           className="flex-row items-center mt-3">
           <AppText className="text-base text-[#BCC1CA] font-MANROPE_400 text-center">
             {screen === 'login'
@@ -699,23 +747,23 @@ const AuthFormComponent = ({
       )}
 
       <DateTimePickerModal
-            isVisible={dataVisibility}
-            mode="date"
-            maximumDate={subtractYears(new Date(), 18)}
-            onConfirm={e => [setDOB(e.toISOString()), setDateVisibility(false)]}
-            date={subtractYears(new Date(), 18)}
-            onCancel={() => setDateVisibility(false)}
-          />
+        isVisible={dataVisibility}
+        mode="date"
+        maximumDate={subtractYears(new Date(), 18)}
+        onConfirm={e => [setDOB(e.toISOString()), setDateVisibility(false)]}
+        date={subtractYears(new Date(), 18)}
+        onCancel={() => setDateVisibility(false)}
+      />
 
 
 
-          <Modal visible={modal !== null} onRequestClose={() => setModal(null)} animationType='slide'>
-            {modal === 'privacy' ? 
-            <PrivacyScreen handleFunc={() =>setModal(null)} />
-            :
-            <TermScreen handleFunc={() =>setModal(null)} />
-            }
-          </Modal>
+      <Modal visible={modal !== null} onRequestClose={() => setModal(null)} animationType='slide'>
+        {modal === 'privacy' ?
+          <PrivacyScreen handleFunc={() => setModal(null)} />
+          :
+          <TermScreen handleFunc={() => setModal(null)} />
+        }
+      </Modal>
     </AppView>
   );
 };
@@ -737,7 +785,7 @@ const styles = StyleSheet.create({
     paddingBottom:
       Platform.OS === 'ios' ? Size.calcHeight(19) : Size.calcHeight(19),
     borderRadius: 4,
-    height:53
+    height: 53
   },
   adjust: {
     paddingVertical: Size.calcHeight(3),

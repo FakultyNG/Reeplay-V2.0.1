@@ -63,7 +63,8 @@ const PaymentSummaryView = ({
   const [paymentMethod, setPaymentMethod] = useState<string>(
     selectedPaymentMethod ? selectedPaymentMethod : paymentMethodList[0],
   );
-  const fees = currency === 'NGN' ?'10' : '3'
+  const fees = '0';
+
 
   async function handlePaymentDetails(){
     const res = await fetchStoredPaymentDetails();
@@ -108,13 +109,13 @@ const PaymentSummaryView = ({
             Amount
           </AppText>
           <AppText className="font-LEXEND_400 text-white text-sm">
-            {getSymbolFromCurrency(currency)}{formatAmount(topUpAmount ?? '')}.00
+            {getSymbolFromCurrency(currency)}{formatAmount(topUpAmount ?? '', currency)}
           </AppText>
         </AppView>
         <AppView className="flex-row items-center justify-between mt-6">
           <AppText className="font-MANROPE_400 text-white text-sm">Fee</AppText>
           <AppText className="font-MANROPE_400 text-white text-sm">
-            {getSymbolFromCurrency(currency)}{fees}.00
+            {getSymbolFromCurrency(currency)}{formatAmount(fees, currency)}
           </AppText>
         </AppView>
         <AppView
@@ -126,7 +127,7 @@ const PaymentSummaryView = ({
             Total
           </AppText>
           <AppText className="font-LEXEND_400 text-white text-sm">
-            {getSymbolFromCurrency(currency)}{formatAmount(`${Number(topUpAmount) + Number(fees)}`)}.00
+            {getSymbolFromCurrency(currency)}{formatAmount(Number(topUpAmount) + Number(fees), currency)}
           </AppText>
         </AppView>
       </AnimatedView>

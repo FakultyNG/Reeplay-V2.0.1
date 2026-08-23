@@ -21,8 +21,8 @@ const TvShowsTab = ({scrollY, item, makeFullscreen, loading}: Props) => {
     return (
       <LiveEmptyState
         loading={loading}
-        title="No TV shows right now"
-        message="Live TV shows will appear here when they are available. Check back soon."
+        compact
+        title="No Live content"
       />
     );
   }

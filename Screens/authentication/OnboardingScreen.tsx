@@ -1,12 +1,12 @@
 import {StatusBar, StyleSheet, View} from 'react-native';
-import React, {useRef, useState} from 'react';
-import {AppButton, AppImage, AppText, AppView} from '@/components';
+import React, {useState} from 'react';
+import {AppImage, AppView} from '@/components';
 import Onboarding from 'react-native-onboarding-swiper';
 import colors from '@/configs/colors';
 import Size from '@/Utils/useResponsiveSize';
 import FastImage from 'react-native-fast-image';
 import OnboardingPage from './components/OnboardingPage';
-import {RedTick, RightArrow} from '@/assets/icons';
+import {RedTick} from '@/assets/icons';
 import {useNavigation} from '@react-navigation/native';
 import {OnboardingScreenProps} from '@/types/typings';
 import routes from '@/navigation/routes';
@@ -14,12 +14,6 @@ import routes from '@/navigation/routes';
 const OnboardingScreen = () => {
   const navigation = useNavigation<OnboardingScreenProps>();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const onboardingRef = useRef<Onboarding>(null);
-
-  const handleNext = () => {
-    const nextPage = Math.min(currentIndex + 1, 2);
-    (onboardingRef.current as any)?.goToPage?.(nextPage, true);
-  };
 
   const handlePageCallBack = (pageNumber: number) => {
     setCurrentIndex(pageNumber);
@@ -50,7 +44,6 @@ const OnboardingScreen = () => {
     <View style={{flex: 1, position: 'relative'}}>
       <StatusBar hidden />
       <Onboarding
-        ref={onboardingRef}
         showPagination={false}
         imageContainerStyles={{paddingBottom: 0}}
         titleStyles={{height: 0, paddingBottom: 0, paddingTop: 0}}
@@ -69,11 +62,7 @@ const OnboardingScreen = () => {
                   mainText="Watch everything"
                   mainText2="in one place"
                   subText={`See your Favorite Content ${'\n'}on REEPLAY.`}
-                  btnText="NEXT"
-                  handleBtn={handleNext}
-                  iconLeft={
-                    <RightArrow style={{position: 'absolute', right: 20}} />
-                  }
+                  slideHint="Swipe to continue"
                   Indicator={<Indicator />}
                 />
               </>
@@ -91,11 +80,7 @@ const OnboardingScreen = () => {
                   mainText="Watch"
                   mainText2="on any device"
                   subText={`Stream on your Phone, ${'\n'}Tablet and Laptop, ${'\n'}without paying more.`}
-                  btnText="NEXT"
-                  handleBtn={handleNext}
-                  iconLeft={
-                    <RightArrow style={{position: 'absolute', right: 20}} />
-                  }
+                  slideHint="Swipe to continue"
                   Indicator={<Indicator />}
                 />
               </>

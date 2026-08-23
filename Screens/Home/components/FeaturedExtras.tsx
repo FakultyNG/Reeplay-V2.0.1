@@ -1,5 +1,6 @@
 import {
   FlatList,
+  InteractionManager,
   Modal,
   Pressable,
   StyleSheet,
@@ -200,10 +201,10 @@ function preloadCastPhotos(list: ICast[]) {
   const sources = list
     .map(c => c.photoUrl)
     .filter((uri): uri is string => !!uri)
-    .slice(0, 12)
+    .slice(0, 6)
     .map(uri => ({
       uri,
-      priority: FastImage.priority.high,
+      priority: FastImage.priority.low,
       cache: FastImage.cacheControl.immutable,
     }));
   if (sources.length) {
@@ -246,19 +247,28 @@ const FeaturedExtras = ({
     [onAvailabilityChange],
   );
 
-  // Prefetch all featured titles ASAP (no InteractionManager delay).
+  // Prefetch remaining featured titles after first paint so posters win the network.
   useEffect(() => {
     if (!featuredVods.length) {
       return;
     }
     let cancelled = false;
-    prefetchAllFeaturedExtras(featuredVods, vod?._id).then(() => {
-      if (!cancelled) {
-        setCacheTick(t => t + 1);
-      }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const task = InteractionManager.runAfterInteractions(() => {
+      timer = setTimeout(() => {
+        prefetchAllFeaturedExtras(featuredVods, vod?._id).then(() => {
+          if (!cancelled) {
+            setCacheTick(t => t + 1);
+          }
+        });
+      }, 1200);
     });
     return () => {
       cancelled = true;
+      task.cancel();
+      if (timer) {
+        clearTimeout(timer);
+      }
     };
   }, [featuredKey]);
 

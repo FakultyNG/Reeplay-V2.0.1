@@ -22,6 +22,8 @@ import colors from '@/configs/colors';
 import Size from '@/Utils/useResponsiveSize';
 import fonts from '@/configs/fonts';
 import LinearGradient from 'react-native-linear-gradient';
+import {MotiView} from 'moti';
+import {Easing} from 'react-native-reanimated';
 import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
 import {selectUser} from '@/store/slices/userSlice';
 import {useIsFocused, useNavigation} from '@react-navigation/native';
@@ -48,7 +50,6 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
   const videoRef = useRef<VideoRef>(null);
   const [toogle, setToogle] = useToggle(false);
   const user = useAppSelector(selectUser);
-  const [isPause, setIsPause] = useState(true);
   const [lock, setLock] = useState(false);
   const [biometricsIsSupport, setBiometricsIsSupport] = useState(true);
   const isFocused = useIsFocused();
@@ -57,6 +58,8 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
   const ads = useAppSelector(selectAdsContent).ads
   const {isLock,setIsLock,isToken, biometrics} = useAppPersistStore()
     const [modal, setModal] = useState<'privacy'|'terms'|null>(null)
+  const [adsReady, setAdsReady] = useState(ads.length > 0);
+  const [videoReady, setVideoReady] = useState(false);
 
   async function handleLogin() {
     if (lock) {
@@ -90,8 +93,14 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
       console.log(lockState)
     }
 
-    const res = await randomAds();
-    if(res.ok && res.data) dispatch(setAdsContent(res.data.data))
+    try {
+      const res = await randomAds();
+      if(res.ok && res.data) dispatch(setAdsContent(res.data.data))
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setAdsReady(true);
+    }
   }
 
   function handleLockPress() {
@@ -171,26 +180,48 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
   console.log(user)
 
   useEffect(() => {
-    if (isFocused) {
-      setTimeout(() => setIsPause(false), 3000)
-    } else {
-      setIsPause(true);
+    if (!isFocused) {
+      setVideoReady(false);
     }
   }, [isFocused]);
 
   return (
-    <AppView className="relative">
+    <AppView className="relative" style={{backgroundColor: '#3A3A3A'}}>
       <StatusBar hidden />
-     {!isPause && <AppVideo
-        source={(ads && ads.length > 0) ? {uri: ads[0].videoUrl} : require('@/assets/videos/getStartedVideo.mp4')}
-        videoRef={videoRef}
-        style={{width: '100%', height: '100%'}}
-        resizeMode="cover"
-        muted={toogle}
-        paused={modal !== null || isToken || (isLock && !screen)}
-        controls={false}
-        repeat
-      />}
+      {isFocused && adsReady && (
+        <AppVideo
+          source={
+            ads && ads.length > 0
+              ? {uri: ads[0].videoUrl}
+              : require('@/assets/videos/getStartedVideo.mp4')
+          }
+          videoRef={videoRef}
+          style={{width: '100%', height: '100%'}}
+          resizeMode="cover"
+          muted={toogle}
+          paused={modal !== null || isToken || (isLock && !screen)}
+          controls={false}
+          repeat
+          onReadyForDisplay={() => setVideoReady(true)}
+          onLoad={() => setVideoReady(true)}
+          onError={() => setVideoReady(true)}
+        />
+      )}
+
+      {(!adsReady || !videoReady) && (
+        <MotiView
+          pointerEvents="none"
+          from={{opacity: 0.4}}
+          animate={{opacity: 0.85}}
+          transition={{
+            type: 'timing',
+            duration: 900,
+            easing: Easing.inOut(Easing.ease),
+            loop: true,
+          }}
+          style={styles.loadingPulse}
+        />
+      )}
 
       <LinearGradient
         colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.1)', 'rgba(0,0,0,1)']}
@@ -326,6 +357,11 @@ const styles = StyleSheet.create({
     height: '100%',
     zIndex: 1,
     position: 'absolute',
+  },
+  loadingPulse: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#6B6B6B',
+    zIndex: 2,
   },
   labelStyle: {
     fontSize: 13,

@@ -18,6 +18,8 @@ import {useAppDispatch} from '@/Hooks/reduxHook';
 import DownloadFullscreenModalPlayer from '../Download/FullscreenModalPlayer';
 import LiveEmptyState from '../Live/components/LiveEmptyState';
 import {FUpcomingIcon} from '@/assets/icons';
+import Size from '@/Utils/useResponsiveSize';
+import {useTabBarCompactOnScroll} from '@/navigation/useTabBarCompactOnScroll';
 
 const UpcomingScreen = ({
   isFullscreen,
@@ -26,6 +28,7 @@ const UpcomingScreen = ({
 }: OrientationInjectedProps) => {
   const [playingIndexes, setPlayingIndexes] = useState<number[]>([]);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const {reportScrollOffset} = useTabBarCompactOnScroll();
   const [orientation, setOrientation] = useState<string | null>(null);
   const [upcomingEvents, setUpcomingEvents] = useState<
     (IVODContent | ILiveContent)[]
@@ -101,6 +104,15 @@ const UpcomingScreen = ({
     dispatch(setHideTabBar(isFullscreen));
   }, [isFullscreen]);
 
+  useEffect(() => {
+    const id = scrollY.addListener(({value}) => {
+      reportScrollOffset(value);
+    });
+    return () => {
+      scrollY.removeListener(id);
+    };
+  }, [scrollY, reportScrollOffset]);
+
   return (
     <>
       {!isFullscreen && orientation === PORTRAIT && (
@@ -118,7 +130,7 @@ const UpcomingScreen = ({
             <AppText className="pl-5 font-LEXEND_700 text-[17px] text-grey_100 my-4">
               COMING SOON
             </AppText>
-            <AppView>
+            <AppView style={{flex: 1}}>
               {isLoading || upcomingEvents.length === 0 ? (
                 <LiveEmptyState
                   loading={isLoading}
@@ -133,7 +145,10 @@ const UpcomingScreen = ({
                     {useNativeDriver: false},
                   )}
                   scrollEventThrottle={16}
-                  showsVerticalScrollIndicator={false}>
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{
+                    paddingBottom: Size.hp(24),
+                  }}>
                   {upcomingEvents.map((item, i) => {
                     return (
                       <UpcomingView

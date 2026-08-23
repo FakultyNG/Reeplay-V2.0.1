@@ -29,8 +29,8 @@ const ChannelsTabs = ({scrollY, item, makeFullscreen, loading}: Props) => {
     return (
       <LiveEmptyState
         loading={loading}
-        title="No channels yet"
-        message="Popular and other live channels will show up here when they are on air."
+        compact
+        title="No Live content"
       />
     );
   }

@@ -21,8 +21,8 @@ const PodcastTab = ({scrollY, item, makeFullscreen, loading}: Props) => {
     return (
       <LiveEmptyState
         loading={loading}
-        title="No podcasts right now"
-        message="Live podcasts will appear here when they are streaming. Check back soon."
+        compact
+        title="No Live content"
       />
     );
   }

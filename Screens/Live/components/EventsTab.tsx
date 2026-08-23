@@ -21,8 +21,8 @@ const EventsTab = ({scrollY, item, makeFullscreen, loading}: Props) => {
     return (
       <LiveEmptyState
         loading={loading}
-        title="No events right now"
-        message="Live events will appear here when scheduled. Check back a little later."
+        compact
+        title="No Live content"
       />
     );
   }

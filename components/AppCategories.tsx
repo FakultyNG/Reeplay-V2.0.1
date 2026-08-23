@@ -75,6 +75,16 @@ const AppCategories = ({
         horizontal
         showsHorizontalScrollIndicator={false}
         bounces={false}
+        initialNumToRender={5}
+        maxToRenderPerBatch={4}
+        windowSize={5}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews
+        getItemLayout={(_, index) => ({
+          length: itemStride,
+          offset: itemStride * index,
+          index,
+        })}
         contentContainerStyle={{marginTop: space ? space : 15, marginRight: 10}}
         onScroll={event => {
           if (!onIndexChange) {
@@ -175,7 +185,10 @@ export const ContentItem = ({
           <AppImage
             source={{
               uri: item.portraitPhoto,
-              priority: FastImage.priority.high,
+              priority:
+                index < 4
+                  ? FastImage.priority.high
+                  : FastImage.priority.low,
               cache: FastImage.cacheControl.immutable,
             }}
             style={[styles.images, imageStyle]}

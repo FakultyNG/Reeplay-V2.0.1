@@ -30,6 +30,8 @@ const TabNavigation = () => {
         tabBarActiveTintColor: colors.RED,
         tabBarInactiveTintColor: colors.GREY_100,
         tabBarBlurEffect: 'systemMaterialDark',
+        tabBarMinimizeBehavior: 'onScrollDown',
+        tabBarLabelVisibilityMode: 'labeled',
         tabBarStyle: {
           backgroundColor: 'rgba(0, 0, 0, 0.35)',
         },

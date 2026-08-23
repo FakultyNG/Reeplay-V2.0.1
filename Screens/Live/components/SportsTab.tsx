@@ -21,8 +21,8 @@ const SportsTab = ({scrollY, item, makeFullscreen, loading}: Props) => {
     return (
       <LiveEmptyState
         loading={loading}
-        title="No sports right now"
-        message="Live sports streams will show up here when they are on. Check back later."
+        compact
+        title="No Live content"
       />
     );
   }

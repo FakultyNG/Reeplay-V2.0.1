@@ -722,9 +722,13 @@ const FullScreenModal = () => {
                         styles.progressBar,
                         { transform: [{ translateY: transD.current }] },
                       ]}>
-                      <AppText className="text-white text-[13px] font-OUTFIT_500 w-[60px]">
-                        {formatDuration(duration)}
-                      </AppText>
+                      <AppView style={styles.durationSlot}>
+                        <AppText
+                          numberOfLines={1}
+                          className="text-white text-[13px] font-OUTFIT_500">
+                          {formatDuration(duration)}
+                        </AppText>
+                      </AppView>
                       <AppView
                         style={{
                           width:
@@ -747,9 +751,13 @@ const FullScreenModal = () => {
                           )}
                         </AppView>
                       </AppView>
-                      <AppText className="text-white text-[13px] font-OUTFIT_500 w-[60px] text-center">
-                        {formatDuration(currentTime)}
-                      </AppText>
+                      <AppView style={styles.durationSlot}>
+                        <AppText
+                          numberOfLines={1}
+                          className="text-white text-[13px] font-OUTFIT_500 text-right">
+                          {formatDuration(currentTime)}
+                        </AppText>
+                      </AppView>
                     </Animated.View>
                   )}
                 </>
@@ -852,5 +860,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 30,
     alignSelf: 'center',
+  },
+  durationSlot: {
+    width: 80,
+    flexGrow: 0,
+    flexShrink: 0,
+    overflow: 'hidden',
+    justifyContent: 'center',
   },
 });

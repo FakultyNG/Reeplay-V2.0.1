@@ -388,7 +388,7 @@ const [pendingSeekProgress, setPendingSeekProgress] =
                     }
                     seekBarCustomStyles={
                       isFullscreeen
-                        ? { marginBottom: 0 }
+                        ? {marginBottom: 0, marginLeft: 0, marginRight: 0}
                         : customStyles?.seekBar
                     }
                     seekBarFullWidthCustomStyles={

@@ -16,16 +16,76 @@ import {BlurView as CommunityBlur} from '@react-native-community/blur';
 import AndroidBlur from 'react-native-blur-effect';
 import {Platform, Pressable, StyleSheet, Text, View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import Animated, {
+  Extrapolation,
+  SharedValue,
+  interpolate,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
+import {tabBarCompactProgress} from '../tabBarCompact';
+
+const TabLabel = ({
+  text,
+  focused,
+  compact,
+}: {
+  text: string;
+  focused: boolean;
+  compact: SharedValue<number>;
+}) => {
+  const style = useAnimatedStyle(() => {
+    const p = compact.value;
+    return {
+      opacity: interpolate(p, [0, 0.35, 1], [1, 0, 0], Extrapolation.CLAMP),
+      height: interpolate(p, [0, 1], [16, 0], Extrapolation.CLAMP),
+      marginTop: interpolate(p, [0, 1], [4, 0], Extrapolation.CLAMP),
+      overflow: 'hidden' as const,
+      transform: [
+        {
+          translateY: interpolate(p, [0, 1], [0, -4], Extrapolation.CLAMP),
+        },
+      ],
+    };
+  });
+
+  return (
+    <Animated.View style={style}>
+      <Text
+        style={[
+          styles.tabLabel,
+          {color: focused ? colors.RED : colors.GREY_100},
+        ]}
+        numberOfLines={1}>
+        {text}
+      </Text>
+    </Animated.View>
+  );
+};
 
 const MyTabBar = ({state, descriptors, navigation}: BottomTabBarProps) => {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, Size.calcHeight(10));
 
+  const pillStyle = useAnimatedStyle(() => {
+    const p = tabBarCompactProgress.value;
+    const scale = interpolate(p, [0, 1], [1, 0.83], Extrapolation.CLAMP);
+    return {
+      transform: [{scale}],
+    };
+  });
+
+  const rowStyle = useAnimatedStyle(() => {
+    const p = tabBarCompactProgress.value;
+    return {
+      paddingVertical: interpolate(p, [0, 1], [6, 10], Extrapolation.CLAMP),
+    };
+  });
+
   return (
     <View
       pointerEvents="box-none"
       style={[styles.wrap, {paddingBottom: bottomPad}]}>
-      <View style={styles.pill}>
+      <Animated.View style={[styles.pill, pillStyle]}>
         {Platform.OS === 'ios' ? (
           <CommunityBlur
             blurType="dark"
@@ -43,7 +103,7 @@ const MyTabBar = ({state, descriptors, navigation}: BottomTabBarProps) => {
         )}
         <View style={styles.border} pointerEvents="none" />
 
-        <View style={styles.row}>
+        <Animated.View style={[styles.row, rowStyle]}>
           {state.routes.map((route, index) => {
             const {options} = descriptors[route.key];
             const label =
@@ -93,25 +153,26 @@ const MyTabBar = ({state, descriptors, navigation}: BottomTabBarProps) => {
                   ]}>
                   {labelText === 'Home' &&
                     (isFocused ? <FHomeIcon /> : <HomeIcon />)}
-                  {labelText === 'Live' &&
-                    (isFocused ? <FLiveIcon /> : <LiveIcon />)}
+                  {labelText === 'Live' && (
+                    <View style={styles.liveIconWrap}>
+                      {isFocused ? <FLiveIcon /> : <LiveIcon />}
+                    </View>
+                  )}
                   {labelText === 'Upcoming' &&
                     (isFocused ? <FUpcomingIcon /> : <UpcomingIcon />)}
                   {labelText === 'Library' &&
                     (isFocused ? <FLibraryIcon /> : <Library />)}
-                  <Text
-                    style={[
-                      styles.tabLabel,
-                      {color: isFocused ? colors.RED : colors.GREY_100},
-                    ]}>
-                    {labelText}
-                  </Text>
+                  <TabLabel
+                    text={labelText}
+                    focused={isFocused}
+                    compact={tabBarCompactProgress}
+                  />
                 </View>
               </Pressable>
             );
           })}
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </View>
   );
 };
@@ -161,6 +222,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  liveIconWrap: {
+    backgroundColor: 'transparent',
+    overflow: 'hidden',
+  },
   tabInner: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -172,8 +237,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
   tabLabel: {
-    marginTop: Size.calcHeight(4),
     fontFamily: fonts.ROBOTO_700,
     fontSize: Size.calcWidth(11),
+    textAlign: 'center',
   },
 });

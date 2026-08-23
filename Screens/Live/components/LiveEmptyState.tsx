@@ -11,10 +11,12 @@ interface Props {
   title?: string;
   message?: string;
   loading?: boolean;
-  /** Optional icon override (defaults to live icon). */
+  /** Optional icon override (defaults to live icon). Ignored when compact. */
   icon?: React.ReactNode;
   /** Taller featured/hero placeholder for the Live banner carousel. */
   variant?: 'section' | 'hero';
+  /** Smaller centered copy, no icon — used when live content is missing. */
+  compact?: boolean;
 }
 
 const LiveEmptyState = ({
@@ -23,6 +25,7 @@ const LiveEmptyState = ({
   loading = false,
   icon,
   variant = 'section',
+  compact = false,
 }: Props) => {
   const isHero = variant === 'hero';
 
@@ -39,18 +42,31 @@ const LiveEmptyState = ({
 
   const content = (
     <>
-      <View style={[styles.iconRing, isHero && styles.heroIconRing]}>
-        {resolvedIcon}
-      </View>
-      <AppText style={[styles.title, isHero && styles.heroTitle]}>{title}</AppText>
-      <AppText style={[styles.message, isHero && styles.heroMessage]}>
-        {message}
+      {!compact && (
+        <View style={[styles.iconRing, isHero && styles.heroIconRing]}>
+          {resolvedIcon}
+        </View>
+      )}
+      <AppText
+        style={[
+          styles.title,
+          isHero && styles.heroTitle,
+          compact && styles.compactTitle,
+        ]}>
+        {title}
       </AppText>
+      {!compact && (
+        <AppText style={[styles.message, isHero && styles.heroMessage]}>
+          {message}
+        </AppText>
+      )}
     </>
   );
 
   if (!isHero) {
-    return <View style={styles.wrap}>{content}</View>;
+    return (
+      <View style={[styles.wrap, compact && styles.compactWrap]}>{content}</View>
+    );
   }
 
   return (
@@ -82,6 +98,11 @@ const styles = StyleSheet.create({
     paddingTop: Size.calcHeight(48),
     paddingBottom: Size.calcHeight(64),
     minHeight: Size.calcHeight(220),
+  },
+  compactWrap: {
+    paddingTop: Size.calcHeight(28),
+    paddingBottom: Size.calcHeight(28),
+    minHeight: Size.calcHeight(140),
   },
   heroWrap: {
     minHeight: Size.calcHeight(320),
@@ -141,6 +162,14 @@ const styles = StyleSheet.create({
     fontSize: 17,
     textAlign: 'center',
     marginBottom: 8,
+  },
+  compactTitle: {
+    fontFamily: fonts.MANROPE_400,
+    fontSize: 14,
+    marginBottom: 0,
+    color: colors.WHITE,
+    textAlign: 'center',
+    width: '100%',
   },
   heroTitle: {
     fontSize: 19,

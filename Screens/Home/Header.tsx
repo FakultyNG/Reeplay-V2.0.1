@@ -1,25 +1,32 @@
-import {Platform, StatusBar, StyleSheet, Text, View} from 'react-native';
-import React from 'react';
+import {Animated, Platform, StyleSheet, View} from 'react-native';
+import React, {memo} from 'react';
 import {AppImage, AppView, TouchableOpacity} from '@/components';
 import Size from '@/Utils/useResponsiveSize';
-import {HamBurger, ModalLogo, SearchIcon} from '@/assets/icons';
+import {HamBurger, SearchIcon} from '@/assets/icons';
 import {useNavigation} from '@react-navigation/native';
 import routes from '@/navigation/routes';
 import BlurView from 'react-native-blur-effect';
 import {BlurView as Blur} from '@react-native-community/blur';
-import { RootNav } from '@/navigation/AppNavigator';
+import {RootNav} from '@/navigation/AppNavigator';
+
+/** Fade fully in over a short distance so blur tracks the finger, not a remount. */
+const BLUR_FADE_DISTANCE = 12;
 
 interface HeaderProps {
-  scroll: number;
+  scrollY: Animated.Value;
   isCast?: boolean;
 }
 
-const Header = ({scroll, isCast}: HeaderProps) => {
+const Header = ({scrollY, isCast}: HeaderProps) => {
   const {navigate} = useNavigation<RootNav>();
 
-  // console.log(scroll);
+  const blurOpacity = scrollY.interpolate({
+    inputRange: [0, BLUR_FADE_DISTANCE],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
 
-  const Children = () => (
+  const headerRow = (
     <AppView className="flex-row justify-between items-center px-6">
       <TouchableOpacity disabled={isCast} onPress={() => navigate(routes.MAIN)}>
         <HamBurger />
@@ -31,14 +38,13 @@ const Header = ({scroll, isCast}: HeaderProps) => {
           <TouchableOpacity
             onPress={() => navigate(routes.SEARCH_SCREEN)}
             style={{
-              width: 30, 
-              height: 30, 
+              width: 30,
+              height: 30,
               borderRadius: 99,
-              backgroundColor:'#FF1313',
-              alignItems:'center',
-              justifyContent:'center'
-            }}
-            >
+              backgroundColor: '#FF1313',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
             <SearchIcon />
           </TouchableOpacity>
         </>
@@ -47,57 +53,46 @@ const Header = ({scroll, isCast}: HeaderProps) => {
   );
 
   return (
-    <>
-      {Platform.OS === 'ios' ? (
-        <>
-          {scroll > 0 ? (
-            // <View>
+    <View style={[styles.container, isCast && styles.cast]}>
+      <Animated.View
+        pointerEvents="none"
+        collapsable={false}
+        style={[StyleSheet.absoluteFillObject, {opacity: blurOpacity}]}>
+        {Platform.OS === 'ios' ? (
+          <Blur
+            overlayColor="transparent"
+            blurType="dark"
+            blurAmount={5}
+            style={StyleSheet.absoluteFillObject}
+          />
+        ) : (
+          <BlurView
+            backgroundColor="rgba(0, 0, 0, 0.4)"
+            blurRadius={5}
+          />
+        )}
+      </Animated.View>
 
-            // </View>
-            <>
-              <Blur
-                overlayColor="transparent"
-                blurType="dark"
-                blurAmount={5}
-                style={[styles.container, isCast && styles.cast]}>
-                {Platform.OS === 'ios' && Children()}
-              </Blur>
-            </>
-          ) : (
-            <View style={[styles.container, isCast && styles.cast]}>
-              {Children()}
-            </View>
-          )}
-        </>
+      {Platform.OS === 'android' ? (
+        <AppView
+          style={[
+            {
+              justifyContent: isCast ? 'center' : 'flex-end',
+              height: Size.hp(12),
+            },
+            isCast && {paddingTop: 25},
+          ]}
+          className="absolute w-full z-40 pb-3">
+          {headerRow}
+        </AppView>
       ) : (
-        <>
-          <AppView style={[styles.container, isCast && styles.cast]}>
-            {scroll > 0 && (
-              <BlurView
-                backgroundColor="rgba(0, 0, 0, 0.4)"
-                blurRadius={scroll > 0 ? 5 : 4}
-              />
-            )}
-
-            <AppView
-              style={[
-                {
-                  justifyContent: isCast ? 'center' : 'flex-end',
-                  height: Size.hp(12),
-                },
-                isCast && {paddingTop: 25},
-              ]}
-              className="absolute w-full z-40 pb-3">
-              {Children()}
-            </AppView>
-          </AppView>
-        </>
+        headerRow
       )}
-    </>
+    </View>
   );
 };
 
-export default Header;
+export default memo(Header);
 
 const styles = StyleSheet.create({
   container: {

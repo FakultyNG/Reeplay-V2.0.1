@@ -37,8 +37,8 @@ const AllTabs = ({
     return (
       <LiveEmptyState
         loading={loading}
-        title="Nothing live right now"
-        message="Channels, events, and shows will appear here when they are available. Check back later."
+        compact
+        title="No Live content"
       />
     );
   }

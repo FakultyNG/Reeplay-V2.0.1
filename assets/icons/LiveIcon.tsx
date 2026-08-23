@@ -4,10 +4,11 @@ const SVGComponent = (props: any) => (
   <Svg
     width={27}
     height={19}
-    viewBox="0 0 27 19"
+    viewBox="-1 -2 29 23"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
-    {...props}>
+    {...props}
+    style={[{backgroundColor: 'transparent'}, props.style]}>
     <Path
       fillRule="evenodd"
       clipRule="evenodd"

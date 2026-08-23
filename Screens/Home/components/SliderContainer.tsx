@@ -183,13 +183,14 @@ const Slider = ({
         ) : showHeroEmpty ? (
           <LiveEmptyState
             variant="hero"
+            compact={live}
             icon={live ? undefined : <FHomeIcon width={42} height={24} />}
             title={
-              live ? 'No featured live streams' : 'No featured titles'
+              live ? 'No Live content' : 'No featured titles'
             }
             message={
               live
-                ? 'Featured live channels and events will appear here when they go on air.'
+                ? undefined
                 : 'Featured movies and shows will appear here when they are available.'
             }
           />

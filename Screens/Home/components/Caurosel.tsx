@@ -99,16 +99,12 @@ handleVODTrailer
      }
      function preloadMedia() {
       try {
-        let uri = '';
-        if (live && 'start' in item) uri = item.previewVideo ?? '';
-        else if ('adminId' in item) uri = item.trailer || item.portraitPhoto;
-
-        if (uri) FastImage.preload([{ uri }]);
+        // Do not FastImage.preload trailers/preview videos — that saturates
+        // the image pipeline with huge files on a cold cache.
         if (live && 'start' in item) setVideoURL(item.previewVideo ?? '');
         if ('adminId' in item) setVideoURL(item.trailer ?? '');
       } catch (err) {
         console.log('Error preloading media:', err);
-      } finally {
         setImgLoad(false);
       }
     }
@@ -217,7 +213,10 @@ handleVODTrailer
           source={{
             uri: item.coverPhoto,
             priority: FastImage.priority.high,
+            cache: FastImage.cacheControl.immutable,
           }}
+          onLoadEnd={() => setImgLoad(false)}
+          onError={() => setImgLoad(false)}
           style={{
             width: ITEM_WIDTH,
             position: 'absolute',
@@ -231,8 +230,10 @@ handleVODTrailer
         source={{
           uri: item.portraitPhoto,
           priority: FastImage.priority.high,
+          cache: FastImage.cacheControl.immutable,
         }}
-        onError={() => console.log('error')}
+        onLoadEnd={() => setImgLoad(false)}
+        onError={() => setImgLoad(false)}
         style={{
           width: ITEM_WIDTH,
           position: 'absolute',

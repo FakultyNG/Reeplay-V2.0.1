@@ -43,7 +43,6 @@ import { useAppDispatch } from '@/Hooks/reduxHook';
 
 const CastScreeen = () => {
   const scrollY = useRef(new Animated.Value(0)).current;
-  const [isScrolled, setIsScrolled] = useState(0);
   const [loading, setLoading] = useState<boolean>(false)
     const [content, setContent] = useState<IVODContent[]>([]);
   const {goBack, replace, pop} = useNavigation<RootNav>();
@@ -83,23 +82,12 @@ const CastScreeen = () => {
     }
 
   useEffect(() => {
-    const listernerID = scrollY.addListener(({value}) => {
-      if (value < 0) return;
-      setIsScrolled(value);
-    });
-
-    return () => {
-      scrollY.removeListener(listernerID);
-    };
-  }, [scrollY]);
-
-  useEffect(() =>{
     handleFetchContent();
-  }, [])
+  }, []);
 
   return (
     <>
-      <Header scroll={isScrolled} isCast />
+      <Header scrollY={scrollY} isCast />
 
       <View
         style={{

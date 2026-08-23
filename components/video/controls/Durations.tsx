@@ -1,34 +1,48 @@
-import { forwardRef, memo, useImperativeHandle, useState } from 'react';
-import type { CustomStyles } from 'react-native-video-player';
-import { StyleSheet, Text } from 'react-native';
-import type { ProgressRef } from '../Controls';
-import { formatDuration } from '@/Utils/formatVideoDuration';
+import {StyleSheet, Text, View} from 'react-native';
+import {formatDuration} from '@/Utils/formatVideoDuration';
 
+/** Static slot for `HH:MM:SS` so labels cannot grow into the seek bar. */
+const DURATION_SLOT_WIDTH = 80;
 
-export const ProgressingDuration = ({ duration,progress }:{duration:number,progress:number}) => {
+export const ProgressingDuration = ({
+  duration,
+  progress,
+}: {
+  duration: number;
+  progress: number;
+}) => {
   const safeSeconds =
     Number.isFinite(duration) && Number.isFinite(progress)
       ? Math.max(0, progress * duration)
       : Number.NaN;
 
   return (
-    <Text className="text-white text-[13px] font-OUTFIT_500 w-[60px] ml-2.5 text-right">
-      {formatDuration(safeSeconds)}
-    </Text>
+    <View style={styles.slot}>
+      <Text
+        numberOfLines={1}
+        className="text-white text-[13px] font-OUTFIT_500 text-right">
+        {formatDuration(safeSeconds)}
+      </Text>
+    </View>
   );
-}
+};
 
-export const DurationText = ({ duration }:{duration:number}) => {
-    return (
-      <>
-         <Text className="text-white text-[13px] font-OUTFIT_500 w-[60px]">
-      {formatDuration(Number.isFinite(duration) ? duration : Number.NaN)}
-    </Text>
-      </>
-    );
-  }
+export const DurationText = ({duration}: {duration: number}) => {
+  return (
+    <View style={styles.slot}>
+      <Text numberOfLines={1} className="text-white text-[13px] font-OUTFIT_500">
+        {formatDuration(Number.isFinite(duration) ? duration : Number.NaN)}
+      </Text>
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
-  durationText: {
-    color: 'white',
+  slot: {
+    width: DURATION_SLOT_WIDTH,
+    flexGrow: 0,
+    flexShrink: 0,
+    overflow: 'hidden',
+    justifyContent: 'center',
   },
 });

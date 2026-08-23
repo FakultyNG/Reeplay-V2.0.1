@@ -1,5 +1,5 @@
 import {StyleSheet} from 'react-native';
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {AppView} from '@/components';
 import Size from '@/Utils/useResponsiveSize';
 import ContentWrapper from '@/components/ContentWrapper';
@@ -15,9 +15,31 @@ interface Props {
 }
 
 const IMMEDIATE_ROW_COUNT = 3;
+const ROW_STAGGER_MS = 450;
 
 const Sections = ({isSkipped, deferHeavy = false}: Props) => {
   const cat = useAppSelector(selectCategories);
+  const [enabledCount, setEnabledCount] = useState(IMMEDIATE_ROW_COUNT);
+
+  useEffect(() => {
+    setEnabledCount(IMMEDIATE_ROW_COUNT);
+  }, [cat.length]);
+
+  useEffect(() => {
+    if (deferHeavy || cat.length <= IMMEDIATE_ROW_COUNT) {
+      return;
+    }
+    const id = setInterval(() => {
+      setEnabledCount(prev => {
+        if (prev >= cat.length) {
+          clearInterval(id);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, ROW_STAGGER_MS);
+    return () => clearInterval(id);
+  }, [deferHeavy, cat.length]);
 
   if (cat.length === 0) {
     return (
@@ -31,7 +53,10 @@ const Sections = ({isSkipped, deferHeavy = false}: Props) => {
 
   const immediate = cat.slice(0, IMMEDIATE_ROW_COUNT);
   const deferred = cat.slice(IMMEDIATE_ROW_COUNT, cat.length - 1);
-  const rows = deferHeavy ? immediate : [...immediate, ...deferred];
+  const visibleCount = deferHeavy
+    ? IMMEDIATE_ROW_COUNT
+    : Math.max(enabledCount, IMMEDIATE_ROW_COUNT);
+  const rows = [...immediate, ...deferred].slice(0, visibleCount);
 
   return (
     <>

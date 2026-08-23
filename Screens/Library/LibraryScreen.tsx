@@ -27,8 +27,10 @@ import { getDefaultLibrary, libraryContent } from '@/api/content.api';
 import Placeholder from '@/components/SkeletonLoader';
 import FastImage from 'react-native-fast-image';
 import { setPreviewContent } from '@/store/slices/previewContentSlice';
+import {useTabBarCompactOnScroll} from '@/navigation/useTabBarCompactOnScroll';
 
 const LibraryScreen = () => {
+  const {reportScrollOffset} = useTabBarCompactOnScroll();
   const genres = useAppSelector(selectGenres)
   const categories = useAppSelector(selectCategories)
   const [genre, setGenre] = useState<string | null>(null);
@@ -167,7 +169,11 @@ const LibraryScreen = () => {
             columnWrapperStyle={styles.columnWrapper}
             contentContainerStyle={styles.listContent}
             onEndReachedThreshold={0.5}
-        onEndReached={loadMore}
+            onEndReached={loadMore}
+            scrollEventThrottle={16}
+            onScroll={e =>
+              reportScrollOffset(e.nativeEvent.contentOffset.y)
+            }
         ListFooterComponent={
           <>
             {loading_m && (

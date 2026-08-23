@@ -3,7 +3,7 @@ import {
   RefreshControl,
   StatusBar,
 } from 'react-native';
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useRef, useState} from 'react';
 import Header from './Header';
 import Slider from './components/SliderContainer';
 import colors from '@/configs/colors';
@@ -33,6 +33,7 @@ import FeaturedExtras, {
 } from './components/FeaturedExtras';
 import HomeContinueRow from './components/HomeContinueRow';
 import {useHomeBootstrap} from './hooks/useHomeBootstrap';
+import {useTabBarCompactOnScroll} from '@/navigation/useTabBarCompactOnScroll';
 
 const HomeScreen = ({
   isFullscreen,
@@ -40,7 +41,9 @@ const HomeScreen = ({
   makePortrait,
 }: OrientationInjectedProps) => {
   const scrollY = useRef(new Ani.Value(0)).current;
-  const [isScrolled, setIsScrolled] = useState(0);
+  const {reportScrollOffset} = useTabBarCompactOnScroll();
+  const reportScrollOffsetRef = useRef(reportScrollOffset);
+  reportScrollOffsetRef.current = reportScrollOffset;
   const {navigate} = useNavigation<TabNavParams>();
   const vods = useAppSelector(selectBannerContent).vods ?? [];
   const continueWatching = useAppSelector(selectContinueWatching) ?? [];
@@ -70,23 +73,20 @@ const HomeScreen = ({
   const showContinueAfterHero = extrasAvailable === false;
   const showContinueAfterGenres = extrasAvailable === true;
 
-  useEffect(() => {
-    const listenerId = scrollY.addListener(({value}) => {
-      if (value < 0) {
-        return;
-      }
-      setIsScrolled(value);
-    });
-    return () => {
-      scrollY.removeListener(listenerId);
-    };
-  }, [scrollY]);
+  const onScroll = useRef(
+    Ani.event([{nativeEvent: {contentOffset: {y: scrollY}}}], {
+      useNativeDriver: true,
+      listener: (event: {nativeEvent: {contentOffset?: {y?: number}}}) => {
+        reportScrollOffsetRef.current(event.nativeEvent.contentOffset?.y ?? 0);
+      },
+    }),
+  ).current;
 
   return (
     <>
       {!isFullscreen && orientation === PORTRAIT && (
         <>
-          <Header scroll={isScrolled} />
+          <Header scrollY={scrollY} />
 
           <StatusBar
             hidden={isFullscreen || isFullscreenContent !== null}
@@ -97,10 +97,7 @@ const HomeScreen = ({
 
           <Ani.ScrollView
             scrollEnabled
-            onScroll={Ani.event(
-              [{nativeEvent: {contentOffset: {y: scrollY}}}],
-              {useNativeDriver: false},
-            )}
+            onScroll={onScroll}
             scrollEventThrottle={16}
             nestedScrollEnabled
             showsVerticalScrollIndicator={false}

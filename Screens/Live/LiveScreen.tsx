@@ -21,11 +21,14 @@ import LiveInfoModal from './components/LiveInfoModal';
 import { setHideTabBar } from '@/store/slices/userSlice';
 import { ILiveContent, IVODContent } from '@/types/api/content.types';
 import { useIsFocused } from '@react-navigation/native';
+import {useTabBarCompactOnScroll} from '@/navigation/useTabBarCompactOnScroll';
+
+const AnimatedVirtualizedList = Animated.createAnimatedComponent(VirtualizedList);
 
 const LiveScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedProps) => {
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollY2 = useRef(new Animated.Value(0)).current;
-  const [isScrolled, setIsScrolled] = useState(0);
+  const {reportScrollOffset} = useTabBarCompactOnScroll();
   const live = useAppSelector(selectBannerContent).lives
   const isFullscreenContent = useAppSelector(selectFullVideoProps);
   const isLiveModalContent = useAppSelector(selectLiveModalContent);
@@ -50,16 +53,22 @@ const LiveScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInject
     );
   };
 
+  const onScroll = useRef(
+    Animated.event([{nativeEvent: {contentOffset: {y: scrollY}}}], {
+      useNativeDriver: true,
+    }),
+  ).current;
+
   useEffect(() => {
     const listernerID = scrollY.addListener(({ value }) => {
-      setIsScrolled(value);
       scrollY2.setValue(value);
+      reportScrollOffset(value);
     });
 
     return () => {
       scrollY.removeListener(listernerID);
     };
-  }, [scrollY]);
+  }, [scrollY, reportScrollOffset]);
 
   function checkOrientation() {
    if(!isFullscreen) Orientation.lockToPortrait();
@@ -97,13 +106,10 @@ const LiveScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInject
             backgroundColor="transparent"
           />
       {(!isFullscreen && !(isFullscreenContent && !currentContentState)) &&  <>
-          <Header scroll={isScrolled} />
+          <Header scrollY={scrollY} />
 
-          <VirtualizedList
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-              { useNativeDriver: false },
-            )}
+          <AnimatedVirtualizedList
+            onScroll={onScroll}
             scrollEventThrottle={16}
             decelerationRate="normal"
             bounces={false}

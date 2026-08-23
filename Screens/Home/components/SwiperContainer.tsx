@@ -22,8 +22,7 @@ import Placeholder from '@/components/SkeletonLoader';
 import FastImage from 'react-native-fast-image';
 import {setPreviewContent} from '@/store/slices/previewContentSlice';
 import {getVodRowCache, setVodRowCache} from '@/Utils/contentMmkv';
-import LiveEmptyState from '@/Screens/Live/components/LiveEmptyState';
-import {FHomeIcon} from '@/assets/icons';
+import GenrePaginationDots from './GenrePaginationDots';
 
 const ALL_TAB_ID = '__all__';
 const ALL_TAB: ICategoryData = {
@@ -40,6 +39,7 @@ const SwiperContainer = () => {
   const tabs = useMemo(() => [ALL_TAB, ...genres], [genres]);
   const {navigate} = useNavigation<RootNav>();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [slideIndex, setSlideIndex] = useState(0);
   const [contents, setContents] = useState<Record<string, IVODContent[]>>({});
   const dispatch = useAppDispatch();
 
@@ -75,6 +75,7 @@ const SwiperContainer = () => {
 
   function handleTab(tabName: string, index: number) {
     setActiveIndex(index);
+    setSlideIndex(0);
     const tab = tabs[index];
     if (tab && !(tabName in contents)) {
       fetchTab(tab);
@@ -91,11 +92,9 @@ const SwiperContainer = () => {
 
   if (genres.length === 0) {
     return (
-      <LiveEmptyState
-        icon={<FHomeIcon width={36} height={20} />}
-        title="No genres yet"
-        message="Browse by genre will appear here when titles are available. Check back later."
-      />
+      <AppView style={styles.empty}>
+        <AppText style={styles.emptyText}>No contents available</AppText>
+      </AppView>
     );
   }
 
@@ -147,19 +146,18 @@ const SwiperContainer = () => {
       </AppView>
 
       {showGenreEmpty ? (
-        <LiveEmptyState
-          icon={<FHomeIcon width={36} height={20} />}
-          title={`No ${activeGenreName} titles`}
-          message="Titles in this genre will appear here when they are available. Check back later."
-        />
+        <AppView style={styles.empty}>
+          <AppText style={styles.emptyText}>No contents available</AppText>
+        </AppView>
       ) : (
         <AppView>
           <SwiperFlatList
-            showPagination={true}
-            paginationActiveColor={colors.RED}
-            paginationDefaultColor="rgba(255, 19, 19, 0.4)"
-            paginationStyleItem={styles.pagination}
+            key={activeGenreName}
+            showPagination={false}
             removeClippedSubviews={true}
+            windowSize={3}
+            maxToRenderPerBatch={2}
+            onChangeIndex={({index}) => setSlideIndex(index)}
             data={
               (genreItems?.length ?? 0) > 0 ? genreItems! : [...Array(1)]
             }
@@ -194,6 +192,15 @@ const SwiperContainer = () => {
               </>
             )}
           />
+          {(genreItems?.length ?? 0) > 1 && (
+            <AppView className="mt-4">
+              <GenrePaginationDots
+                key={activeGenreName}
+                currentIndex={slideIndex}
+                itemCount={genreItems!.length}
+              />
+            </AppView>
+          )}
         </AppView>
       )}
     </AppView>
@@ -213,17 +220,24 @@ const styles = StyleSheet.create({
     marginTop: 4,
     transformOrigin: 'center',
   },
-  pagination: {
-    width: Size.calcAverage(23),
-    height: Size.calcAverage(3),
-    marginHorizontal: Size.calcWidth(3),
-    marginTop: Size.calcHeight(52),
-  },
   image: {
     width: Size.getWidth() - 32,
     height: Size.calcHeight(240),
     marginTop: Size.calcHeight(20),
     borderRadius: 15,
     marginHorizontal: 16,
+  },
+  empty: {
+    height: Size.calcHeight(240),
+    marginTop: Size.calcHeight(20),
+    marginHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    color: colors.WHITE,
+    fontFamily: fonts.MANROPE_400,
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

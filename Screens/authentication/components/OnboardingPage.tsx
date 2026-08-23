@@ -1,11 +1,10 @@
-import {StyleSheet, Text, View} from 'react-native';
+import {StyleSheet} from 'react-native';
 import React, {Fragment} from 'react';
-import FastImage, {FastImageProps, Source} from 'react-native-fast-image';
+import FastImage, {Source} from 'react-native-fast-image';
 import LinearGradient from 'react-native-linear-gradient';
 import {AppButton, AppText, AppView} from '@/components';
 import Size from '@/Utils/useResponsiveSize';
 import colors from '@/configs/colors';
-import {RightArrow} from '@/assets/icons';
 import fonts from '@/configs/fonts';
 
 interface OnboardingOptions {
@@ -13,9 +12,10 @@ interface OnboardingOptions {
   mainText2: string;
   source: Source;
   subText: string;
-  btnText: string;
+  btnText?: string;
+  slideHint?: string;
   iconLeft?: JSX.Element;
-  handleBtn: () => void;
+  handleBtn?: () => void;
   Indicator: React.JSX.Element;
   subImage?: React.JSX.Element;
 }
@@ -26,6 +26,7 @@ const OnboardingPage = ({
   source,
   subText,
   btnText,
+  slideHint,
   handleBtn,
   Indicator,
   iconLeft,
@@ -57,19 +58,25 @@ const OnboardingPage = ({
           </AppText>
         </AppView>
 
-        <AppView style={{zIndex: 99}} className="absolute bottom-7">
-          <AppButton
-            title={btnText}
-            bgColor={colors.RED}
-            iconLeft={iconLeft}
-            style={{borderRadius: 8}}
-            labelStyle={{
-              fontFamily: fonts.MANROPE_800,
-              fontSize: 13,
-              color: '#fff',
-            }}
-            onPress={() => handleBtn()}
-          />
+        <AppView style={{zIndex: 99}} className="absolute bottom-7 items-center">
+          {btnText && handleBtn ? (
+            <AppButton
+              title={btnText}
+              bgColor={colors.RED}
+              iconLeft={iconLeft}
+              style={{borderRadius: 8}}
+              labelStyle={{
+                fontFamily: fonts.MANROPE_800,
+                fontSize: 13,
+                color: '#fff',
+              }}
+              onPress={handleBtn}
+            />
+          ) : (
+            <AppText className="text-white/70 text-center font-MANROPE_400 text-[13px] mb-1">
+              {slideHint ?? 'Swipe to continue'}
+            </AppText>
+          )}
           {Indicator}
         </AppView>
       </FastImage>

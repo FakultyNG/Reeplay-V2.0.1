@@ -117,7 +117,9 @@ const LibraryScreen = () => {
 
   return (
     <>
-      <AppScreen containerStyle={{position: 'relative', paddingTop: 5}}>
+      <AppScreen
+        containerStyle={{position: 'relative', paddingTop: 5}}
+        edges={['top', 'left', 'right']}>
         {genre !== null && (
           <Pressable style={styles.overlay} onPress={resetState} />
         )}
@@ -160,12 +162,13 @@ const LibraryScreen = () => {
             </AppView>
           )}
         </AppView>
-        <AppView className="mb-[110px]">
+        <AppView className="flex-1">
           <FlatList 
             data={loading ? [...Array(20)] : contents}
             keyExtractor={(item,index) => loading ? index.toString() : item._id}
             showsVerticalScrollIndicator={false}
             numColumns={3}
+            style={{flex: 1}}
             columnWrapperStyle={styles.columnWrapper}
             contentContainerStyle={styles.listContent}
             onEndReachedThreshold={0.5}
@@ -237,7 +240,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   listContent: {
-    paddingBottom: 20,
+    paddingBottom: Size.calcHeight(110),
   },
   columnWrapper: {
     columnGap: Size.calcHeight(10),

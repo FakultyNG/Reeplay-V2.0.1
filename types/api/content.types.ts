@@ -244,6 +244,8 @@ export interface IDownloadData{
     viewsCount:number
     seekTo?:number
     watchedDocumentId?:string
+    playlist?: IDownloadData[];
+    playlistIndex?: number
 }
 
 export interface IVODRatingResponse extends IGeneric{

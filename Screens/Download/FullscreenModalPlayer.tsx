@@ -11,6 +11,7 @@ interface Props {
   setFullscreen: () => void;
   content: IDownloadData;
   isDownloadScreen?: boolean;
+  onChangeContent?: (next: IDownloadData) => void;
 }
 
 const DownloadFullscreenModalPlayer = ({
@@ -18,8 +19,15 @@ const DownloadFullscreenModalPlayer = ({
   isFullscreen,
   isDownloadScreen,
   setFullscreen,
+  onChangeContent,
 }: Props) => {
   const playerRef = useRef<VideoPlayerRef>(null);
+  const playlist = content.playlist;
+  const playlistIndex = content.playlistIndex ?? 0;
+  const nextEpisode =
+    playlist && playlistIndex + 1 < playlist.length
+      ? playlist[playlistIndex + 1]
+      : undefined;
 
   useEffect(() => {
     if (content.seekTo) {
@@ -27,12 +35,24 @@ const DownloadFullscreenModalPlayer = ({
     }
   }, [content._id]);
 
+  const playNextEpisode = () => {
+    if (!nextEpisode || !onChangeContent) {
+      return;
+    }
+    onChangeContent({
+      ...nextEpisode,
+      playlist,
+      playlistIndex: playlistIndex + 1,
+    });
+  };
+
   return (
     <View className="flex-1">
       <StatusBar hidden />
 
       <View className="w-full h-full overflow-hidden bg-black">
         <DynamicVideoComponent
+          key={content._id}
           ref={playerRef}
           endWithThumbnail
           thumbnail={{
@@ -48,6 +68,7 @@ const DownloadFullscreenModalPlayer = ({
           isTime={false}
           isSaveProgress={!isDownloadScreen}
           seekTo={content.seekTo}
+          handleNEXT={nextEpisode && onChangeContent ? playNextEpisode : undefined}
           contentData={{
             _id: content._id,
             desc: content.desc,

@@ -4,7 +4,7 @@ import {
   StyleSheet,
   VirtualizedList,
 } from 'react-native';
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Header from '@/Screens/Home/Header';
 import colors from '@/configs/colors';
 import Slider from '@/Screens/Home/components/SliderContainer';
@@ -22,11 +22,10 @@ import { setHideTabBar } from '@/store/slices/userSlice';
 import { ILiveContent, IVODContent } from '@/types/api/content.types';
 import { useIsFocused } from '@react-navigation/native';
 import {useTabBarCompactOnScroll} from '@/navigation/useTabBarCompactOnScroll';
-
-const AnimatedVirtualizedList = Animated.createAnimatedComponent(VirtualizedList);
+import {useSharedValue} from 'react-native-reanimated';
 
 const LiveScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedProps) => {
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerScrollY = useSharedValue(0);
   const scrollY2 = useRef(new Animated.Value(0)).current;
   const {reportScrollOffset} = useTabBarCompactOnScroll();
   const live = useAppSelector(selectBannerContent).lives
@@ -53,22 +52,12 @@ const LiveScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInject
     );
   };
 
-  const onScroll = useRef(
-    Animated.event([{nativeEvent: {contentOffset: {y: scrollY}}}], {
-      useNativeDriver: true,
-    }),
-  ).current;
-
-  useEffect(() => {
-    const listernerID = scrollY.addListener(({ value }) => {
-      scrollY2.setValue(value);
-      reportScrollOffset(value);
-    });
-
-    return () => {
-      scrollY.removeListener(listernerID);
-    };
-  }, [scrollY, reportScrollOffset]);
+  const onScroll = (event: {nativeEvent: {contentOffset?: {y?: number}}}) => {
+    const y = event.nativeEvent.contentOffset?.y ?? 0;
+    headerScrollY.value = y;
+    scrollY2.setValue(y);
+    reportScrollOffset(y);
+  };
 
   function checkOrientation() {
    if(!isFullscreen) Orientation.lockToPortrait();
@@ -106,9 +95,7 @@ const LiveScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInject
             backgroundColor="transparent"
           />
       {(!isFullscreen && !(isFullscreenContent && !currentContentState)) &&  <>
-          <Header scrollY={scrollY} />
-
-          <AnimatedVirtualizedList
+          <VirtualizedList
             onScroll={onScroll}
             scrollEventThrottle={16}
             decelerationRate="normal"
@@ -123,6 +110,8 @@ const LiveScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInject
             renderItem={renderItem}
             keyExtractor={(item, index) => index.toString()}
           />
+
+          <Header scrollY={headerScrollY} />
 
  <AppModal
         isModalVisible={isLiveModalContent !== null}

@@ -1,9 +1,6 @@
-import {
-  Animated as Ani,
-  RefreshControl,
-  StatusBar,
-} from 'react-native';
+import {RefreshControl, ScrollView, StatusBar} from 'react-native';
 import {useCallback, useRef, useState} from 'react';
+import {useSharedValue} from 'react-native-reanimated';
 import Header from './Header';
 import Slider from './components/SliderContainer';
 import colors from '@/configs/colors';
@@ -40,7 +37,7 @@ const HomeScreen = ({
   makeFullscreen,
   makePortrait,
 }: OrientationInjectedProps) => {
-  const scrollY = useRef(new Ani.Value(0)).current;
+  const headerScrollY = useSharedValue(0);
   const {reportScrollOffset} = useTabBarCompactOnScroll();
   const reportScrollOffsetRef = useRef(reportScrollOffset);
   reportScrollOffsetRef.current = reportScrollOffset;
@@ -73,21 +70,19 @@ const HomeScreen = ({
   const showContinueAfterHero = extrasAvailable === false;
   const showContinueAfterGenres = extrasAvailable === true;
 
-  const onScroll = useRef(
-    Ani.event([{nativeEvent: {contentOffset: {y: scrollY}}}], {
-      useNativeDriver: true,
-      listener: (event: {nativeEvent: {contentOffset?: {y?: number}}}) => {
-        reportScrollOffsetRef.current(event.nativeEvent.contentOffset?.y ?? 0);
-      },
-    }),
-  ).current;
+  const onScroll = useCallback(
+    (event: {nativeEvent: {contentOffset?: {y?: number}}}) => {
+      const y = event.nativeEvent.contentOffset?.y ?? 0;
+      headerScrollY.value = y;
+      reportScrollOffsetRef.current(y);
+    },
+    [headerScrollY],
+  );
 
   return (
     <>
       {!isFullscreen && orientation === PORTRAIT && (
         <>
-          <Header scrollY={scrollY} />
-
           <StatusBar
             hidden={isFullscreen || isFullscreenContent !== null}
             translucent
@@ -95,7 +90,7 @@ const HomeScreen = ({
             backgroundColor="transparent"
           />
 
-          <Ani.ScrollView
+          <ScrollView
             scrollEnabled
             onScroll={onScroll}
             scrollEventThrottle={16}
@@ -124,6 +119,8 @@ const HomeScreen = ({
               vod={activeFeatured}
               featuredVods={vods}
               onAvailabilityChange={setExtrasAvailable}
+              makeFullscreen={makeFullscreen}
+              setFullscreenContent={setFullscreenContent}
             />
 
             {showContinueAfterHero && (
@@ -157,7 +154,9 @@ const HomeScreen = ({
               isSkipped={continueWatching.length > 0}
               deferHeavy={deferHeavyRows}
             />
-          </Ani.ScrollView>
+          </ScrollView>
+
+          <Header scrollY={headerScrollY} />
         </>
       )}
 
@@ -165,6 +164,7 @@ const HomeScreen = ({
         <DownloadFullscreenModalPlayer
           isFullscreen={isFullscreen}
           content={isFullscreenContent}
+          onChangeContent={setFullscreenContent}
           setFullscreen={() =>
             isFullscreen
               ? [makePortrait(), setFullscreenContent(null)]

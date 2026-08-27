@@ -1,6 +1,5 @@
 import {
   Alert,
-  Animated,
   Linking,
   Platform,
   ScrollView,
@@ -9,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   AppButton,
   AppImage,
@@ -38,11 +37,12 @@ import { IVODContent } from '@/types/api/content.types';
 import ToastNotification from '@/components/ToastNotifications';
 import { getVODbyCastID } from '@/api/content.api';
 import Placeholder from '@/components/SkeletonLoader';
-import { setPreviewContent } from '@/store/slices/previewContentSlice';
-import { useAppDispatch } from '@/Hooks/reduxHook';
+import {setPreviewContent} from '@/store/slices/previewContentSlice';
+import {useAppDispatch} from '@/Hooks/reduxHook';
+import {useSharedValue} from 'react-native-reanimated';
 
 const CastScreeen = () => {
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollY = useSharedValue(0);
   const [loading, setLoading] = useState<boolean>(false)
     const [content, setContent] = useState<IVODContent[]>([]);
   const {goBack, replace, pop} = useNavigation<RootNav>();

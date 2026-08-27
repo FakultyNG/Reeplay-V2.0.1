@@ -7,6 +7,8 @@ import {
   View,
 } from 'react-native';
 import React, {
+  Dispatch,
+  SetStateAction,
   useCallback,
   useEffect,
   useMemo,
@@ -18,11 +20,12 @@ import {OpenDropDwn} from '@/assets/icons';
 import {
   ICast,
   IContinueWatching,
+  IDownloadData,
   IEpisode,
   ISeasonData,
   IVODContent,
 } from '@/types/api/content.types';
-import {fetchCastsByVOID, fetchSeasonsForSeries} from '@/api/content.api';
+import {fetchCastsByVOID, fetchSeasonsForSeries, hasPaidContentStatus} from '@/api/content.api';
 import Size from '@/Utils/useResponsiveSize';
 import colors from '@/configs/colors';
 import FastImage from 'react-native-fast-image';
@@ -32,6 +35,7 @@ import routes from '@/navigation/routes';
 import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
 import {setPreviewContent} from '@/store/slices/previewContentSlice';
 import {selectContinueWatching} from '@/store/slices/bannerSlice.slice';
+import {createThumbnail} from 'react-native-create-thumbnail';
 
 export type FeaturedExtrasAvailability = boolean | null;
 
@@ -40,10 +44,13 @@ interface Props {
   /** All featured banner VODs — prefetched so swipes are cache-only. */
   featuredVods?: IVODContent[];
   onAvailabilityChange: (available: FeaturedExtrasAvailability) => void;
+  makeFullscreen?: () => void;
+  setFullscreenContent?: Dispatch<SetStateAction<IDownloadData | null>>;
 }
 
-const EPISODE_CARD_WIDTH = Size.calcWidth(148);
-const EPISODE_CARD_HEIGHT = Size.calcHeight(88);
+const EPISODE_CARD_WIDTH = Size.calcWidth(118);
+const EPISODE_CARD_HEIGHT = Size.calcWidth(140);
+const EPISODE_CARD_GAP = Size.calcWidth(8);
 const CAST_SIZE = Size.calcWidth(72);
 const DEFAULT_CAST_AVATAR = require('@/assets/images/dummy-avatar.png');
 const PREFETCH_CONCURRENCY = 6;
@@ -55,6 +62,44 @@ type CachedExtras =
 
 const extrasCache = new Map<string, CachedExtras>();
 const inflight = new Map<string, Promise<CachedExtras>>();
+const episodeThumbCache = new Map<string, string>();
+const episodeThumbInflight = new Map<string, Promise<string | null>>();
+let episodeThumbQueue: Promise<void> = Promise.resolve();
+
+function toFileUri(path: string) {
+  if (path.startsWith('file://') || path.startsWith('http')) {
+    return path;
+  }
+  return `file://${path}`;
+}
+
+function getEpisodeThumb(url: string): Promise<string | null> {
+  const cached = episodeThumbCache.get(url);
+  if (cached) {
+    return Promise.resolve(cached);
+  }
+  const existing = episodeThumbInflight.get(url);
+  if (existing) {
+    return existing;
+  }
+
+  const run = new Promise<string | null>(resolve => {
+    episodeThumbQueue = episodeThumbQueue.then(async () => {
+      try {
+        const response = await createThumbnail({url, timeStamp: 1200});
+        const uri = toFileUri(response.path);
+        episodeThumbCache.set(url, uri);
+        resolve(uri);
+      } catch {
+        resolve(null);
+      } finally {
+        episodeThumbInflight.delete(url);
+      }
+    });
+  });
+  episodeThumbInflight.set(url, run);
+  return run;
+}
 
 function isSeriesType(type?: string) {
   return (type ?? '').toLowerCase().includes('series');
@@ -81,8 +126,19 @@ function uniqueCasts(list: ICast[]) {
   return out;
 }
 
+function sortEpisodes(episodes: IEpisode[] | undefined) {
+  return [...(episodes ?? [])].sort(
+    (a, b) => (a.episodeNumber ?? 0) - (b.episodeNumber ?? 0),
+  );
+}
+
 function sortSeasons(seasons: ISeasonData[]) {
-  return [...seasons].sort((a, b) => b.serial_number - a.serial_number);
+  return [...seasons]
+    .sort((a, b) => b.serial_number - a.serial_number)
+    .map(season => ({
+      ...season,
+      episodes: sortEpisodes(season.episodes),
+    }));
 }
 
 function hasExtrasContent(cached: CachedExtras | null | undefined) {
@@ -216,6 +272,8 @@ const FeaturedExtras = ({
   vod,
   featuredVods = [],
   onAvailabilityChange,
+  makeFullscreen,
+  setFullscreenContent,
 }: Props) => {
   const [cacheTick, setCacheTick] = useState(0);
   const availabilityRef = useRef<FeaturedExtrasAvailability>(null);
@@ -300,7 +358,14 @@ const FeaturedExtras = ({
   }
 
   if (extras.kind === 'series') {
-    return <SeriesEpisodesExtras vod={vod} seasons={extras.seasons} />;
+    return (
+      <SeriesEpisodesExtras
+        vod={vod}
+        seasons={extras.seasons}
+        makeFullscreen={makeFullscreen}
+        setFullscreenContent={setFullscreenContent}
+      />
+    );
   }
 
   if (extras.kind === 'casts') {
@@ -313,9 +378,16 @@ const FeaturedExtras = ({
 interface SeriesEpisodesExtrasProps {
   vod: IVODContent;
   seasons: ISeasonData[];
+  makeFullscreen?: () => void;
+  setFullscreenContent?: Dispatch<SetStateAction<IDownloadData | null>>;
 }
 
-const SeriesEpisodesExtras = ({vod, seasons}: SeriesEpisodesExtrasProps) => {
+const SeriesEpisodesExtras = ({
+  vod,
+  seasons,
+  makeFullscreen,
+  setFullscreenContent,
+}: SeriesEpisodesExtrasProps) => {
   const {navigate} = useNavigation<RootNav>();
   const dispatch = useAppDispatch();
   const continueWatching = useAppSelector(selectContinueWatching) ?? [];
@@ -323,17 +395,54 @@ const SeriesEpisodesExtras = ({vod, seasons}: SeriesEpisodesExtrasProps) => {
     seasons[0]?._id ?? null,
   );
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [canView, setCanView] = useState(
+    (vod.vidClass ?? '').toLowerCase() === 'free',
+  );
 
   useEffect(() => {
     setSelectedSeasonId(seasons[0]?._id ?? null);
   }, [vod._id, seasons]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function checkAccess() {
+      if ((vod.vidClass ?? '').toLowerCase() === 'free') {
+        setCanView(true);
+        return;
+      }
+      const res = await hasPaidContentStatus({
+        contentType: 'vod',
+        _id: vod._id,
+      });
+      if (!cancelled) {
+        setCanView(!!(res.ok && res.data?.data?.canView));
+      }
+    }
+    checkAccess();
+    return () => {
+      cancelled = true;
+    };
+  }, [vod._id, vod.vidClass]);
 
   const selectedSeason = useMemo(
     () => seasons.find(s => s._id === selectedSeasonId) ?? seasons[0],
     [seasons, selectedSeasonId],
   );
 
-  const episodes = selectedSeason?.episodes ?? [];
+  const episodes = useMemo(
+    () => sortEpisodes(selectedSeason?.episodes),
+    [selectedSeason],
+  );
+
+  useEffect(() => {
+    episodes.slice(0, 6).forEach(episode => {
+      const url = episode.video || episode.trailer;
+      if (url) {
+        getEpisodeThumb(url);
+      }
+    });
+  }, [episodes]);
+
   if (!episodes.length) {
     return null;
   }
@@ -346,9 +455,48 @@ const SeriesEpisodesExtras = ({vod, seasons}: SeriesEpisodesExtrasProps) => {
     });
   };
 
+  const openEpisode = (episode: IEpisode) => {
+    const videoURL = episode.video || episode.trailer;
+    if (canView && videoURL && makeFullscreen && setFullscreenContent) {
+      const playlist = episodes
+        .map(item => {
+          const url = item.video || item.trailer;
+          if (!url) {
+            return null;
+          }
+          return {
+            _id: item._id,
+            desc: item.description,
+            landscapePhoto: vod.landscapePhoto,
+            portraitPhoto: vod.portraitPhoto,
+            pg: vod.pg,
+            size: '',
+            title: item.title,
+            type: vod.type,
+            vidClass: vod.vidClass,
+            video: url,
+            viewsCount: item.viewsCount,
+          } satisfies IDownloadData;
+        })
+        .filter((item): item is IDownloadData => item !== null);
+      const playlistIndex = Math.max(
+        0,
+        playlist.findIndex(item => item._id === episode._id),
+      );
+      setFullscreenContent({
+        ...playlist[playlistIndex],
+        playlist,
+        playlistIndex,
+      });
+      makeFullscreen();
+      return;
+    }
+    openSeriesPreview();
+  };
+
   return (
     <AppView className="mt-6 pl-5">
-      <AppView className="flex-row items-center pr-5 mb-3">
+      <AppView className="flex-row items-center pr-5 mb-5">
         <TouchableOpacity
           onPress={() => setDropdownOpen(true)}
           disabled={seasons.length < 2}
@@ -357,7 +505,7 @@ const SeriesEpisodesExtras = ({vod, seasons}: SeriesEpisodesExtrasProps) => {
           <AppText className="text-white font-MANROPE_700 text-base mr-1.5">
             Season {selectedSeason?.serial_number ?? 1}
           </AppText>
-          {seasons.length > 1 && <OpenDropDwn />}
+          <OpenDropDwn />
         </TouchableOpacity>
         <AppText className="ml-3 text-sm font-MANROPE_400 text-grey_white">
           {episodes.length} {episodes.length === 1 ? 'Episode' : 'Episodes'}
@@ -378,9 +526,8 @@ const SeriesEpisodesExtras = ({vod, seasons}: SeriesEpisodesExtrasProps) => {
         renderItem={({item}) => (
           <EpisodeCard
             episode={item}
-            coverUri={vod.landscapePhoto || vod.portraitPhoto}
             continueWatching={continueWatching}
-            onPress={openSeriesPreview}
+            onPress={() => openEpisode(item)}
           />
         )}
       />
@@ -426,17 +573,19 @@ const SeriesEpisodesExtras = ({vod, seasons}: SeriesEpisodesExtrasProps) => {
 
 interface EpisodeCardProps {
   episode: IEpisode;
-  coverUri: string;
   continueWatching: IContinueWatching[];
   onPress: () => void;
 }
 
 const EpisodeCard = React.memo(function EpisodeCard({
   episode,
-  coverUri,
   continueWatching,
   onPress,
 }: EpisodeCardProps) {
+  const videoURL = episode.video || episode.trailer;
+  const [thumbUri, setThumbUri] = useState(
+    () => (videoURL ? episodeThumbCache.get(videoURL) : undefined) ?? '',
+  );
   const progress = useMemo(() => {
     const match = continueWatching.find(
       c => c.episode?._id === episode._id || c.watchedDocumentId === episode._id,
@@ -444,49 +593,61 @@ const EpisodeCard = React.memo(function EpisodeCard({
     if (match && match.totalDuration > 0) {
       return Math.min(1, Math.max(0, match.duration / match.totalDuration));
     }
-    if (episode.durationWatched > 0) {
-      return Math.min(0.85, Math.max(0.12, episode.durationWatched / 2700));
-    }
     return 0;
-  }, [continueWatching, episode._id, episode.durationWatched]);
+  }, [continueWatching, episode._id]);
+
+  useEffect(() => {
+    if (!videoURL) {
+      setThumbUri('');
+      return;
+    }
+    const cached = episodeThumbCache.get(videoURL);
+    if (cached) {
+      setThumbUri(cached);
+      return;
+    }
+    let cancelled = false;
+    getEpisodeThumb(videoURL).then(uri => {
+      if (!cancelled && uri) {
+        setThumbUri(uri);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [videoURL]);
 
   return (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.85}
-      style={{width: EPISODE_CARD_WIDTH}}
-      className="mr-3">
+      style={{width: EPISODE_CARD_WIDTH, marginRight: EPISODE_CARD_GAP}}>
       <AppView
-        style={{height: EPISODE_CARD_HEIGHT, backgroundColor: colors.BLACKER}}
-        className="rounded-lg overflow-hidden relative">
-        <AppImage
-          source={{
-            uri: coverUri,
-            priority: FastImage.priority.normal,
-            cache: FastImage.cacheControl.immutable,
-          }}
-          style={StyleSheet.absoluteFillObject}
-          resizeMode={FastImage.resizeMode.cover}
-        />
-        <View style={styles.episodeBadge}>
+        style={styles.episodeCard}
+        className="overflow-hidden relative">
+        {!!thumbUri && (
+          <AppImage
+            source={{
+              uri: thumbUri,
+              priority: FastImage.priority.normal,
+              cache: FastImage.cacheControl.immutable,
+            }}
+            style={StyleSheet.absoluteFillObject}
+            resizeMode={FastImage.resizeMode.cover}
+          />
+        )}
+        <View style={styles.episodeBadge} pointerEvents="none">
           <AppText className="text-white font-MANROPE_700 text-[10px]">
             {padEpisode(episode.episodeNumber)}
           </AppText>
         </View>
-        <View style={styles.episodeFooter}>
-          <AppText
-            numberOfLines={1}
-            className="text-white font-MANROPE_500 text-[11px] mb-1">
-            {episode.title}
-          </AppText>
-          {progress > 0 && (
-            <View style={styles.progressTrack}>
-              <View
-                style={[styles.progressFill, {width: `${progress * 100}%`}]}
-              />
-            </View>
-          )}
-        </View>
+        {progress > 0 && (
+          <View style={styles.progressTrack} pointerEvents="none">
+            <View
+              style={[styles.progressFill, {width: `${progress * 100}%`}]}
+            />
+          </View>
+        )}
       </AppView>
     </TouchableOpacity>
   );
@@ -569,32 +730,29 @@ const CastAvatar = React.memo(function CastAvatar({uri}: {uri?: string}) {
 export default FeaturedExtras;
 
 const styles = StyleSheet.create({
+  episodeCard: {
+    height: EPISODE_CARD_HEIGHT,
+    backgroundColor: colors.BLACKER,
+    borderRadius: 10,
+  },
   episodeBadge: {
     position: 'absolute',
     top: 0,
     left: 0,
     backgroundColor: colors.RED,
-    paddingHorizontal: 6,
+    minWidth: Size.calcWidth(22),
+    paddingHorizontal: 5,
     paddingVertical: 3,
-    borderBottomRightRadius: 4,
+    alignItems: 'center',
     zIndex: 2,
   },
-  episodeFooter: {
+  progressTrack: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 8,
-    paddingBottom: 6,
-    paddingTop: 20,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  progressTrack: {
     height: 2,
-    width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderRadius: 1,
+    backgroundColor: 'rgba(255,255,255,0.35)',
     overflow: 'hidden',
   },
   progressFill: {

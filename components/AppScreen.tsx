@@ -9,7 +9,7 @@ import {
   ViewStyle,
   StatusBar,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import {SafeAreaView, Edge} from 'react-native-safe-area-context';
 
 interface ScreenProps extends ViewProps {
   containerStyle?: ViewStyle;
@@ -18,17 +18,17 @@ interface ScreenProps extends ViewProps {
   showBackHeader?: boolean;
   statusBarHidden?: boolean;
   isFullscreen?:boolean
-
+  edges?: Edge[];
 }
 const AppScreen = (props: ScreenProps): JSX.Element => {
-  const {children, style, containerStyle,scrollContentStyle, scrollable,isFullscreen, statusBarHidden} = props;
+  const {children, style, containerStyle,scrollContentStyle, scrollable,isFullscreen, statusBarHidden, edges} = props;
 
   return (
     <>
     {isFullscreen ? 
       <View style={[styles.screen, containerStyle]}>{children}</View>
     :
-      <SafeAreaView style={[styles.screen, containerStyle]}>
+      <SafeAreaView style={[styles.screen, containerStyle]} edges={edges}>
         {statusBarHidden && <StatusBar hidden={true} />}
           {scrollable ? (
             <ScrollView

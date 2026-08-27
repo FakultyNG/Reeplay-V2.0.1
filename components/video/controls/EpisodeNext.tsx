@@ -3,9 +3,13 @@ import React from 'react'
 import { TouchableOpacity } from 'react-native'
 import { NextIcon } from '@/assets/icons'
 
-const EpisodeNext = () => {
+const EpisodeNext = ({onPress}: {onPress?: () => void}) => {
+  if (!onPress) {
+    return null;
+  }
   return (
     <TouchableOpacity
+    onPress={onPress}
     style={{
         flexDirection: 'row',
         alignItems: 'center',

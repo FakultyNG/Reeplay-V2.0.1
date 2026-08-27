@@ -146,11 +146,7 @@ const MyTabBar = ({state, descriptors, navigation}: BottomTabBarProps) => {
                 onPress={onPress}
                 onLongPress={onLongPress}
                 style={styles.tab}>
-                <View
-                  style={[
-                    styles.tabInner,
-                    isFocused && styles.tabInnerActive,
-                  ]}>
+                <View style={styles.tabInner}>
                   {labelText === 'Home' &&
                     (isFocused ? <FHomeIcon /> : <HomeIcon />)}
                   {labelText === 'Live' && (
@@ -231,10 +227,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: Size.calcHeight(6),
     paddingHorizontal: Size.calcWidth(8),
-    borderRadius: 999,
-  },
-  tabInnerActive: {
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
   tabLabel: {
     fontFamily: fonts.ROBOTO_700,

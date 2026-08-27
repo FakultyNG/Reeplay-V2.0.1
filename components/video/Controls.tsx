@@ -460,7 +460,9 @@ const [pendingSeekProgress, setPendingSeekProgress] =
                   </View>
 
                   <View className="flex-row items-center gap-x-5">
-                    {type?.includes('series') && <EpisodeNext />}
+                    {type?.includes('series') && (
+                      <EpisodeNext onPress={handleNEXT} />
+                    )}
                     {type !== 'live' && (
                       <Subtitle
                         tracks={subtitleTracks}

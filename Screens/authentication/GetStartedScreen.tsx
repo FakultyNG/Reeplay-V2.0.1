@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   AppButton,
   AppText,
@@ -16,20 +16,19 @@ import {
   AppView,
   TouchableOpacity,
 } from '@/components';
-import {BiometricsIcon, MuteIcon, UnmuteIcon} from '@/assets/icons';
+import { BiometricsIcon, MuteIcon, UnmuteIcon } from '@/assets/icons';
 import useToggle from '@/Hooks/useToggle';
 import colors from '@/configs/colors';
 import Size from '@/Utils/useResponsiveSize';
 import fonts from '@/configs/fonts';
 import LinearGradient from 'react-native-linear-gradient';
-import {MotiView} from 'moti';
-import {Easing} from 'react-native-reanimated';
-import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
-import {selectUser} from '@/store/slices/userSlice';
-import {useIsFocused, useNavigation} from '@react-navigation/native';
+import LottieView from 'lottie-react-native';
+import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
+import { selectUser } from '@/store/slices/userSlice';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import routes from '@/navigation/routes';
-import {authGet, AUTH_MMKV_KEYS} from '@/Utils/authMmkv';
-import ReactNativeBiometrics, {BiometryTypes} from 'react-native-biometrics';
+import { authGet, AUTH_MMKV_KEYS } from '@/Utils/authMmkv';
+import ReactNativeBiometrics, { BiometryTypes } from 'react-native-biometrics';
 import { VideoRef } from 'react-native-video';
 import { randomAds } from '@/api/content.api';
 import { selectAdsContent, setAdsContent } from '@/store/slices/adsSlice.slice';
@@ -39,13 +38,13 @@ import { useAppPersistStore } from '@/store/zustand.store';
 import PrivacyScreen from '../support/PrivacyScreen';
 import TermScreen from '../support/TermScreen';
 import { setCategories } from '@/store/slices/bannerSlice.slice';
-import {contentGetJson, CONTENT_MMKV_KEYS} from '@/Utils/contentMmkv';
+import { contentGetJson, CONTENT_MMKV_KEYS } from '@/Utils/contentMmkv';
 
 export const HAS_SET_NEWPIN = AUTH_MMKV_KEYS.HAS_SET_NEWPIN;
 const HAS_LOCK_APP = AUTH_MMKV_KEYS.HAS_LOCK_APP;
 
-const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "getStarted" | "pin"}) => {
-  const {replace, navigate, getParent} = useNavigation<AuthParamsNavigator>();
+const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, screen?: "getStarted" | "pin" }) => {
+  const { replace, navigate, getParent } = useNavigation<AuthParamsNavigator>();
   const navigation = useNavigation<RootNav>();
   const videoRef = useRef<VideoRef>(null);
   const [toogle, setToogle] = useToggle(false);
@@ -56,21 +55,25 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
   const rnBiometrics = new ReactNativeBiometrics();
   const dispatch = useAppDispatch();
   const ads = useAppSelector(selectAdsContent).ads
-  const {isLock,setIsLock,isToken, biometrics} = useAppPersistStore()
-    const [modal, setModal] = useState<'privacy'|'terms'|null>(null)
+  const { isLock, setIsLock, isToken, biometrics } = useAppPersistStore()
+  const [modal, setModal] = useState<'privacy' | 'terms' | null>(null)
   const [adsReady, setAdsReady] = useState(ads.length > 0);
   const [videoReady, setVideoReady] = useState(false);
+  const adVideoUrl = ads[0]?.videoUrl;
+  const videoSource = adVideoUrl
+    ? { uri: adVideoUrl }
+    : require('@/assets/videos/getStartedVideo.mp4');
 
   async function handleLogin() {
     if (lock) {
       const hasPin = await authGet(HAS_SET_NEWPIN);
       console.log(hasPin)
       if (hasPin) {
-        if(handleFunc){
+        if (handleFunc) {
           handleFunc()
-        }else{
+        } else {
           navigate(routes.APP_PIN);
-        } 
+        }
       } else {
         replace(routes.SET_PIN);
       }
@@ -95,7 +98,7 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
 
     try {
       const res = await randomAds();
-      if(res.ok && res.data) dispatch(setAdsContent(res.data.data))
+      if (res.ok && res.data) dispatch(setAdsContent(res.data.data))
     } catch (error) {
       console.log(error);
     } finally {
@@ -110,15 +113,15 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
       Alert.alert('Sorry, your device has no biometrics settings active.');
     if (lock && biometricsIsSupport) {
       rnBiometrics
-        .simplePrompt({promptMessage: 'Confirm biometrics'})
+        .simplePrompt({ promptMessage: 'Confirm biometrics' })
         .then(resultObject => {
-          const {success} = resultObject;
+          const { success } = resultObject;
 
           if (success) {
             console.log('successful biometrics provided');
-            if(isLock){
+            if (isLock) {
               setIsLock(false)
-            }else{
+            } else {
               navigation.reset({
                 index: 0,
                 routes: [
@@ -140,7 +143,7 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
 
   async function checkBiometrics() {
     rnBiometrics.isSensorAvailable().then(resultObject => {
-      const {available, biometryType} = resultObject;
+      const { available, biometryType } = resultObject;
 
       if (
         !available &&
@@ -156,22 +159,22 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
     });
   }
 
-  async function handleFetchCache(){
-      const dataC = contentGetJson<unknown[]>(CONTENT_MMKV_KEYS.CATEGORY);
-      const dataG = contentGetJson<unknown[]>(CONTENT_MMKV_KEYS.GENRE);
-      const dataB = contentGetJson<unknown>(CONTENT_MMKV_KEYS.BANNER);
+  async function handleFetchCache() {
+    const dataC = contentGetJson<unknown[]>(CONTENT_MMKV_KEYS.CATEGORY);
+    const dataG = contentGetJson<unknown[]>(CONTENT_MMKV_KEYS.GENRE);
+    const dataB = contentGetJson<unknown>(CONTENT_MMKV_KEYS.BANNER);
 
-      if(dataC) dispatch(setCategories(dataC as any))
-      if(dataG) dispatch(setCategories(dataG as any))
-      if(dataB) dispatch(setCategories(dataB as any))
+    if (dataC) dispatch(setCategories(dataC as any))
+    if (dataG) dispatch(setCategories(dataG as any))
+    if (dataB) dispatch(setCategories(dataB as any))
   }
 
-  useEffect(() =>{
+  useEffect(() => {
     handleFetchCache();
   }, []);
 
   useLayoutEffect(() => {
-    if(!getParent()) setIsLock(false)
+    if (!getParent()) setIsLock(false)
     // backgroundLogin();
     getLockState();
     checkBiometrics();
@@ -186,17 +189,13 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
   }, [isFocused]);
 
   return (
-    <AppView className="relative" style={{backgroundColor: '#3A3A3A'}}>
+    <AppView className="relative" style={{ backgroundColor: colors.DEEP_BLACK }}>
       <StatusBar hidden />
       {isFocused && adsReady && (
         <AppVideo
-          source={
-            ads && ads.length > 0
-              ? {uri: ads[0].videoUrl}
-              : require('@/assets/videos/getStartedVideo.mp4')
-          }
+          source={videoSource}
           videoRef={videoRef}
-          style={{width: '100%', height: '100%'}}
+          style={{ width: '100%', height: '100%' }}
           resizeMode="cover"
           muted={toogle}
           paused={modal !== null || isToken || (isLock && !screen)}
@@ -209,18 +208,14 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
       )}
 
       {(!adsReady || !videoReady) && (
-        <MotiView
-          pointerEvents="none"
-          from={{opacity: 0.4}}
-          animate={{opacity: 0.85}}
-          transition={{
-            type: 'timing',
-            duration: 900,
-            easing: Easing.inOut(Easing.ease),
-            loop: true,
-          }}
-          style={styles.loadingPulse}
-        />
+        <AppView style={styles.loadingOverlay} pointerEvents="none">
+          <LottieView
+            source={require('@/assets/icons/RPlay.json')}
+            autoPlay
+            loop
+            style={styles.loadingLogo}
+          />
+        </AppView>
       )}
 
       <LinearGradient
@@ -239,7 +234,7 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
               }}
             />
           ) : (
-            <UnmuteIcon style={{marginTop: Platform.OS === 'ios' ? 0 : -10}} />
+            <UnmuteIcon style={{ marginTop: Platform.OS === 'ios' ? 0 : -10 }} />
           )}
         </TouchableOpacity>
         {user._id !== '' && (
@@ -248,7 +243,7 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
               Welcome back
             </AppText>
             <AppText
-              style={Platform.OS === 'ios' && {marginTop: -3}}
+              style={Platform.OS === 'ios' && { marginTop: -3 }}
               className="capitalize text-[24px] -mt-[8px] text-white font-LEXEND_700">
               {user.first_name}
             </AppText>
@@ -282,8 +277,8 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
                 backgroundColor: (!biometricsIsSupport || !biometrics)
                   ? colors.GREY_BIOMETRICS
                   : !lock
-                  ? colors.GREY_BIOMETRICS
-                  : colors.RED,
+                    ? colors.GREY_BIOMETRICS
+                    : colors.RED,
               }}
               className="px-6 py-[6px]">
               <BiometricsIcon />
@@ -303,7 +298,7 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
               title="Create a New Account"
               bgColor={colors.RED}
               onPress={() => replace(routes.SIGNUP_SCREEN)}
-              style={{marginTop: Size.calcHeight(20)}}
+              style={{ marginTop: Size.calcHeight(20) }}
               labelStyle={styles.labelStyle}
             />
           </>
@@ -325,13 +320,13 @@ const GetStartedScreen = ({handleFunc,screen}:{handleFunc?:() => void,screen?: "
         </AppView>
       </AppView>
 
-       <Modal visible={modal !== null} onRequestClose={() => setModal(null)} animationType='slide'>
-                  {modal === 'privacy' ? 
-                  <PrivacyScreen handleFunc={() => setModal(null)} />
-                  :
-                  <TermScreen handleFunc={() => setModal(null)} />
-                  }
-                </Modal>
+      <Modal visible={modal !== null} onRequestClose={() => setModal(null)} animationType='slide'>
+        {modal === 'privacy' ?
+          <PrivacyScreen handleFunc={() => setModal(null)} />
+          :
+          <TermScreen handleFunc={() => setModal(null)} />
+        }
+      </Modal>
     </AppView>
   );
 };
@@ -358,10 +353,17 @@ const styles = StyleSheet.create({
     zIndex: 1,
     position: 'absolute',
   },
-  loadingPulse: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#6B6B6B',
+  loadingOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: colors.DEEP_BLACK,
+    alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 2,
+    height: Size.hp(100)
+  },
+  loadingLogo: {
+    width: 340,
+    height: 340,
   },
   labelStyle: {
     fontSize: 13,

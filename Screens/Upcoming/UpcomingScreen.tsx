@@ -1,6 +1,13 @@
-import {Alert, Animated, Platform, ScrollView, StatusBar} from 'react-native';
+import {
+  Alert,
+  Animated,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+} from 'react-native';
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
-import {AppScreen, AppText, AppView} from '@/components';
+import {AppScreen, AppText} from '@/components';
 import colors from '@/configs/colors';
 import UpcomingView from './components/UpcomingView';
 import Orientation, {PORTRAIT} from 'react-native-orientation-locker';
@@ -130,7 +137,26 @@ const UpcomingScreen = ({
             <AppText className="pl-5 font-LEXEND_700 text-[17px] text-grey_100 my-4">
               COMING SOON
             </AppText>
-            <AppView style={{flex: 1}}>
+            <ScrollView
+              onScroll={Animated.event(
+                [{nativeEvent: {contentOffset: {y: scrollY}}}],
+                {useNativeDriver: false},
+              )}
+              scrollEventThrottle={16}
+              showsVerticalScrollIndicator={false}
+              alwaysBounceVertical
+              refreshControl={
+                <RefreshControl
+                  refreshing={isLoading}
+                  onRefresh={handleUpcomingEvents}
+                  tintColor={colors.RED}
+                  colors={[colors.RED]}
+                />
+              }
+              contentContainerStyle={{
+                flexGrow: 1,
+                paddingBottom: Size.hp(24),
+              }}>
               {isLoading || upcomingEvents.length === 0 ? (
                 <LiveEmptyState
                   loading={isLoading}
@@ -139,16 +165,7 @@ const UpcomingScreen = ({
                   message="New titles and events will show up here when they are scheduled. Check back later."
                 />
               ) : (
-                <ScrollView
-                  onScroll={Animated.event(
-                    [{nativeEvent: {contentOffset: {y: scrollY}}}],
-                    {useNativeDriver: false},
-                  )}
-                  scrollEventThrottle={16}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{
-                    paddingBottom: Size.hp(24),
-                  }}>
+                <>
                   {upcomingEvents.map((item, i) => {
                     return (
                       <UpcomingView
@@ -163,9 +180,9 @@ const UpcomingScreen = ({
                       />
                     );
                   })}
-                </ScrollView>
+                </>
               )}
-            </AppView>
+            </ScrollView>
           </AppScreen>
         </>
       )}

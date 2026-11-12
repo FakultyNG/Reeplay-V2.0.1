@@ -1,7 +1,7 @@
 import {
   Animated,
+  RefreshControl,
   StatusBar,
-  StyleSheet,
   VirtualizedList,
 } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
@@ -10,10 +10,10 @@ import colors from '@/configs/colors';
 import Slider from '@/Screens/Home/components/SliderContainer';
 import DynamicViewContainer from './DynamicViewContainer';
 import Size from '@/Utils/useResponsiveSize';
-import Orientation, { PORTRAIT } from 'react-native-orientation-locker';
+import Orientation from 'react-native-orientation-locker';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
 import { selectBannerContent } from '@/store/slices/bannerSlice.slice';
-import { resetFullVideo, resetLiveVideo, selectFullVideoProps, selectLiveModalContent } from '@/store/slices/fullScreenVideo.slice';
+import { resetLiveVideo, selectFullVideoProps, selectLiveModalContent } from '@/store/slices/fullScreenVideo.slice';
 import FullscreenModalPlayer from './FullscreenModalPlayer';
 import { OrientationInjectedProps } from '@/components/OrientationWrapper';
 import AppModal from '@/components/AppModal';
@@ -23,6 +23,8 @@ import { ILiveContent, IVODContent } from '@/types/api/content.types';
 import { useIsFocused } from '@react-navigation/native';
 import {useTabBarCompactOnScroll} from '@/navigation/useTabBarCompactOnScroll';
 import {useSharedValue} from 'react-native-reanimated';
+import {bannerApi} from '@/api/content.api';
+import {setBannerContent} from '@/store/slices/bannerSlice.slice';
 
 const LiveScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedProps) => {
   const headerScrollY = useSharedValue(0);
@@ -32,6 +34,8 @@ const LiveScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInject
   const isFullscreenContent = useAppSelector(selectFullVideoProps);
   const isLiveModalContent = useAppSelector(selectLiveModalContent);
   const [currentContentState, setContentState] = useState<IVODContent|ILiveContent|null>(isFullscreenContent)
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const dispatch = useAppDispatch();
       const isFocused = useIsFocused();
 
@@ -47,10 +51,23 @@ const LiveScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInject
     return (
       <>
         <Slider data={live} live makeFullscreen={makeFullscreen}  />
-        <DynamicViewContainer scrollY={scrollY2} makeFullscreen={makeFullscreen} />
+        <DynamicViewContainer key={refreshKey} scrollY={scrollY2} makeFullscreen={makeFullscreen} />
       </>
     );
   };
+
+  async function handleRefresh() {
+    try {
+      setIsRefreshing(true);
+      setRefreshKey(previous => previous + 1);
+      const response = await bannerApi();
+      if (response.ok && response.data?.data) {
+        dispatch(setBannerContent(response.data.data));
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
 
   const onScroll = (event: {nativeEvent: {contentOffset?: {y?: number}}}) => {
     const y = event.nativeEvent.contentOffset?.y ?? 0;
@@ -99,7 +116,17 @@ const LiveScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInject
             onScroll={onScroll}
             scrollEventThrottle={16}
             decelerationRate="normal"
-            bounces={false}
+            bounces
+            alwaysBounceVertical
+            extraData={refreshKey}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={colors.RED}
+                colors={[colors.RED]}
+              />
+            }
             showsVerticalScrollIndicator={false}
             style={{
               backgroundColor: colors.DEEP_BLACK,

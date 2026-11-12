@@ -2,9 +2,7 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import React, {useEffect, useState} from 'react';
@@ -40,6 +38,7 @@ const LibraryScreen = () => {
   const [contents, setContents] = useState<IVODContent[]>([])
   const [loading, setLoading] = useState<boolean>(false);
   const [loading_m, setLoading_m] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
 
@@ -47,8 +46,8 @@ const LibraryScreen = () => {
     setGenre(null);
   }
 
-   async function handleFetchContent(page?:number, cat?:string, genre?:string, isLoadMore?:boolean){
-    if(loading || !hasMore) return
+   async function handleFetchContent(page?:number, cat?:string, genre?:string, isLoadMore?:boolean, replace?:boolean){
+    if((loading || !hasMore) && !replace) return
     try {
       if(isLoadMore){
         setLoading_m(true)
@@ -60,6 +59,7 @@ const LibraryScreen = () => {
       if(res.ok && res.data){
         const data = res.data.data;
         setContents(prev =>{
+          if (replace) return data;
           const existingIds = new Set<string>(prev.map(x => x._id));
           const merged = [
             ...prev,
@@ -69,10 +69,11 @@ const LibraryScreen = () => {
           return merged
         });
         if(page) setPage(page)
+        setHasMore(data.length >= 20);
       }else{
         setHasMore(true);
       }
-    } catch (error) {
+    } catch {
       setHasMore(false)
     }finally{
       if(isLoadMore){
@@ -101,6 +102,16 @@ const LibraryScreen = () => {
   const loadMore = () => {
     if(!hasMore || contents.length < 20) return
     handleFetchContent(contents.length >= page * 20 ? page+1:page, undefined, undefined, true)
+  }
+
+  async function handleRefresh() {
+    try {
+      setRefreshing(true);
+      setHasMore(true);
+      await handleFetchContent(1, categoriesTxt._id, genreTxt._id, false, true);
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   useEffect(() =>{
@@ -173,6 +184,8 @@ const LibraryScreen = () => {
             contentContainerStyle={styles.listContent}
             onEndReachedThreshold={0.5}
             onEndReached={loadMore}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
             scrollEventThrottle={16}
             onScroll={e =>
               reportScrollOffset(e.nativeEvent.contentOffset.y)

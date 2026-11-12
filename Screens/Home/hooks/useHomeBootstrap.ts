@@ -39,6 +39,7 @@ import {walletBalance} from '@/api/payment.api';
 import {resetFullVideo} from '@/store/slices/fullScreenVideo.slice';
 import {getAllNotifications} from '@/api/notification.api';
 import {setOrientations} from '@/store/slices/orientationSlize';
+import {useFocusEffect} from '@react-navigation/native';
 
 export function useHomeBootstrap(isFullscreen: boolean) {
   const dispatch = useAppDispatch();
@@ -125,19 +126,21 @@ export function useHomeBootstrap(isFullscreen: boolean) {
         dispatch(setContinueWatching(continueWatchingData));
       }
 
-      if (categories.ok && Array.isArray(categories.data?.data)) {
-        dispatch(setCategories(categories.data.data));
+      const categoryData = categories.data?.data;
+      const genreData = genres.data?.data;
+      if (categories.ok && Array.isArray(categoryData)) {
+        dispatch(setCategories(categoryData));
       }
-      if (genres.ok && Array.isArray(genres.data?.data)) {
-        dispatch(setGenres(genres.data.data));
+      if (genres.ok && Array.isArray(genreData)) {
+        dispatch(setGenres(genreData));
       }
       if (banner.ok && banner.data?.data?.vods) {
         dispatch(setBannerContent(banner.data.data));
         const preload = (banner.data.data.vods ?? [])
           .slice(0, 6)
           .map((v: {portraitPhoto?: string}) => v.portraitPhoto)
-          .filter(Boolean)
-          .map((uri: string) => ({
+          .filter((uri): uri is string => Boolean(uri))
+          .map(uri => ({
             uri,
             priority: FastImage.priority.high,
             cache: FastImage.cacheControl.immutable,
@@ -158,12 +161,12 @@ export function useHomeBootstrap(isFullscreen: boolean) {
             ? banner.data.data
             : prev?.banner,
         categories:
-          categories.ok && Array.isArray(categories.data?.data)
-            ? categories.data.data
+          categories.ok && Array.isArray(categoryData)
+            ? categoryData
             : prev?.categories,
         genres:
-          genres.ok && Array.isArray(genres.data?.data)
-            ? genres.data.data
+          genres.ok && Array.isArray(genreData)
+            ? genreData
             : prev?.genres,
         continueWatching: cW.ok ? continueWatchingData : prev?.continueWatching,
         fetchedAt: Date.now(),
@@ -207,12 +210,14 @@ export function useHomeBootstrap(isFullscreen: boolean) {
   const loadFunc = useCallback(async () => {
     Orientation.lockToPortrait();
     checkOrientation();
-    userProfile();
-    getSponsoredEvents();
     dispatch(resetFullVideo());
-    getWallet();
-    handlePremiumContentCost();
-    handleNotifications();
+    await Promise.allSettled([
+      userProfile(),
+      getSponsoredEvents(),
+      getWallet(),
+      handlePremiumContentCost(),
+      handleNotifications(),
+    ]);
   }, [
     checkOrientation,
     dispatch,
@@ -236,11 +241,13 @@ export function useHomeBootstrap(isFullscreen: boolean) {
     hydrateFromSnapshot();
   }, [hydrateFromSnapshot]);
 
-  useEffect(() => {
-    if (!isFullscreen) {
-      loadFunc();
-    }
-  }, [isFullscreen, loadFunc]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!isFullscreen) {
+        loadFunc();
+      }
+    }, [isFullscreen, loadFunc]),
+  );
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {

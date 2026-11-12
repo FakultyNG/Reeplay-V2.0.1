@@ -11,7 +11,10 @@ import {AppScreen, AppText} from '@/components';
 import colors from '@/configs/colors';
 import UpcomingView from './components/UpcomingView';
 import Orientation, {PORTRAIT} from 'react-native-orientation-locker';
-import {getUpcomingEvents} from '@/api/upcomingEvents.api';
+import {
+  getLegacyUpcomingEvents,
+  getUpcomingEvents,
+} from '@/api/upcomingEvents.api';
 import {IPagination} from '@/types/api/auth.types';
 import {
   IDownloadData,
@@ -40,7 +43,7 @@ const UpcomingScreen = ({
   const [upcomingEvents, setUpcomingEvents] = useState<
     (IVODContent | ILiveContent)[]
   >([]);
-  const [pagination] = useState<IPagination>({page: 1, limit: 20});
+  const [pagination] = useState<IPagination>({page: 1, limit: 100});
   const [isFullscreenContent, setFullscreenContent] =
     useState<IDownloadData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,14 +52,31 @@ const UpcomingScreen = ({
   async function handleUpcomingEvents() {
     try {
       setIsLoading(true);
-      const res = await getUpcomingEvents(pagination);
-      if (res.ok && res.data) {
-        const data: (IVODContent | ILiveContent)[] = [
-          ...res.data.data.lives,
-          ...res.data.data.vods,
-        ];
+      const results = await Promise.allSettled([
+        getUpcomingEvents(pagination),
+        getLegacyUpcomingEvents(pagination),
+      ]);
+      const responses = results
+        .flatMap(result =>
+          result.status === 'fulfilled' ? [result.value] : [],
+        )
+        .filter(response => response.ok && response.data?.data);
 
-        const sortedData = data.sort((a, b) => {
+      if (responses.length > 0) {
+        const merged = responses.flatMap(response => [
+          ...(response.data?.data.lives ?? []),
+          ...(response.data?.data.vods ?? []),
+        ]);
+        const unique = Array.from(
+          new Map(
+            merged.map(item => [
+              `${'start' in item ? 'live' : 'vod'}:${item._id}`,
+              item,
+            ]),
+          ).values(),
+        );
+
+        const sortedData = unique.sort((a, b) => {
           let dateA: Date;
           let dateB: Date;
 
@@ -77,7 +97,10 @@ const UpcomingScreen = ({
 
         setUpcomingEvents(sortedData);
       } else {
-        Alert.alert(`${res.data?.message}`);
+        Alert.alert(
+          'Unable to load upcoming titles',
+          'Please pull down to try again.',
+        );
       }
     } catch (error) {
       console.log(error);

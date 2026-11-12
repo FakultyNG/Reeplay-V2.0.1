@@ -115,8 +115,6 @@ const UpcomingView = ({
     }
   }
 
-  console.log(items)
-
   const handleSubscribe = async () => {
     setRemindMe(!remindMe);
     try {

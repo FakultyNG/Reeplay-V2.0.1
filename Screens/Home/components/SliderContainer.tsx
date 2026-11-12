@@ -6,7 +6,6 @@ import {
 } from 'react-native';
 import React, {
   memo,
-  startTransition,
   useCallback,
   useEffect,
   useMemo,
@@ -61,7 +60,6 @@ interface SliderProps {
   setFullscreenContent?: React.Dispatch<
     React.SetStateAction<IDownloadData | null>
   >;
-  onActiveItemChange?: (item: IVODContent | ILiveContent | null) => void;
 }
 
 function normalizeCarouselIndex(index: number, length: number) {
@@ -85,7 +83,6 @@ const Slider = ({
   live,
   makeFullscreen,
   setFullscreenContent,
-  onActiveItemChange,
 }: SliderProps) => {
   const initialColor = itemPrimaryColor(data[0]);
   const [chrome, setChrome] = useState<ChromeState>({
@@ -101,9 +98,6 @@ const Slider = ({
   });
   const dispatch = useAppDispatch();
   const showHeroEmpty = data.length === 0;
-  const lastNotifiedId = useRef<string | null>(null);
-  const onActiveRef = useRef(onActiveItemChange);
-  onActiveRef.current = onActiveItemChange;
   const dataRef = useRef(data);
   dataRef.current = data;
 
@@ -120,36 +114,22 @@ const Slider = ({
   }, []);
 
   const commitExtras = useCallback((index: number) => {
-    const list = dataRef.current;
     const next = updateChrome(index);
     setCommittedIndex(prev => (prev === next ? prev : next));
-
-    const item = list.length > 0 ? list[next] ?? null : null;
-    const id = item?._id ?? null;
-    if (id === lastNotifiedId.current) {
-      return;
-    }
-    lastNotifiedId.current = id;
-    startTransition(() => {
-      onActiveRef.current?.(item);
-    });
   }, [updateChrome]);
 
   useEffect(() => {
     if (!isLoading) {
       dispatch(setSelectedPremiumCost(premium));
     }
-  }, [isLoading]);
+  }, [dispatch, isLoading, premium]);
 
   useEffect(() => {
-    lastNotifiedId.current = null;
     if (data.length > 0) {
       commitExtras(0);
     } else {
       setChrome({index: 0, primaryColor: '#333333'});
       setCommittedIndex(0);
-      lastNotifiedId.current = null;
-      onActiveRef.current?.(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.length]);

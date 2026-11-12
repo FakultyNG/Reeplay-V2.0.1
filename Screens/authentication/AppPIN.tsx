@@ -4,11 +4,11 @@ import { AppHeader, AppScreen, AppText, AppView, OTPInput } from '@/components';
 import { useNavigation } from '@react-navigation/native';
 import routes from '@/navigation/routes';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
-import { selectUser, setCredentials } from '@/store/slices/userSlice';
+import { logout, selectUser, setCredentials } from '@/store/slices/userSlice';
 import fonts from '@/configs/fonts';
 import colors from '@/configs/colors';
 import Size from '@/Utils/useResponsiveSize';
-import { authGet, authSet } from '@/Utils/authMmkv';
+import { authGet, authMultiRemove, authSet, AUTH_MMKV_KEYS } from '@/Utils/authMmkv';
 import { HAS_SET_NEWPIN } from './GetStartedScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bannerApi, fetchEnums } from '@/api/content.api';
@@ -23,10 +23,11 @@ import ToastNotification from '@/components/ToastNotifications';
 import { hasUserDetails } from '../Splashscreen/Splashscreen';
 import AppModal from '@/components/AppModal';
 import VerificationModal from './components/VerificationModal';
+import {clearTokens} from '@/Utils/secureTokenStorage';
 
 const AppPIN = ({handleFunc}:{handleFunc?: () => void}) => {
   const { reset } = useNavigation<RootNav>();
-  const { isLock, setIsLock } = useAppPersistStore();
+  const { isLock, setIsLock, setIsSessionExpired } = useAppPersistStore();
   const [appPin, setAppPin] = useState('');
   const [error, setError] = useState<boolean>(false);
   const user = useAppSelector(selectUser);
@@ -35,6 +36,7 @@ const AppPIN = ({handleFunc}:{handleFunc?: () => void}) => {
   const [loading, setLoading] = useState<boolean>(false)
   const [hasReset, setHasReset] = useState<boolean>(false)
   const [showModal, setShowModal] = useState<boolean>(false)
+  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false)
 
   const handlePin = async (pin: string) => {
     if (pin.length === 4) {
@@ -101,6 +103,30 @@ const AppPIN = ({handleFunc}:{handleFunc?: () => void}) => {
     }
   }
 
+  async function handleLogout() {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+    try {
+      await clearTokens();
+      await authMultiRemove([
+        hasUserDetails,
+        AUTH_MMKV_KEYS.HAS_LOCK_APP,
+        AUTH_MMKV_KEYS.HAS_SET_NEWPIN,
+        AUTH_MMKV_KEYS.FCM_TOKEN,
+      ]);
+      setIsSessionExpired(false);
+      setIsLock(false);
+      dispatch(logout(undefined));
+      reset({
+        index: 0,
+        routes: [{name: routes.AUTH}],
+      });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }
+
   useLayoutEffect(() => {
     getPinState();
   }, []);
@@ -139,10 +165,26 @@ const AppPIN = ({handleFunc}:{handleFunc?: () => void}) => {
         )}
       </AppView>
 
-      <Pressable
-        style={{ position: 'absolute', bottom: bottom +20, alignSelf: 'center' }} onPress={handleForgetPin}>
-        <AppText style={styles.forgotText}>Forgot PIN?</AppText>
-      </Pressable>
+      <AppView
+        style={{
+          position: 'absolute',
+          bottom: bottom + 20,
+          alignSelf: 'center',
+          alignItems: 'center',
+        }}>
+        <Pressable
+          disabled={isLoggingOut}
+          hitSlop={10}
+          onPress={handleLogout}
+          style={{marginBottom: 12, opacity: isLoggingOut ? 0.55 : 1}}>
+          <AppText style={styles.logoutText}>
+            {isLoggingOut ? 'Logging out...' : 'Logout'}
+          </AppText>
+        </Pressable>
+        <Pressable hitSlop={10} onPress={handleForgetPin}>
+          <AppText style={styles.forgotText}>Forgot PIN?</AppText>
+        </Pressable>
+      </AppView>
 
 
         <AppModal
@@ -163,6 +205,12 @@ const AppPIN = ({handleFunc}:{handleFunc?: () => void}) => {
 export default AppPIN;
 
 const styles = StyleSheet.create({
+  logoutText: {
+    fontFamily: fonts.MANROPE_400,
+    fontSize: Size.calcHeight(16),
+    color: colors.RED,
+    textAlign: 'center',
+  },
   forgotText: {
     fontFamily: fonts.MANROPE_400,
     fontSize: Size.calcHeight(18),

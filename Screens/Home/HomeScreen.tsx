@@ -15,22 +15,17 @@ import {PORTRAIT} from 'react-native-orientation-locker';
 import {useAppSelector} from '@/Hooks/reduxHook';
 import {
   selectBannerContent,
+  selectCategories,
   selectContinueWatching,
 } from '@/store/slices/bannerSlice.slice';
 import {TabNavParams} from '@/navigation/TabNavigation';
 import {OrientationInjectedProps} from '@/components/OrientationWrapper';
 import DownloadFullscreenModalPlayer from '../Download/FullscreenModalPlayer';
-import {
-  IDownloadData,
-  ILiveContent,
-  IVODContent,
-} from '@/types/api/content.types';
-import FeaturedExtras, {
-  FeaturedExtrasAvailability,
-} from './components/FeaturedExtras';
+import {IDownloadData} from '@/types/api/content.types';
 import HomeContinueRow from './components/HomeContinueRow';
 import {useHomeBootstrap} from './hooks/useHomeBootstrap';
 import {useTabBarCompactOnScroll} from '@/navigation/useTabBarCompactOnScroll';
+import ContentWrapper from '@/components/ContentWrapper';
 
 const HomeScreen = ({
   isFullscreen,
@@ -43,32 +38,13 @@ const HomeScreen = ({
   reportScrollOffsetRef.current = reportScrollOffset;
   const {navigate} = useNavigation<TabNavParams>();
   const vods = useAppSelector(selectBannerContent).vods ?? [];
+  const categories = useAppSelector(selectCategories) ?? [];
   const continueWatching = useAppSelector(selectContinueWatching) ?? [];
   const [isFullscreenContent, setFullscreenContent] =
     useState<IDownloadData | null>(null);
-  const [activeFeatured, setActiveFeatured] = useState<IVODContent | null>(
-    null,
-  );
-  const [extrasAvailable, setExtrasAvailable] =
-    useState<FeaturedExtrasAvailability>(null);
 
   const {orientation, isRefreshing, deferHeavyRows, handleRefresh} =
     useHomeBootstrap(isFullscreen);
-
-  const handleActiveFeaturedChange = useCallback(
-    (item: IVODContent | ILiveContent | null) => {
-      if (item && 'adminId' in item) {
-        setActiveFeatured(prev => (prev?._id === item._id ? prev : item));
-        return;
-      }
-      setActiveFeatured(null);
-      setExtrasAvailable(false);
-    },
-    [],
-  );
-
-  const showContinueAfterHero = extrasAvailable === false;
-  const showContinueAfterGenres = extrasAvailable === true;
 
   const onScroll = useCallback(
     (event: {nativeEvent: {contentOffset?: {y?: number}}}) => {
@@ -112,22 +88,12 @@ const HomeScreen = ({
               data={vods}
               makeFullscreen={makeFullscreen}
               setFullscreenContent={setFullscreenContent}
-              onActiveItemChange={handleActiveFeaturedChange}
             />
 
-            <FeaturedExtras
-              vod={activeFeatured}
-              featuredVods={vods}
-              onAvailabilityChange={setExtrasAvailable}
-              makeFullscreen={makeFullscreen}
-              setFullscreenContent={setFullscreenContent}
-            />
-
-            {showContinueAfterHero && (
-              <HomeContinueRow
-                makeFullscreen={makeFullscreen}
-                setFullscreenContent={setFullscreenContent}
-              />
+            {categories.length > 0 && (
+              <AppView className="mt-8 pl-5">
+                <ContentWrapper enums={categories[0]} showPagination />
+              </AppView>
             )}
 
             <AppView className="mt-8">
@@ -142,7 +108,7 @@ const HomeScreen = ({
               <SwiperContainer />
             </AppView>
 
-            {showContinueAfterGenres && (
+            {continueWatching.length > 0 && (
               <HomeContinueRow
                 afterGenres
                 makeFullscreen={makeFullscreen}
@@ -151,7 +117,7 @@ const HomeScreen = ({
             )}
 
             <Sections
-              isSkipped={continueWatching.length > 0}
+              isSkipped={false}
               deferHeavy={deferHeavyRows}
             />
           </ScrollView>

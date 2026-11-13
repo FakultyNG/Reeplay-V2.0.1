@@ -23,12 +23,8 @@ export const baseApi = create({
   timeoutErrorMessage: 'Request Timed Out',
 });
 
-export const handleSignUpAPI = async (data: FormData) =>
-  await baseApi.post<ISignUpDataResponse>(`/customers/signup`, data, {
-     headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-  });
+export const handleSignUpAPI = async (data: ISignUpData) =>
+  await baseApi.post<ISignUpDataResponse>(`/customers/signup`, data);
 
 export const handleLoginAPI = async (data: ILoginData) =>
   await baseApi.post<ILoginDataResponse>(`/customers/general-signin`, data);

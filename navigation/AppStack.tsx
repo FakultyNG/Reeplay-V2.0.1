@@ -1,4 +1,3 @@
-import {View, Text, Platform} from 'react-native';
 import React from 'react';
 import routes from './routes';
 import {createNativeStackNavigator, NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -6,7 +5,6 @@ import AccountScreen from '@/Screens/Menu/AccountScreen';
 import MenuScreen from '@/Screens/Menu/MenuScreen';
 import ChangeEmail from '@/Screens/Menu/ChangeEmail';
 import ChangePassword from '@/Screens/Menu/ChangePassword';
-import ChangePhone from '@/Screens/Menu/ChangePhone';
 import ChangePin from '@/Screens/Menu/ChangePin';
 import SubscriptionScreen from '@/Screens/Menu/SubscriptionScreen';
 import AddPaymentView from '@/Screens/Menu/components/AddPaymentView';
@@ -14,8 +12,6 @@ import CreateAds from '@/Screens/Menu/CreateAds';
 import NotificationScreen from '@/Screens/Menu/NotificationScreen';
 import SuggestionScreen from '@/Screens/Menu/SuggestionScreen';
 import GiftCardRedeemScreen from '@/Screens/Menu/GiftCardRedeemScreen';
-import SettingScreen from '@/Screens/Settings/SettingScreen';
-import LanguageScreen from '@/Screens/Language/LanguageScreen';
 import DeleteScreen from '@/Screens/support/DeleteScreen';
 import CancelSubscription from '@/Screens/support/CancelSubscription';
 import VoteScreen from '@/Screens/VideoScreen/VoteScreen';
@@ -29,7 +25,6 @@ export type DrawerNavigatorProps = {
   [routes.MENU_SCREEN]: undefined;
   [routes.CHANGE_EMAIL]: undefined;
   [routes.CHANGE_PASSWORD]: undefined;
-  [routes.CHANGE_PHONE]: undefined;
   [routes.CHANGE_PIN]: undefined;
   [routes.WATCHLIST_SCREEN]: undefined;
   [routes.ADD_PAYMENT_METHOD]: undefined;
@@ -70,7 +65,6 @@ const AppStack = () => {
       <Drawer.Screen name={routes.ACCOUNT_SCREEN} component={AccountScreen} />
       <Drawer.Screen name={routes.CHANGE_EMAIL} component={ChangeEmail} />
       <Drawer.Screen name={routes.CHANGE_PASSWORD} component={ChangePassword} />
-      <Drawer.Screen name={routes.CHANGE_PHONE} component={ChangePhone} />
       <Drawer.Screen name={routes.CHANGE_PIN} component={ChangePin} />
       <Drawer.Screen name={routes.TRANSACTION_HISTORY_SCREEN} component={TransactionHistory} />
       <Drawer.Screen

@@ -23,7 +23,6 @@ import {
   EditIcon,
   Green_SubscripeIcon,
   PasswordDashboard,
-  PhoneDashboard,
   PinDashboard,
   SubscribeIcon,
   VisaCard,
@@ -224,18 +223,6 @@ const AccountScreen = () => {
               <ArrowRight />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => navigate(routes.CHANGE_PHONE)}
-              className="flex-row items-center justify-between my-4">
-              <AppView className="flex-row items-center">
-                <PhoneDashboard />
-                <AppText className="ml-2 font-MANROPE_400 text-base text-white">
-                  {user.mobile}
-                </AppText>
-              </AppView>
-              {/* Arroa */}
-              <ArrowRight />
-            </TouchableOpacity>
           </AppView>
         </AppView>
 

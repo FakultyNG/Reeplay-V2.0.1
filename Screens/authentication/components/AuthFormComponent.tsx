@@ -3,18 +3,16 @@ import {
   PermissionsAndroid,
   Platform,
   Pressable,
-  StatusBar,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
 import React, { useState } from 'react';
-import { AppButton, AppImage, AppText, AppView, TouchableOpacity } from '@/components';
+import { AppButton, AppText, AppView, TouchableOpacity } from '@/components';
 import colors from '@/configs/colors';
 import Size from '@/Utils/useResponsiveSize';
 import fonts from '@/configs/fonts';
-import { CheckIcon, DropDwn, EyeIcon, EyeIcon_C } from '@/assets/icons';
+import { EyeIcon, EyeIcon_C } from '@/assets/icons';
 import useToggle from '@/Hooks/useToggle';
 import { useNavigation } from '@react-navigation/native';
 import routes from '@/navigation/routes';
@@ -30,19 +28,14 @@ import { authGet, authRemove, authSet, AUTH_MMKV_KEYS } from '@/Utils/authMmkv';
 import { bannerApi, fetchEnums } from '@/api/content.api';
 import { setBannerContent, setCategories, setGenres } from '@/store/slices/bannerSlice.slice';
 import GoogleIcon from '@/assets/icons/LOGO.svg'
-import { subtractYears } from '@/Utils/contentUtils';
-import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import {
   GoogleSignin,
-  statusCodes,
 } from '@react-native-google-signin/google-signin';
 import { AuthParamsNavigator } from '@/navigation/AuthNavigation';
 import { RootNav } from '@/navigation/AppNavigator';
-import country_codes from '@/configs/country_codes';
 import { useAppPersistStore } from '@/store/zustand.store';
 import PrivacyScreen from '@/Screens/support/PrivacyScreen';
 import TermScreen from '@/Screens/support/TermScreen';
-import CountryFlag from 'react-native-country-flag';
 import { getDeviceId } from 'react-native-device-info';
 import { registerNotificationDevice } from '@/api/notification.api';
 import messaging from '@react-native-firebase/messaging';
@@ -60,13 +53,6 @@ GoogleSignin.configure({
 interface Props {
   screen: string;
   trigger?: () => void;
-  setIsCountryCode?: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsGender?: React.Dispatch<React.SetStateAction<boolean>>;
-  gender?: string
-  countryCode?: {
-    cc: string;
-    cf: string;
-  };
   setEmail?: React.Dispatch<React.SetStateAction<string>>;
   isSession?: boolean
 }
@@ -74,24 +60,15 @@ interface Props {
 const AuthFormComponent = ({
   screen,
   trigger,
-  countryCode,
-  setIsCountryCode,
   setEmail: setResetEmail,
-  setIsGender,
-  gender,
   isSession
 }: Props) => {
   const dispatch = useAppDispatch();
   const nav = useNavigation<AuthParamsNavigator>();
-  const { reset, navigate } = useNavigation<RootNav>();
+  const { reset } = useNavigation<RootNav>();
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const [cpassword, setCpassword] = useState<string>('');
-  const [dob, setDOB] = useState<string>('');
-  const [dataVisibility, setDateVisibility] = useState<boolean>(false);
-  const [firstName, setFirstName] = useState<string>('');
-  const [lastName, setLastName] = useState<string>('');
-  const [phoneNo, setPhoneNo] = useState<string>('');
+  const [preferredName, setPreferredName] = useState<string>('');
   const [toogle, setToogle] = useToggle(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -108,10 +85,7 @@ const AuthFormComponent = ({
   async function resetState() {
     setEmail('');
     setPassword('');
-    setCpassword('');
-    setFirstName('');
-    setLastName('');
-    setPhoneNo('');
+    setPreferredName('');
     setError('');
     await authRemove(HAS_SKIPPED);
   }
@@ -354,63 +328,56 @@ const AuthFormComponent = ({
   }
 
   async function handleSignUp() {
-    if (email === '' && password === '' && phoneNo === '' && firstName === '') {
-      setError('Invalid Credentials');
-      setTimeout(() => {
-        setError('');
-      }, 2000);
-    } else {
-      try {
-        if (regex.test(email)) {
-          setLoading(true);
-          const formdata = new FormData()
+    const trimmedEmail = email.trim();
+    const trimmedName = preferredName.trim();
+
+    if (!trimmedName || !trimmedEmail || !password) {
+      setError('Complete all required fields.');
+      return;
+    }
+
+    if (!regex.test(trimmedEmail)) {
+      setError('Enter a valid email address.');
+      return;
+    }
+
+    if (!/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{8,}$/.test(password)) {
+      setError('Password must contain upper and lowercase letters, a number, and at least 8 characters.');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+
+    try {
           let userData = {
-            email,
-            password,
-            fullname: `${firstName} ${lastName}`,
-            phoneNo: `${countryCode && countryCode.cc}${phoneNo}`,
+            email: trimmedEmail,
           };
 
-          formdata.append('first_name', firstName);
-          formdata.append('last_name', lastName);
-          formdata.append('email', email.trim());
-          formdata.append('password', password);
-          formdata.append('cpassword', password);
-          formdata.append('mobile', phoneNo);
-          formdata.append('verified', 'true');
-          formdata.append('gender', gender ? gender.toLowerCase() : 'nil');
-          formdata.append('dob', dob);
-          formdata.append('country', `${country_codes.find(x => x.dial_code === countryCode?.cc)?.name}`);
-          formdata.append('country_code', `${countryCode && countryCode.cc}`);
-
-          const res = await handleSignUpAPI(formdata);
+          const res = await handleSignUpAPI({
+            name: trimmedName,
+            email: trimmedEmail,
+            password,
+          });
           if (res.ok && res.data) {
             nav.navigate(routes.VEERIFY_PHONE, {
               userDetails: userData,
             });
-            setLoading(false);
             resetState();
           } else {
-            setLoading(false);
-            res.data && setError(res.data.message);
-            setTimeout(() => {
-              setError('');
-            }, 6000);
+            const serverMessage = res.data?.message?.replace(/^[^:]*:\s*/, '');
+            setError(
+              serverMessage ||
+                (res.problem === 'TIMEOUT_ERROR'
+                  ? 'Registration timed out while sending the verification email. Please try again.'
+                  : 'Registration failed. Please try again.'),
+            );
           }
-        } else {
-          setError('Invalid Email');
-          setTimeout(() => {
-            setError('');
-          }, 2000);
-        }
-      } catch (error) {
-        setError('Opps! something went wrong');
-        setTimeout(() => {
-          setError('');
-        }, 2000);
-      } finally {
-        setLoading(false);
-      }
+    } catch (error) {
+      console.error('[auth] registration failed', error);
+      setError('Registration failed. Check your connection and try again.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -435,120 +402,22 @@ const AuthFormComponent = ({
           Reset your password
         </AppText>
       )}
-      {error !== '' && (
+      {error !== '' && screen !== 'signUp' && (
         <AppText className="font-MANROPE_500 text-sm text-red mb-4 -mt-2">
           {error}
         </AppText>
       )}
 
-      {screen === 'signUp' && countryCode && setIsCountryCode && (
-        <>
-          <AppView className="flex-row items-center w-full">
-            <TextInput
-              placeholder="First Names"
-              value={firstName}
-              onChangeText={setFirstName}
-              placeholderTextColor={colors.GREY_100}
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={[
-                styles.textInput,
-                { flex: 1, marginRight: 10 },
-                Platform.OS === 'android' && {
-                  fontSize: Size.calcHeight(14.5),
-                  paddingTop: Size.calcHeight(14),
-                  paddingBottom: Size.calcHeight(15),
-                },
-              ]}
-            />
-            <TextInput
-              placeholder="Last Names"
-              value={lastName}
-              onChangeText={setLastName}
-              placeholderTextColor={colors.GREY_100}
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={[
-                styles.textInput,
-                { flex: 1 },
-                Platform.OS === 'android' && {
-                  fontSize: Size.calcHeight(14.5),
-                  paddingTop: Size.calcHeight(14),
-                  paddingBottom: Size.calcHeight(15),
-                },
-              ]}
-            />
-          </AppView>
-          <AppView
-            style={[
-              styles.textInput,
-              Platform.OS === 'android' && {
-                paddingTop: Size.calcHeight(2),
-                paddingBottom: Size.calcHeight(3),
-              },
-            ]}
-            className="flex-row items-center my-6 mb-5">
-            <Pressable
-              style={[styles.center, { columnGap: 4 }]}
-              onPress={() => setIsCountryCode(true)}>
-              <AppView style={{ transform: [{ scale: 1.2 }] }} className="w-7 h-[18px] items-center justify-center overflow-hidden relative">
-                {countryCode.cf === '' ?
-                  <AppImage source={require('@/assets/images/nigerian-flag1.png')} style={{ position: 'absolute', width: 23, height: 14 }} />
-                  : <CountryFlag
-                    isoCode={countryCode.cf.toLowerCase()}
-                    size={18}
-                    style={{
-                      width: 23,
-                      height: 14,
-                      marginLeft: -1,
-                    }}
-                  />
-                }
-              </AppView>
-              <AppText style={styles.text}>{countryCode.cc}</AppText>
-              <DropDwn />
-            </Pressable>
-            <TextInput
-              value={phoneNo}
-              onChangeText={setPhoneNo}
-              keyboardType="number-pad"
-              // maxLength={} TODO: regulate max base on country code
-              style={[styles.text, { flex: 1, marginLeft: 10 }]}
-            />
-          </AppView>
-
-          <View className='flex-row gap-x-2 mb-4'>
-            <Pressable
-              onPress={() => setDateVisibility(true)}
-              style={[
-                styles.textInput,
-                Platform.OS === 'android' && {
-                  paddingTop: Size.calcHeight(14),
-                  paddingBottom: Size.calcHeight(15)
-                },
-              ]}
-              className="flex-row flex-1 items-center">
-              <AppText style={styles.text}>{dob !== '' ? new Date(dob).toLocaleDateString() : 'Date of birth'}</AppText>
-            </Pressable>
-            <AppView
-              style={[
-                styles.textInput,
-                Platform.OS === 'android' && {
-                  paddingTop: Size.calcHeight(2),
-                  paddingBottom: Size.calcHeight(3),
-                },
-              ]}
-              className="flex-row flex-1 items-center">
-              <Pressable
-                style={[styles.center, { columnGap: 4 }]}
-                className='justify-between w-full pr-4'
-                onPress={() => setIsGender?.(true)}>
-                <AppText style={styles.text}>{gender}</AppText>
-                <DropDwn />
-              </Pressable>
-            </AppView>
-          </View>
-        </>
+      {screen === 'signUp' && (
+        <TextInput
+          placeholder="Preferred name (What should we call you?)"
+          value={preferredName}
+          onChangeText={setPreferredName}
+          placeholderTextColor={colors.GREY_100}
+          autoCapitalize="words"
+          autoCorrect={false}
+          style={[styles.textInput, {marginBottom: Size.calcHeight(20)}]}
+        />
       )}
       <TextInput
         placeholder="Email address"
@@ -656,10 +525,17 @@ const AuthFormComponent = ({
       )}
 
       {screen === 'signUp' && (
-        <AppView style={{ marginTop: Size.calcHeight(15) }} className="w-full flex-row  gap-x-1.5 items-center">
+        <AppView style={{ marginTop: Size.calcHeight(15) }} className="w-full">
+          {error !== '' && (
+            <AppText className="font-MANROPE_500 text-sm text-red mb-3 text-center">
+              {error}
+            </AppText>
+          )}
+          <AppView className="w-full flex-row gap-x-1.5 items-center">
           <View className='flex-1'>
             <AppButton
               isLoading={loading}
+              isDisable={loading}
               title="Create account"
               bgColor={colors.RED}
               onPress={handleSignUp}
@@ -676,6 +552,7 @@ const AuthFormComponent = ({
           <TouchableOpacity activeOpacity={.7} className='opacity-40 w-[65px] h-[54px] items-center justify-center bg-[#fff4f4] rounded-r-[4px]'>
             <GoogleIcon />
           </TouchableOpacity>
+          </AppView>
         </AppView>
       )}
 
@@ -745,17 +622,6 @@ const AuthFormComponent = ({
           </Pressable>
         </AppView>
       )}
-
-      <DateTimePickerModal
-        isVisible={dataVisibility}
-        mode="date"
-        maximumDate={subtractYears(new Date(), 18)}
-        onConfirm={e => [setDOB(e.toISOString()), setDateVisibility(false)]}
-        date={subtractYears(new Date(), 18)}
-        onCancel={() => setDateVisibility(false)}
-      />
-
-
 
       <Modal visible={modal !== null} onRequestClose={() => setModal(null)} animationType='slide'>
         {modal === 'privacy' ?

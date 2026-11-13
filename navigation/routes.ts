@@ -47,7 +47,6 @@ export default Object.freeze({
   ACCOUNT_SCREEN: 'AccountScreen',
   CHANGE_EMAIL: 'ChangeEmailScreen',
   CHANGE_PASSWORD: 'ChangePasswordScreen',
-  CHANGE_PHONE: 'ChangePhoneScreen',
   CHANGE_PIN: 'ChangePINScreen',
   ADD_PAYMENT_METHOD: 'AddPaymentMethod',
   SUBSCRIPTION_SCREEN: 'SubscriptionScreen',

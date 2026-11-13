@@ -9,15 +9,9 @@ export interface IPagination {
 }
 
 export interface ISignUpData {
-  first_name: string;
-  last_name: string;
+  name: string;
   email: string;
   password: string;
-  cpassword: string;
-  country_code: string;
-  mobile: string;
-  gender:string;
-  dob:string
 }
 
 export interface ISignUpDataResponse extends IGeneric {

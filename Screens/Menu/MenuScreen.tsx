@@ -1,5 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import {Pressable, StyleSheet, View} from 'react-native';
+import React, {useCallback, useEffect, useState} from 'react';
 import {
   AppButton,
   AppImage,
@@ -20,7 +20,10 @@ import {
   Watchlists,
 } from '@/assets/icons';
 import Size from '@/Utils/useResponsiveSize';
-import { CompositeNavigationProp, useNavigation } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+} from '@react-navigation/native';
 import {
   AppStackNavigation,
   DashboardNavProps,
@@ -30,13 +33,9 @@ import colors from '@/configs/colors';
 import fonts from '@/configs/fonts';
 import appVersion from '@/version.json';
 import AppModal from '@/components/AppModal';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { DrawerNavigatorProps } from '@/navigation/AppStack';
-import { AuthStackParamList } from '@/navigation/AuthNavigation';
-import { RootNav, RootStackParamList } from '@/navigation/AppNavigator';
+import {RootNav} from '@/navigation/AppNavigator';
 import {authGet, authMultiRemove, AUTH_MMKV_KEYS} from '@/Utils/authMmkv';
 import {HAS_SKIPPED} from '../authentication/components/AuthFormComponent';
-import {SignUpNavigationProps} from '../authentication/SignUpScreen';
 import {hasUserDetails} from '../Splashscreen/Splashscreen';
 import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
 import {
@@ -67,6 +66,13 @@ const tabs = [
 
 const skippedTab = ['Log In', 'Suggestions'];
 
+const BACKEND_PACKAGE_URL =
+  'https://raw.githubusercontent.com/Fakulty-Media-and-Technology/RP-backend/main/package.json';
+
+type BackendPackage = {
+  version?: string;
+};
+
 
 const MenuScreen = () => {
   const user = useAppSelector(selectUser);
@@ -79,22 +85,51 @@ const MenuScreen = () => {
   const dispatch = useAppDispatch();
   const profilePic = useAppSelector(selectUserProfilePic);
   const [isValidImg, setVallid] = useState<boolean>(false)
+  const [backendVersion, setBackendVersion] = useState(
+    appVersion.backendVersion,
+  );
 
-  async function getSkippedState() {
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      fetch(`${BACKEND_PACKAGE_URL}?timestamp=${Date.now()}`)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Backend version request failed: ${response.status}`);
+          }
+          return response.json() as Promise<BackendPackage>;
+        })
+        .then(packageData => {
+          if (isActive && packageData.version) {
+            setBackendVersion(packageData.version);
+          }
+        })
+        .catch(() => {
+          // Keep the bundled version when the device is offline or GitHub is unavailable.
+        });
+
+      return () => {
+        isActive = false;
+      };
+    }, []),
+  );
+
+  const getSkippedState = useCallback(async () => {
     const hasSkipped = await authGet(HAS_SKIPPED);
     if (hasSkipped) {
       setIsSkipped(true);
     }
-  }
+  }, []);
 
-  async function handleValidImg() {
+  const handleValidImg = useCallback(async () => {
     if (!profilePic) {
       setVallid(false);
       return;
     }
-    const valid = await checkImageUrlValidity(profilePic)
-    setVallid(valid)
-  }
+    const valid = await checkImageUrlValidity(profilePic);
+    setVallid(valid);
+  }, [profilePic]);
 
   function handleNavigation(selectedTab: string) {
     if (selectedTab === 'Account') navigate(routes.ACCOUNT_SCREEN);
@@ -129,7 +164,7 @@ const MenuScreen = () => {
     });
   }
 
-   async function getWallet() {
+   const getWallet = useCallback(async () => {
       try {
         const res = await walletBalance();
         if (res.ok && res.data) {
@@ -138,9 +173,9 @@ const MenuScreen = () => {
       } catch {
         // non-fatal on menu open
       }
-    }
+    }, [dispatch]);
 
-   async function getWatchList() {
+   const getWatchList = useCallback(async () => {
       try {
         const res = await fetchWatchList({page:1, limit:20});
         if (res.ok && Array.isArray(res.data?.data)) {
@@ -149,14 +184,14 @@ const MenuScreen = () => {
       } catch {
         // non-fatal on menu open
       }
-    }
+    }, [dispatch]);
 
   useEffect(() => {
     getWatchList();
     getWallet();
     getSkippedState();
     handleValidImg();
-  }, [user?._id]);
+  }, [getWatchList, getWallet, getSkippedState, handleValidImg, user?._id]);
 
   const displayName = [user?.first_name, user?.last_name]
     .filter(Boolean)
@@ -227,7 +262,7 @@ const MenuScreen = () => {
             </AppText>
           </Pressable>
           <AppText className="mt-4 font-MANROPE_400 text-sm text-light_blue">
-            Reeplay Version {appVersion.version}
+            Reeplay Version {backendVersion}
           </AppText>
         </AppView>
       </AppScreen>

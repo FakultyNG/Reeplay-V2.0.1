@@ -254,7 +254,8 @@ export function normalizeSubtitleUrl(
 
   if (!/^https?:\/\//i.test(raw)) {
     if (raw.startsWith('/')) {
-      const origin = (BASE_URL || 'https://typescript.reeplay.app')
+      const origin =
+        (BASE_URL || 'https://reeplay-api-production.up.railway.app/api/v1')
         .replace(/\/api\/v\d+\/?$/i, '')
         .replace(/\/$/, '');
       raw = `${origin}${raw}`;

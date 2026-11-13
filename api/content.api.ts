@@ -2,9 +2,10 @@ import { IGeneric, IPagination } from "@/types/api/auth.types";
 import { apiCall, getAuthToken } from "./profile.api";
 import { IAddReactionResponse, IAdsResponse, IBannerContentResponse, ICastsResponse, IContentUserStatusResponse, IContinueWatchingResponse, IEnumsResponse, IPremiumContentCostResponse, IRatingData, IReactionData, IRegisteredContinueWatching, ISearchMainResponse, ISearchResponse, ISeasonDataResponse, IVODbyEnumIDResponse, IVodMetaResponse, IVODRatingResponse, IVodSubtitleResponse } from "@/types/api/content.types";
 import {ApiResponse, create} from 'apisauce';
+import {BASE_URL} from '@env';
 
 const publishingCatalogApi = create({
-    baseURL: 'https://api.reeplay.app/api/v1',
+    baseURL: BASE_URL,
     headers: {'Content-Type': 'application/json'},
     timeout: 12000,
 });

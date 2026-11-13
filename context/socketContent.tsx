@@ -1,12 +1,12 @@
-import { useAppSelector } from '@/Hooks/reduxHook';
-import {selectUser} from '@/store/slices/userSlice';
-import { appPersistStorage, appPersistStoreName, AppPersistStoreStateType } from '@/store/zustand.store';
 import React, {
   createContext,
   ReactNode,
   useEffect,
 } from 'react';
 import {io, Socket} from 'socket.io-client';
+import {BASE_URL} from '@env';
+
+const SOCKET_URL = BASE_URL.replace(/\/api\/v\d+\/?$/i, '').replace(/\/$/, '');
 
 // Define the context type
 export interface SocketContextType {
@@ -27,7 +27,7 @@ export const SocketContextProvider: React.FC<SocketContextProviderProps> = ({
 }) => {
 
   // Initialize the socket once using useRef to avoid re-creation on each render
-  const socket = io('https://typescript.reeplay.app');
+  const socket = io(SOCKET_URL);
 
   useEffect(() => {
 

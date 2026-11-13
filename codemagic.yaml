@@ -7,7 +7,7 @@ workflows:
       node: v22.13.1
       java: 17
       vars:
-        BASE_URL: "https://reeplay-api-production.up.railway.app/api/v1"
+        BASE_URL: "https://reeplay-api-ts-production.up.railway.app/api/v1"
     scripts:
       - name: Install JavaScript dependencies
         script: |
@@ -19,7 +19,7 @@ workflows:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
       - name: Verify no stale source bundle or backend URL
         script: |
-          test "$BASE_URL" = "https://reeplay-api-production.up.railway.app/api/v1"
+          test "$BASE_URL" = "https://reeplay-api-ts-production.up.railway.app/api/v1"
           test ! -f android/app/src/main/assets/index.android.bundle
           ! grep -R "typescript.reeplay.app\|api.reeplay.app" --exclude-dir=node_modules --exclude-dir=build --exclude-dir=.git --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' .
       - name: Build fresh Android release APK

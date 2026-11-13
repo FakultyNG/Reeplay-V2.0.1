@@ -1,0 +1,23 @@
+workflows:
+  rn-android-debug:
+    name: Reeplay Android (debug APK)
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      node: v22.13.1
+      java: 17
+    scripts:
+      - name: Install JavaScript dependencies
+        script: |
+          corepack enable
+          yarn install --frozen-lockfile
+      - name: Set Android SDK location
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
+      - name: Build Android debug APK
+        script: |
+          cd android
+          ./gradlew assembleDebug
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+      - android/app/build/outputs/logs/*.txt

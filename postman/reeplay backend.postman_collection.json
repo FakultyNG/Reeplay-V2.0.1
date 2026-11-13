@@ -11306,7 +11306,7 @@
     },
     {
       "key": "RP_prod_baseurl",
-      "value": "https://reeplay-api-production.up.railway.app/api/v1",
+      "value": "https://reeplay-api-ts-production.up.railway.app/api/v1",
       "type": "string"
     },
     {

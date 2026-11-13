@@ -10,6 +10,7 @@ workflows:
       - name: Install JavaScript dependencies
         script: |
           corepack enable
+          corepack prepare yarn@1.22.22 --activate
           yarn install --frozen-lockfile
       - name: Set Android SDK location
         script: |

@@ -9,9 +9,8 @@ workflows:
     scripts:
       - name: Install JavaScript dependencies
         script: |
-          corepack enable
-          corepack prepare yarn@1.22.22 --activate
-          yarn install --frozen-lockfile
+          corepack yarn@1.22.22 --version
+          corepack yarn@1.22.22 install --frozen-lockfile
       - name: Set Android SDK location
         script: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"

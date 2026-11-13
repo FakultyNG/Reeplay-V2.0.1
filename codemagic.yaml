@@ -1,11 +1,13 @@
 workflows:
-  rn-android-debug:
-    name: Reeplay Android (debug APK)
+  rn-android-release:
+    name: Reeplay Android (release APK)
     max_build_duration: 120
     instance_type: mac_mini_m2
     environment:
       node: v22.13.1
       java: 17
+      vars:
+        BASE_URL: "https://reeplay-api-production.up.railway.app/api/v1"
     scripts:
       - name: Install JavaScript dependencies
         script: |
@@ -15,10 +17,15 @@ workflows:
       - name: Set Android SDK location
         script: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
-      - name: Build Android debug APK
+      - name: Verify no stale source bundle or backend URL
+        script: |
+          test "$BASE_URL" = "https://reeplay-api-production.up.railway.app/api/v1"
+          test ! -f android/app/src/main/assets/index.android.bundle
+          ! grep -R "typescript.reeplay.app\|api.reeplay.app" --exclude-dir=node_modules --exclude-dir=build --exclude-dir=.git --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' .
+      - name: Build fresh Android release APK
         script: |
           cd android
-          ./gradlew assembleDebug
+          ./gradlew clean assembleRelease --no-daemon
     artifacts:
       - android/app/build/outputs/**/*.apk
       - android/app/build/outputs/logs/*.txt

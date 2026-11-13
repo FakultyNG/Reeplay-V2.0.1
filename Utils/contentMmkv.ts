@@ -35,6 +35,10 @@ export function contentRemove(key: string): void {
   contentMmkv.remove(key);
 }
 
+export function clearContentCache(): void {
+  contentMmkv.clearAll();
+}
+
 export function contentGetJson<T>(key: string): T | null {
   const raw = contentGetString(key);
   if (!raw) {

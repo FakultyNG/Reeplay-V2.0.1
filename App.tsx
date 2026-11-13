@@ -5,7 +5,7 @@
  * @format
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import AppNavigator from '@/navigation/AppNavigator';
@@ -20,12 +20,17 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import {authGet, authSet, AUTH_MMKV_KEYS} from './Utils/authMmkv';
+import {
+  authGet,
+  authMultiRemove,
+  authSet,
+  AUTH_MMKV_KEYS,
+} from './Utils/authMmkv';
 import {addEventListener} from '@react-native-community/netinfo';
 import NetInfo from '@react-native-community/netinfo';
 import Orientation from 'react-native-orientation-locker';
 import './global.css';
-import {useAppPersistStore} from './store/zustand.store';
+import {appPersistStorage, useAppPersistStore} from './store/zustand.store';
 import NetworkComponent from './components/NetworkComponent';
 import SessionComponent from './components/SessionComponent';
 import ModalComponent from './components/LockComponent';
@@ -37,12 +42,15 @@ import {
   saveAESKeys,
 } from '@/Screens/Preview/utils/downloadUtils';
 import {SocketContextProvider} from './context/socketContent';
-import codePush from '@revopush/react-native-code-push';
 import ErrorBoundaryWrapper from './context/ErrorBoundary';
 import routes from '@/navigation/routes';
 import {hideSystemNavigationBar} from '@/Utils/systemNav';
+import {BASE_URL} from '@env';
+import {clearTokens} from '@/Utils/secureTokenStorage';
+import {clearContentCache} from '@/Utils/contentMmkv';
 
 const LEFT_APP_TIME = AUTH_MMKV_KEYS.LEFT_APP_TIME;
+const API_ENVIRONMENT_KEY = 'API_BASE_URL';
 
 const PUBLIC_ROUTES = new Set<string>([
   routes.SPLASH_SCREEN,
@@ -64,11 +72,51 @@ function App(): React.JSX.Element {
   const appState = useRef(AppState.currentState);
   const [stage, setStage] = useState<string>('network');
   const [network, setNetwork] = useState<boolean | null>(true);
-  const [showNetworkModal, setShowNetworkModal] = useState<boolean>(false);
+  const [isBackendEnvironmentReady, setIsBackendEnvironmentReady] =
+    useState(false);
   const navigationRef = useRef<any>(null);
   const [currentRouteName, setCurrentRouteName] = useState<string | undefined>();
   const {isSessionExpired, isLock, setIsLock, setIsSessionExpired} =
     useAppPersistStore();
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const migrateBackendEnvironment = async () => {
+      try {
+        const previousBaseUrl = await authGet(API_ENVIRONMENT_KEY);
+        if (previousBaseUrl !== BASE_URL) {
+          await clearTokens();
+          await authMultiRemove([
+            AUTH_MMKV_KEYS.USER,
+            AUTH_MMKV_KEYS.HAS_SET_NEWPIN,
+            AUTH_MMKV_KEYS.HAS_LOCK_APP,
+            AUTH_MMKV_KEYS.LEFT_APP_TIME,
+          ]);
+          clearContentCache();
+          appPersistStorage.clearAll();
+          useAppPersistStore.setState({
+            userDetails: undefined,
+            isSessionExpired: false,
+            isLock: false,
+            biometrics: false,
+            downloadedList: [],
+          });
+          await authSet(API_ENVIRONMENT_KEY, BASE_URL);
+        }
+      } finally {
+        if (isMounted) {
+          setIsBackendEnvironmentReady(true);
+        }
+      }
+    };
+
+    migrateBackendEnvironment();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // const requestUserPermission = async () => {
   //   await PermissionsAndroid.request(
@@ -111,7 +159,7 @@ function App(): React.JSX.Element {
   }
 };
 
-  async function checkLockAppLogic() {
+  const checkLockAppLogic = useCallback(async () => {
     const date = new Date();
     const lastLeftTime = await authGet(LEFT_APP_TIME);
     if (lastLeftTime) {
@@ -126,7 +174,7 @@ function App(): React.JSX.Element {
         );
       }
     }
-  }
+  }, [setIsLock]);
 
   async function setLeftAppTime() {
     const date = new Date();
@@ -185,7 +233,7 @@ function App(): React.JSX.Element {
         backHandler.remove();
       }
     };
-  }, []);
+  }, [checkLockAppLogic]);
 
   useEffect(() => {
     handleTest();
@@ -213,6 +261,10 @@ function App(): React.JSX.Element {
     !!isSessionExpired &&
     !!currentRouteName &&
     !PUBLIC_ROUTES.has(currentRouteName);
+
+  if (!isBackendEnvironmentReady) {
+    return <GestureHandlerRootView style={{flex: 1, backgroundColor: '#000'}} />;
+  }
 
   return (
     <ErrorBoundaryWrapper>
@@ -253,8 +305,4 @@ function App(): React.JSX.Element {
 }
 
 
-const CodePushRoot = codePush({
-  checkFrequency: codePush.CheckFrequency.ON_APP_RESUME,
-})(App);
-
-export default CodePushRoot;
+export default App;

@@ -105,11 +105,16 @@ function main() {
       throw new Error('Usage: sync-version.js set x.y.z');
     }
     parseSemver(arg);
-    data = {version: arg, versionCode: Number(data.versionCode || 0) + 1};
+    data = {
+      ...data,
+      version: arg,
+      versionCode: Number(data.versionCode || 0) + 1,
+    };
     writeJson(versionPath, data);
   } else if (cmd === 'bump') {
     const kind = arg || 'patch';
     data = {
+      ...data,
       version: bumpSemver(data.version, kind),
       versionCode: Number(data.versionCode || 0) + 1,
     };

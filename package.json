@@ -1,6 +1,6 @@
 {
   "name": "Reeplay",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -8,7 +8,7 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "build-android": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle",
+    "build-android": "node scripts/build-android-release.js",
     "code-push:prodAndroid": "revopush release-react Reeplay android -d Production",
     "code-push:prod": "revopush release-react Reeplay ios -d Production && revopush release-react Reeplay android -d Production",
     "code-push:staging": "revopush release-react Reeplay ios -d Staging && revopush release-react Reeplay android -d Staging",

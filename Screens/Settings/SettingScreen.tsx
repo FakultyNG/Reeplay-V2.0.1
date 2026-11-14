@@ -55,6 +55,7 @@ import { clearWatchList } from '@/api/watchlist.api';
 import { getDeviceId } from 'react-native-device-info';
 import messaging from '@react-native-firebase/messaging';
 import { registerNotificationDevice } from '@/api/notification.api';
+import {unregisterNotificationDevice} from '@/Utils/notificationDevice';
 
 export const HAS_LOCK_APP = AUTH_MMKV_KEYS.HAS_LOCK_APP;
 
@@ -269,8 +270,7 @@ const getToken = async () => {
     if (allow) {
       await handleInitializations();
     } else {
-      messaging().deleteToken().catch(() => {});
-      await authRemove(AUTH_MMKV_KEYS.FCM_TOKEN);
+      await unregisterNotificationDevice();
     }
 
     const res = await notificationApi({

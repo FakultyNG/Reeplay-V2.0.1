@@ -1,6 +1,6 @@
 import { IGeneric, IPagination } from "@/types/api/auth.types";
 import { apiCall, getAuthToken } from "./profile.api";
-import { IAddReactionResponse, IAdsResponse, IBannerContentResponse, ICastsResponse, IContentUserStatusResponse, IContinueWatchingResponse, IEnumsResponse, IPremiumContentCostResponse, IRatingData, IReactionData, IRegisteredContinueWatching, ISearchMainResponse, ISearchResponse, ISeasonDataResponse, IVODbyEnumIDResponse, IVodMetaResponse, IVODRatingResponse, IVodSubtitleResponse } from "@/types/api/content.types";
+import { IAddReactionResponse, IAdsResponse, IBannerContentResponse, ICastsResponse, IContentUserStatusResponse, IContinueWatchingResponse, IEnumsResponse, IHomeAdsResponse, IPremiumContentCostResponse, IRatingData, IReactionData, IRegisteredContinueWatching, ISearchMainResponse, ISearchResponse, ISeasonDataResponse, IVODbyEnumIDResponse, IVodDetailsResponse, IVodMetaResponse, IVODRatingResponse, IVodSubtitleResponse } from "@/types/api/content.types";
 import {ApiResponse, create} from 'apisauce';
 import {BASE_URL} from '@env';
 
@@ -76,6 +76,9 @@ export const bannerApi = async () => {
 
 export const randomAds = async () =>
     await apiCall<IAdsResponse>(baseApi => baseApi.get<IAdsResponse>('/customers/ads/random'))
+
+export const fetchHomeAds = async () =>
+    await apiCall<IHomeAdsResponse>(baseApi => baseApi.get<IHomeAdsResponse>('/customers/ads/home'))
 
 export const fetchEnums = async (enumType:string) => {
     const path = `/customers/enums/shared/get-${enumType}?page=1&limit=1000`;
@@ -166,12 +169,15 @@ export const fetchCastsByVOID = async ({pagination,_id}:{pagination:IPagination,
 export const fetchVODDetails = async ({_id}:{_id:string}) =>
     await apiCall<IVodMetaResponse>(baseApi => baseApi.get<IVodMetaResponse>(`/customers/shared/vods/vod-meta/${_id}`))
 
+export const fetchVODNotificationDetails = async ({_id}:{_id:string}) =>
+    await apiCall<IVodDetailsResponse>(baseApi => baseApi.get<IVodDetailsResponse>(`/customers/shared/vods/details/${_id}`))
+
 export const getDefaultLibrary = async ({pagination}:{pagination:IPagination}) =>
     await getMergedVodList(`/customers/shared/vods/default-library?page=${pagination.page}&limit=${pagination.limit}`)
 
 export const updateViewsCount = async (data:{content:string,contentType:'vod'}) =>
     await apiCall<IGeneric>(baseApi => baseApi.post<IGeneric>(`/customers/view/content`, data))
 
-export const getSubtitles = async (data:{parentId:string}) =>
-    await apiCall<IVodSubtitleResponse>(baseApi => baseApi.get<IVodSubtitleResponse>(`/customers/shared/subtitles/fetch/${data.parentId}`))
+export const getSubtitles = async (data:{parentId:string; parentType:'vod'|'episode'}) =>
+    await apiCall<IVodSubtitleResponse>(baseApi => baseApi.get<IVodSubtitleResponse>(`/customers/shared/subtitles/fetch/${data.parentId}/${data.parentType}`))
 

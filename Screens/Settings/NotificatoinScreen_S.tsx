@@ -1,10 +1,11 @@
-import {Alert, StyleSheet, Text, View} from 'react-native';
-import React, {useEffect, useState} from 'react';
+import {Alert, StyleSheet} from 'react-native';
+import React, {useCallback, useEffect, useState} from 'react';
 import {AppHeader, AppScreen, AppText, AppView} from '@/components';
 import ToggleButton from '@/components/ToggleButton';
 import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
 import {selectUser, setCredentials} from '@/store/slices/userSlice';
 import {getProfileDetails, setNotifications} from '@/api/profile.api';
+import {registerCurrentNotificationDevice, unregisterNotificationDevice} from '@/Utils/notificationDevice';
 
 const NotificatoinScreen_S = () => {
   const dispatch = useAppDispatch();
@@ -22,7 +23,7 @@ const NotificatoinScreen_S = () => {
   const [liveChannel, setLiveChannel] = useState(live_channels);
   const [newService, setNewService] = useState(new_services);
 
-  async function handleSettings() {
+  const handleSettings = useCallback(async () => {
     try {
       const res = await setNotifications({
         allow_notifications: allowNoti,
@@ -36,14 +37,32 @@ const NotificatoinScreen_S = () => {
         const user = await getProfileDetails();
         if (user.ok && user.data) dispatch(setCredentials(user.data.data));
       }
-    } catch (error) {
+    } catch {
       Alert.alert('error', 'Unable to update settings');
     }
-  }
+  }, [allowNoti, arrivals, dispatch, liveChannel, newService, upcoming, video_quality]);
 
   useEffect(() => {
     handleSettings();
-  }, [allowNoti, upcoming, newService, liveChannel, arrivals]);
+  }, [handleSettings]);
+
+  useEffect(() => {
+    let active = true;
+    const syncDevice = async () => {
+      if (allowNoti) {
+        const registered = await registerCurrentNotificationDevice();
+        if (!registered && active) setAllowNoti(false);
+      } else {
+        await unregisterNotificationDevice();
+      }
+    };
+    syncDevice().catch(() => {
+      if (active) setAllowNoti(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [allowNoti]);
 
   return (
     <AppScreen containerStyle={{paddingTop: 20, paddingHorizontal: 0}}>

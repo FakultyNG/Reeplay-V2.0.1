@@ -1,13 +1,13 @@
-import {ActivityIndicator, Platform, Pressable, SectionList, StyleSheet, Text, View} from 'react-native';
-import React, { useCallback, useEffect, useState } from 'react';
+import {ActivityIndicator, Pressable, SectionList, View} from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {AppHeader, AppImage, AppScreen, AppText, AppView} from '@/components';
-import { FlatList } from 'react-native';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
-import { selectGroupedNotifications, selectNotificationList, setNoticationsList } from '@/store/slices/userSlice';
+import { selectGroupedNotifications, selectNotificationList, setNoticationsList, updateNotificationById } from '@/store/slices/userSlice';
 import { INotification } from '@/types/api/notification.types';
 import ToastNotification from '@/components/ToastNotifications';
-import { getAllNotifications } from '@/api/notification.api';
+import { getAllNotifications, markNotificationSeen } from '@/api/notification.api';
 import { getNotificationTime } from '@/Utils/formatTime';
+import {queueNotificationOpen} from '@/Utils/notificationNavigation';
 
 const NotificationScreen = () => {
   const dispatch = useAppDispatch();
@@ -16,22 +16,28 @@ const NotificationScreen = () => {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
-  const [searchText, setSearchText] = useState('');
+  const notificationsRef = useRef(notifications);
 
-   async function handleNotifications(page?: number) {
+  useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
+
+  const handleNotifications = useCallback(async (requestedPage = 1) => {
     try {
       setLoading(true);
-      const res = await getAllNotifications({page: page ?? 1, limit: 20});
+      const res = await getAllNotifications({page: requestedPage, limit: 20});
       // console.log(res.data)
       if (res.ok && res.data) {
-        const existing = new Set(notifications.map(x => x._id));
-        const merged = [
-          ...notifications,
-          ...res.data.data.filter(x => !existing.has(x._id)),
+        const incoming = res.data.data;
+        const current = notificationsRef.current;
+        const existing = new Set(current.map(x => x._id));
+        const merged = requestedPage === 1 ? incoming : [
+          ...current,
+          ...incoming.filter(x => !existing.has(x._id)),
         ];
-        if (merged.length === notifications.length) setHasMore(false);
-        dispatch(setNoticationsList(res.data.data));
-        if (page) setPage(page);
+        setHasMore(incoming.length === 20);
+        dispatch(setNoticationsList(merged));
+        setPage(requestedPage);
       } else {
         ToastNotification('error', `${res.data?.message}`);
         setHasMore(false);
@@ -42,33 +48,18 @@ const NotificationScreen = () => {
     } finally {
       setLoading(false);
     }
-  }
+  }, [dispatch]);
 
   const loadMore = useCallback(() => {
     if (!hasMore || notifications.length < 20) return;
     handleNotifications(notifications.length >= page * 20 ? page + 1 : page);
-  }, [page, hasMore]);
+  }, [handleNotifications, hasMore, notifications.length, page]);
 
-  // Filter based on search text
-  const filteredNotifications = notifications.filter(x =>
-    x.adminNotification.title?.toLowerCase().includes(searchText.toLowerCase()),
-  );
-
-  // Group filtered results
-  const groupedNotifications = filteredNotifications.reduce((acc, item) => {
-    const date = new Date(item.createdAt).toISOString().split('T')[0];
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(item);
-    return acc;
-  }, {} as Record<string, INotification[]>);
-
-  const sections = Object.entries(
-    searchText.length > 0 ? groupedNotifications : notificationsList,
-  ).map(([date, data]) => ({title: date, data}));
+  const sections = Object.entries(notificationsList).map(([date, data]) => ({title: date, data}));
 
   useEffect(() => {
     handleNotifications();
-  }, []);
+  }, [handleNotifications]);
 
   return (
     <AppScreen containerStyle={{paddingTop: 30, position: 'relative'}}>
@@ -86,10 +77,20 @@ const NotificationScreen = () => {
         showsVerticalScrollIndicator={false}
         onEndReachedThreshold={1}
         onEndReached={loadMore}
-        renderSectionHeader={({section: {title}}) => {
-          return <></>;
-        }}
-        renderItem={({item}) => <NotificationItem item={item} />}
+        renderSectionHeader={() => null}
+        renderItem={({item}) => <NotificationItem item={item} onRead={async () => {
+          if (!item.hasSeen) {
+            dispatch(updateNotificationById({id: item._id, data: {hasSeen: true}}));
+            const result = await markNotificationSeen(item._id);
+            if (!result.ok) {
+              dispatch(updateNotificationById({id: item._id, data: {hasSeen: false}}));
+            }
+          }
+          queueNotificationOpen({
+            type: item.adminNotification.type,
+            metadata: JSON.stringify(item.adminNotification.metadata ?? {}),
+          });
+        }} />}
         ListFooterComponent={
           <>
             {loading && notifications.length > 19 && (
@@ -108,11 +109,12 @@ const NotificationScreen = () => {
 export default NotificationScreen;
 
 interface Props{
-  item: INotification
+  item: INotification;
+  onRead: () => void;
 }
 
-export const NotificationItem = ({item}:Props) =>{
-  return <AppView className="mb-[13px] flex-row items-start">
+export const NotificationItem = ({item, onRead}:Props) =>{
+  return <Pressable onPress={onRead} className={`mb-[13px] flex-row items-start ${item.hasSeen ? 'opacity-70' : ''}`}>
               <View className="w-[145px] h-[83px] rounded overflow-hidden">
                 <AppImage
                   source={item.photoUri ?{uri:item.photoUri}:require('@/assets/images/NotificationBanner.png')}
@@ -131,5 +133,5 @@ export const NotificationItem = ({item}:Props) =>{
                   {getNotificationTime(item.createdAt)}
                 </AppText>
               </AppView>
-            </AppView>
+            </Pressable>
 }

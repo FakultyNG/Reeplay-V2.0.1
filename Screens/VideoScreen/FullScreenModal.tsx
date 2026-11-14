@@ -37,7 +37,6 @@ import {
   SeekBackIcon,
   SeekForwardIcon,
   SubtitleIcon,
-  VideoCastingIcon,
   VolumeIcon,
 } from '@/assets/icons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -62,6 +61,12 @@ import {
 } from '@/store/slices/fullScreenVideo.slice';
 import FastImage from 'react-native-fast-image';
 import { resolvePlaybackSource } from '@/components/video/playbackConfig';
+import Casting from '@/components/video/controls/Casting';
+import {
+  MediaInfo,
+  useCastSession,
+  useRemoteMediaClient,
+} from 'react-native-google-cast';
 
 
 const AnimatedLinear = Animated.createAnimatedComponent(LinearGradient);
@@ -84,6 +89,10 @@ const FullScreenModal = () => {
   const navigation = useNavigation<FullScreenVideo>();
   const videoRef = useRef<VideoRef>(null);
   const videoRef2 = useRef<VideoRef>(null);
+  const currentTimeRef = useRef(0);
+  const lastCastUrlRef = useRef('');
+  const castSession = useCastSession();
+  const remoteMediaClient = useRemoteMediaClient();
   const [muteVideo, setMuteVideo] = useToggle(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -104,6 +113,48 @@ const FullScreenModal = () => {
   const [cover, setCover] = useState<boolean>(true);
   const { upcoming, coverImg, isTime } = route.params;
   const [key, setKey] = useState(0);
+
+  useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
+
+  useEffect(() => {
+    if (!castSession || !remoteMediaClient || !videoURL) {
+      if (!castSession) {
+        lastCastUrlRef.current = '';
+      }
+      return;
+    }
+
+    if (lastCastUrlRef.current === videoURL) {
+      return;
+    }
+
+    const mediaInfo: MediaInfo = {
+      contentUrl: videoURL,
+      contentType: videoURL.toLowerCase().includes('.m3u8')
+        ? 'application/x-mpegURL'
+        : 'video/mp4',
+      metadata: {
+        type: 'generic',
+        title: title || 'Reeplay',
+        images: coverImg ? [{url: coverImg}] : [],
+      },
+    };
+
+    lastCastUrlRef.current = videoURL;
+    setIsPlaying(true);
+    void remoteMediaClient
+      .loadMedia({
+        mediaInfo,
+        autoplay: true,
+        startTime: currentTimeRef.current,
+      })
+      .catch(error => {
+        lastCastUrlRef.current = '';
+        console.error('Failed to load media on Cast device:', error);
+      });
+  }, [castSession, remoteMediaClient, videoURL, title, coverImg]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -582,9 +633,12 @@ const FullScreenModal = () => {
                         {title || 'Video title'}
                       </AppText>
                     </AppView>
-                    <TouchableOpacity onPress={existFullscreen}>
-                      <BigClose />
-                    </TouchableOpacity>
+                    <AppView className="flex-row items-center gap-x-2">
+                      <Casting />
+                      <TouchableOpacity onPress={existFullscreen}>
+                        <BigClose />
+                      </TouchableOpacity>
+                    </AppView>
                   </Animated.View>
 
                   {/* Bottom */}
@@ -706,12 +760,6 @@ const FullScreenModal = () => {
                         </TouchableOpacity>
                       )}
 
-                      <TouchableOpacity
-                        style={{
-                          marginLeft: 24,
-                        }}>
-                        <VideoCastingIcon />
-                      </TouchableOpacity>
                     </AppView>
                   </Animated.View>
 

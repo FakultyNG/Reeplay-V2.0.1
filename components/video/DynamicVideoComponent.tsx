@@ -117,6 +117,7 @@ export interface VideoPlayerProps extends ReactVideoProps {
   contentData: IContentData;
   isSaveProgress?: boolean;
   seekTo?: number;
+  castSourceUrl?: string;
 }
 
 /** Pre–quarter-flash-fix layout: onLayout width → 16:9 sizeStyles. */

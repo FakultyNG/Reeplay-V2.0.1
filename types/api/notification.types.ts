@@ -21,6 +21,8 @@ interface AdminNotification {
   admin: string;
   title: string;
   description: string;
+  type?: string;
+  metadata?: Record<string, unknown>;
   photo?: Photo;
   createdAt: string;
   updatedAt: string;

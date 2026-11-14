@@ -1,24 +1,44 @@
 import React, {memo} from 'react';
-import {CastButton, CastState, useCastState, useDevices} from 'react-native-google-cast';
+import {StyleSheet, View} from 'react-native';
+import {CastButton} from 'react-native-google-cast';
+import {VideoCastingIcon} from '@/assets/icons';
 
 interface VideoCastingProps {
   handleCastingFunc?: () => void;
 }
 
 const Casting = memo(({}: VideoCastingProps) => {
-  const devices = useDevices();
-  const castState = useCastState();
-
-  const showCast =
-    devices.length > 0 ||
-    castState === CastState.CONNECTED ||
-    castState === CastState.CONNECTING;
-
-  if (!showCast) {
-    return null;
-  }
-
-  return <CastButton style={{width: 24, height: 24, marginLeft: 12}} />;
+  return (
+    <View
+      accessibilityLabel="Cast video"
+      accessibilityRole="button"
+      style={styles.container}>
+      <View pointerEvents="none" style={styles.icon}>
+        <VideoCastingIcon />
+      </View>
+      <CastButton
+        accessibilityLabel="Cast video"
+        style={styles.nativeButton}
+      />
+    </View>
+  );
 });
 
 export default Casting;
+
+const styles = StyleSheet.create({
+  container: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  icon: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nativeButton: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.02,
+  },
+});

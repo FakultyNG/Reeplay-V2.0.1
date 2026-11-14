@@ -7,6 +7,7 @@ import {useAppSelector} from '@/Hooks/reduxHook';
 import {selectCategories} from '@/store/slices/bannerSlice.slice';
 import LiveEmptyState from '@/Screens/Live/components/LiveEmptyState';
 import {FHomeIcon} from '@/assets/icons';
+import PremiumAdsCarousel from './PremiumAdsCarousel';
 
 interface Props {
   isSkipped: boolean;
@@ -51,12 +52,10 @@ const Sections = ({isSkipped, deferHeavy = false}: Props) => {
     );
   }
 
-  const immediate = cat.slice(0, IMMEDIATE_ROW_COUNT);
-  const deferred = cat.slice(IMMEDIATE_ROW_COUNT, cat.length - 1);
   const visibleCount = deferHeavy
     ? IMMEDIATE_ROW_COUNT
     : Math.max(enabledCount, IMMEDIATE_ROW_COUNT);
-  const rows = [...immediate, ...deferred].slice(0, visibleCount);
+  const rows = cat.slice(1, visibleCount);
 
   return (
     <>
@@ -65,36 +64,36 @@ const Sections = ({isSkipped, deferHeavy = false}: Props) => {
           <ContentWrapper enums={cat[0]} showPagination enabled />
         </AppView>
       )}
-      <AppView
-        style={{marginTop: isSkipped ? 24 : 32}}
-        className="pl-5">
-        {cat.length > 1 && <ContentWrapper enums={cat[1]} enabled />}
-      </AppView>
-
-      {rows.slice(2).map((x, i) => {
+      {rows.map((x, i) => {
         const isTop10 = x.name.toLowerCase().includes('top 10');
         const isComingSoon = x.name.toLowerCase().includes('comming soon');
         const isLive = x.name.toLowerCase().includes('live');
         const isMusic = x.name.toLowerCase().includes('music');
+        const isPremiumAds = x.name.trim().toLowerCase() === 'premium ads';
         return (
           <AppView
             key={x._id ?? i}
-            className={`mt-6 pl-5 ${isComingSoon ? 'mb-[40px]' : ''}`}>
-            <ContentWrapper
-              enums={x}
-              style={{
-                marginRight: Size.calcHeight(
-                  isTop10 || isComingSoon ? 8 : 12,
-                ),
-              }}
-              imageStyle={
-                isComingSoon || isTop10 ? {} : isMusic ? styles.videoBackdrop : {}
-              }
-              tag={isTop10}
-              live={isLive}
-              isMusic={isMusic}
-              enabled
-            />
+            style={{marginTop: i === 0 ? (isSkipped ? 24 : 32) : 24}}
+            className={`pl-5 ${isComingSoon ? 'mb-[40px]' : ''}`}>
+            {isPremiumAds ? (
+              <PremiumAdsCarousel title={x.name} />
+            ) : (
+              <ContentWrapper
+                enums={x}
+                style={{
+                  marginRight: Size.calcHeight(
+                    isTop10 || isComingSoon ? 8 : 12,
+                  ),
+                }}
+                imageStyle={
+                  isComingSoon || isTop10 ? {} : isMusic ? styles.videoBackdrop : {}
+                }
+                tag={isTop10}
+                live={isLive}
+                isMusic={isMusic}
+                enabled
+              />
+            )}
           </AppView>
         );
       })}

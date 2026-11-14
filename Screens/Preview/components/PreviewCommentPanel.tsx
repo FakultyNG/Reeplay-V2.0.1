@@ -92,7 +92,7 @@ const PreviewCommentPanel = ({
                   source={
                     userPic && userPic !== ''
                       ? {uri: userPic, priority: FastImage.priority.high}
-                      : require('@/assets/images/user.png')
+                      : require('@/assets/images/default-user-profile.webp')
                   }
                 />
                 <TextInput

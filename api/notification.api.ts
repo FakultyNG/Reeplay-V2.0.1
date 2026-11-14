@@ -11,5 +11,11 @@ export const getAllNotifications = async ({page, limit}:IPagination) =>
 export const registerNotificationDevice = async (data:IRegisterDevice) =>
     await apiCall<IGeneric>(baseApi => baseApi.post<IGeneric>(`/customers/notification/device/update`, data))
 
-export const deleteNotificationDevice = async (data:{token:string}) =>
-    await apiCall<IGeneric>(baseApi => baseApi.delete<IGeneric>(`/customers/notification/device`, data))
+export const deleteNotificationDevice = async (data:{fcmToken:string}) =>
+    await apiCall<IGeneric>(baseApi => baseApi.delete<IGeneric>(`/customers/notification/device/remove`, data))
+
+export const markNotificationSeen = async (notificationId:string) =>
+    await apiCall<IGeneric>(baseApi => baseApi.put<IGeneric>(`/customers/notifications`, {
+        notificationId,
+        hasSeenStatus: true,
+    }))

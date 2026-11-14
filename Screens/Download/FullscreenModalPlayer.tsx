@@ -59,6 +59,7 @@ const DownloadFullscreenModalPlayer = ({
             uri: content.landscapePhoto,
           }}
           source={resolvePlaybackSource(content.video, 'vod')}
+          castSourceUrl={content.castVideo}
           autoplay
           onError={e => console.log(e)}
           showDuration={true}

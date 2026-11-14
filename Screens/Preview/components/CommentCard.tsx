@@ -254,7 +254,7 @@ const SingleCommentCard = ({item, isReply, showReplies, setRepliesDetails, showB
           borderRadius:99,
           marginRight: 10
         }}
-        source={(img && img !== '') ? {uri: img, priority:FastImage.priority.high} : require('@/assets/images/user.png')}
+        source={(img && img !== '') ? {uri: img, priority:FastImage.priority.high} : require('@/assets/images/default-user-profile.webp')}
       />
       <AppView>
         {/* Content */}

@@ -243,7 +243,7 @@ const [pendingSeekProgress, setPendingSeekProgress] =
                     source={
                       typeof logo === 'string' && logo !== ''
                         ? { uri: logo }
-                        : require('@/assets/images/user.png')
+                        : require('@/assets/images/default-user-profile.webp')
                     }
                     style={{
                       width: 30,
@@ -260,18 +260,21 @@ const [pendingSeekProgress, setPendingSeekProgress] =
                 </Text>
               </View>
 
-              <Pressable
-                hitSlop={12}
-                style={({pressed}) => ({opacity: pressed ? 0.65 : 1})}
-                onPress={() => [
-                  isPlaying && onPlayPress(),
-                  handleGoBackFunc
-                    ? handleGoBackFunc()
-                    : onToggleFullScreen(),
-                ]}
-              >
-                <BigClose />
-              </Pressable>
+              <View className="flex-row items-center gap-x-2">
+                <Casting handleCastingFunc={handleVideoCastingFunc} />
+                <Pressable
+                  hitSlop={12}
+                  style={({pressed}) => ({opacity: pressed ? 0.65 : 1})}
+                  onPress={() => [
+                    isPlaying && onPlayPress(),
+                    handleGoBackFunc
+                      ? handleGoBackFunc()
+                      : onToggleFullScreen(),
+                  ]}
+                >
+                  <BigClose />
+                </Pressable>
+              </View>
             </View>
           )}
         </View>
@@ -477,10 +480,6 @@ const [pendingSeekProgress, setPendingSeekProgress] =
                         ctaType={ctaType}
                       />
                     )}
-                    <Casting
-                      handleCastingFunc={handleVideoCastingFunc}
-                    />
-
                     {!disableFullscreen && !isFullscreeen && (
                       <Fullscreen
                         onToggleFullScreen={onToggleFullScreen}

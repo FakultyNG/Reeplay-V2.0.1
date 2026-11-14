@@ -1,16 +1,18 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { RootState } from '../app.store';
-import { IAdsData } from '@/types/api/content.types';
+import { IAdsData, IHomeAdData } from '@/types/api/content.types';
 // import type { PayloadAction } from '@reduxjs/toolkit'
 
 // Define a type for the slice state
 interface AdsSliceProps {
-    ads: IAdsData[]
+    ads: IAdsData[];
+    homeAds: IHomeAdData[];
 }
 
 // Define the initial state using that type
 const initialState: AdsSliceProps = {
-    ads:[]
+    ads:[],
+    homeAds:[],
 };
 
 const adsSlice = createSlice({
@@ -20,13 +22,19 @@ const adsSlice = createSlice({
         setAdsContent: (state, action) => {
             state.ads = action.payload;
         },
+        setHomeAdsContent: (state, action) => {
+            state.homeAds = action.payload;
+        },
     },
 });
 
-export const { setAdsContent } = adsSlice.actions;
+export const { setAdsContent, setHomeAdsContent } = adsSlice.actions;
 
 
 export const selectAdsContent = (state: RootState) =>
     state.ads;
+
+export const selectHomeAds = (state: RootState) =>
+    state.ads.homeAds;
 
 export default adsSlice.reducer;

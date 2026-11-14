@@ -51,7 +51,9 @@ import {walletBalance} from '@/api/payment.api';
 import {fetchWatchList} from '@/api/watchlist.api';
 import {HAS_LOCK_APP} from '../Settings/SettingScreen';
 import {clearTokens} from '@/Utils/secureTokenStorage';
+import {unregisterNotificationDevice} from '@/Utils/notificationDevice';
 import {useAppPersistStore} from '@/store/zustand.store';
+import {fetchBackendVersion} from '@/api/version.api';
 
 const tabs = [
   'Account',
@@ -65,14 +67,6 @@ const tabs = [
 ];
 
 const skippedTab = ['Log In'];
-
-const BACKEND_PACKAGE_URL =
-  'https://raw.githubusercontent.com/Fakulty-Media-and-Technology/RP-backend/main/package.json';
-
-type BackendPackage = {
-  version?: string;
-};
-
 
 const MenuScreen = () => {
   const user = useAppSelector(selectUser);
@@ -93,20 +87,14 @@ const MenuScreen = () => {
     useCallback(() => {
       let isActive = true;
 
-      fetch(`${BACKEND_PACKAGE_URL}?timestamp=${Date.now()}`)
+      fetchBackendVersion()
         .then(response => {
-          if (!response.ok) {
-            throw new Error(`Backend version request failed: ${response.status}`);
-          }
-          return response.json() as Promise<BackendPackage>;
-        })
-        .then(packageData => {
-          if (isActive && packageData.version) {
-            setBackendVersion(packageData.version);
+          if (isActive && response.ok && response.data?.data.version) {
+            setBackendVersion(response.data.data.version);
           }
         })
         .catch(() => {
-          // Keep the bundled version when the device is offline or GitHub is unavailable.
+          // Keep the bundled version while the device or backend is unavailable.
         });
 
       return () => {
@@ -152,6 +140,7 @@ const MenuScreen = () => {
   }
 
   async function handleLogout() {
+    await unregisterNotificationDevice();
     await clearTokens();
     await authMultiRemove([
       hasUserDetails,
@@ -217,7 +206,7 @@ const MenuScreen = () => {
                           uri: profilePic,
                           priority: FastImage.priority.high,
                         }
-                      : require('@/assets/images/user.png')
+                      : require('@/assets/images/default-user-profile.webp')
                   }
                   style={styles.image}
                 />

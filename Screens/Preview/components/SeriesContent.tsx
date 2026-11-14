@@ -252,6 +252,7 @@ const SeriesView = ({
             portraitPhoto:thumbnail,
             landscapePhoto:thumbnail,
             video: encryptedPath,
+            castVideo: videoURL,
             size:sizeInMB,
             desc:item.description,
             type:'series',

@@ -24,6 +24,7 @@ import {
   contentCostApi,
   deleteContinueWatchingById,
   fetchEnums,
+  fetchHomeAds,
   getContinueWatching,
   randomAds,
 } from '@/api/content.api';
@@ -34,7 +35,7 @@ import {
   setGenres,
   setPremiumContentCost,
 } from '@/store/slices/bannerSlice.slice';
-import {setAdsContent} from '@/store/slices/adsSlice.slice';
+import {setAdsContent, setHomeAdsContent} from '@/store/slices/adsSlice.slice';
 import {walletBalance} from '@/api/payment.api';
 import {resetFullVideo} from '@/store/slices/fullScreenVideo.slice';
 import {getAllNotifications} from '@/api/notification.api';
@@ -95,17 +96,21 @@ export function useHomeBootstrap(isFullscreen: boolean) {
 
   const userProfile = useCallback(async () => {
     try {
-      const [res, banner, categories, genres, cW, resAds] = await Promise.all([
+      const [res, banner, categories, genres, cW, resAds, homeAds] = await Promise.all([
         getProfileDetails(),
         bannerApi(),
         fetchEnums('categories'),
         fetchEnums('genres'),
         getContinueWatching({page: 1, limit: 10}),
         randomAds(),
+        fetchHomeAds(),
       ]);
 
       if (resAds.ok && resAds.data) {
         dispatch(setAdsContent(resAds.data.data));
+      }
+      if (homeAds.ok && homeAds.data) {
+        dispatch(setHomeAdsContent(homeAds.data.data));
       }
 
       const continueWatchingData =

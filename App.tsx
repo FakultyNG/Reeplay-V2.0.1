@@ -53,6 +53,12 @@ import {getGuestAccessSetting} from '@/api/platformSettings.api';
 import {useGuestAccessStore} from '@/store/guestAccess.store';
 import {endGuestSession} from '@/Utils/guestAccess';
 import LoginRequiredModal from '@/components/LoginRequiredModal';
+import messaging from '@react-native-firebase/messaging';
+import {queueNotificationOpen, registerNotificationOpenHandler} from '@/Utils/notificationNavigation';
+import {fetchVODNotificationDetails} from '@/api/content.api';
+import {setPreviewContent} from '@/store/slices/previewContentSlice';
+import {previewContentType} from '@/navigation/AppNavigator';
+import {syncRefreshedNotificationToken} from '@/Utils/notificationDevice';
 
 const LEFT_APP_TIME = AUTH_MMKV_KEYS.LEFT_APP_TIME;
 const API_ENVIRONMENT_KEY = 'API_BASE_URL';
@@ -103,6 +109,7 @@ function App(): React.JSX.Element {
   const [isBackendEnvironmentReady, setIsBackendEnvironmentReady] =
     useState(false);
   const navigationRef = useRef<any>(null);
+  const [navigationReady, setNavigationReady] = useState(false);
   const [currentRouteName, setCurrentRouteName] = useState<string | undefined>();
   const {isSessionExpired, isLock, setIsLock, setIsSessionExpired} =
     useAppPersistStore();
@@ -169,6 +176,70 @@ function App(): React.JSX.Element {
       isMounted = false;
     };
   }, [setGuest, setGuestAccessEnabled]);
+
+  useEffect(() => {
+    const tokenSubscription = messaging().onTokenRefresh(token => {
+      syncRefreshedNotificationToken(token).catch(() => {});
+    });
+    const openedSubscription = messaging().onNotificationOpenedApp(message => {
+      queueNotificationOpen({...message.data, _messageId: message.messageId || ''});
+    });
+
+    messaging().getInitialNotification().then(message => {
+      if (message) {
+        queueNotificationOpen({...message.data, _messageId: message.messageId || ''});
+      }
+    });
+
+    return () => {
+      tokenSubscription();
+      openedSubscription();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!navigationReady) return;
+
+    return registerNotificationOpenHandler(async data => {
+      let metadata: Record<string, unknown> = {};
+      try {
+        metadata = data.metadata ? JSON.parse(data.metadata) : {};
+      } catch {
+        metadata = {};
+      }
+
+      const vodId = String(metadata.vodId ?? metadata.videoId ?? metadata.contentId ?? '');
+      if (vodId) {
+        const response = await fetchVODNotificationDetails({_id: vodId});
+        if (response.ok && response.data?.data) {
+          const vod = response.data.data;
+          store.dispatch(setPreviewContent(vod));
+          const content = vod.type?.includes('series')
+            ? previewContentType['tv series']
+            : vod.type?.includes('video')
+              ? previewContentType['music video']
+              : previewContentType.film;
+          navigationRef.current?.navigate(routes.PREVIEW_SCREEN, {
+            content,
+            videoURL: vod.video ?? '',
+          });
+          return;
+        }
+      }
+
+      if (data.type === 'LIVE_EVENT_REMINDER' || metadata.liveId) {
+        const isLiveNow = data.body?.toLowerCase().includes("it's live now") || metadata.destination === 'live';
+        navigationRef.current?.navigate(routes.TAB_MAIN, {
+          screen: isLiveNow ? routes.LIVE_SCREEN : routes.UPCOMING_SCREEN,
+        });
+        return;
+      }
+
+      navigationRef.current?.navigate(routes.MAIN, {
+        screen: routes.NOTIFICATION_SCREEN,
+      });
+    });
+  }, [navigationReady]);
 
   useEffect(() => {
     if (!needsAuthRedirect || !navigationRef.current) return;
@@ -357,6 +428,7 @@ function App(): React.JSX.Element {
           ref={navigationRef}
           theme={navTheme}
           onReady={() => {
+            setNavigationReady(true);
             setCurrentRouteName(navigationRef.current?.getCurrentRoute()?.name);
           }}
           onStateChange={() => {

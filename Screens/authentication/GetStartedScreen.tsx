@@ -55,15 +55,22 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
   const rnBiometrics = new ReactNativeBiometrics();
   const dispatch = useAppDispatch();
   const ads = useAppSelector(selectAdsContent).ads
-  const { isLock, setIsLock, isToken, biometrics } = useAppPersistStore()
+  const { isLock, setIsLock, isSessionExpired, biometrics } = useAppPersistStore()
   const [modal, setModal] = useState<'privacy' | 'terms' | null>(null)
   const [adsReady, setAdsReady] = useState(ads.length > 0);
   const [videoReady, setVideoReady] = useState(false);
+  const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const guestAccessEnabled = useGuestAccessStore(state => state.enabled);
-  const adVideoUrl = ads[0]?.videoUrl;
+  const adVideoUrl = ads[currentAdIndex]?.videoUrl;
   const videoSource = adVideoUrl
     ? { uri: adVideoUrl }
     : require('@/assets/videos/getStartedVideo.mp4');
+
+  const handleAdEnd = () => {
+    if (ads.length <= 1) return;
+    setVideoReady(false);
+    setCurrentAdIndex(index => (index + 1) % ads.length);
+  };
 
   async function handleLogin() {
     if (lock) {
@@ -194,19 +201,27 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
     }
   }, [isFocused]);
 
+  useEffect(() => {
+    // A newly fetched list is already randomized by the API. Starting at zero
+    // keeps the existing restart behaviour while playback rotates thereafter.
+    setCurrentAdIndex(0);
+  }, [ads]);
+
   return (
     <AppView className="relative" style={{ backgroundColor: colors.DEEP_BLACK }}>
       <StatusBar hidden />
       {isFocused && adsReady && (
         <AppVideo
+          key={ads[currentAdIndex]?._id ?? 'welcome-fallback'}
           source={videoSource}
           videoRef={videoRef}
           style={{ width: '100%', height: '100%' }}
           resizeMode="cover"
           muted={toogle}
-          paused={modal !== null || isToken || (isLock && !screen)}
+          paused={modal !== null || isSessionExpired || (isLock && !screen)}
           controls={false}
-          repeat
+          repeat={ads.length <= 1}
+          onEnd={handleAdEnd}
           onReadyForDisplay={() => setVideoReady(true)}
           onLoad={() => setVideoReady(true)}
           onError={() => setVideoReady(true)}

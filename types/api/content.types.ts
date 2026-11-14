@@ -238,6 +238,8 @@ export interface IDownloadData{
     landscapePhoto: string;
     portraitPhoto: string
     video: string;
+    /** Original network URL used when an offline download is cast to a TV. */
+    castVideo?: string;
     size: string | null,
     desc:string;
     type:string;
@@ -326,4 +328,23 @@ export interface IVodSubtitle{
     bucket:string;
     language:string;
     src:string
+}
+
+export interface IHomeAdData {
+  _id: string;
+  title: string;
+  type: 'home_ad';
+  link: string;
+  active: boolean;
+  photoUrl: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IHomeAdsResponse extends IGeneric {
+  data: IHomeAdData[];
+}
+
+export interface IVodDetailsResponse extends IGeneric {
+    data: IVODContent;
 }

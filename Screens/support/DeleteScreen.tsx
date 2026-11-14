@@ -13,6 +13,7 @@ import {hasUserDetails} from '../Splashscreen/Splashscreen';
 import {HAS_LOCK_APP} from '../Settings/SettingScreen';
 import {clearTokens} from '@/Utils/secureTokenStorage';
 import {useAppPersistStore} from '@/store/zustand.store';
+import {unregisterNotificationDevice} from '@/Utils/notificationDevice';
 
 const DeleteScreen = () => {
   const {goBack} = useNavigation();
@@ -23,6 +24,7 @@ const DeleteScreen = () => {
   async function handleDeleteAccount(){
     try {
       setLoading(true);
+      await unregisterNotificationDevice();
       const res = await deleteProfile();
       if(res.ok){
         await clearTokens();

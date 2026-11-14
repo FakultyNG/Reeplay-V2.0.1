@@ -116,7 +116,7 @@ const ProfilePicUpdate = () => {
                 <View className='relative'>
                     <View className='w-[158px] h-[158px] rounded-[32px] overflow-hidden'>
                         <AppImage 
-                            source={pic ? {uri:pic.uri} : require('@/assets/images/dummy-avatar.png')}
+                            source={pic ? {uri:pic.uri} : require('@/assets/images/default-user-profile.webp')}
                             style={styles.image}
                         />
                     </View>

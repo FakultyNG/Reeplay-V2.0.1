@@ -58,6 +58,7 @@ export function usePreviewDownload(previewContent: IVODContent) {
         portraitPhoto: previewContent.portraitPhoto,
         landscapePhoto: previewContent.landscapePhoto,
         video: encryptedPath,
+        castVideo: previewContent.video,
         size: sizeInMB,
         desc: previewContent.description,
         type: previewContent.type,

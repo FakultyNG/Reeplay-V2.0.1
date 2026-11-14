@@ -24,7 +24,6 @@ import {
   Green_SubscripeIcon,
   PasswordDashboard,
   PinDashboard,
-  SubscribeIcon,
   VisaCard,
 } from '@/assets/icons';
 import colors from '@/configs/colors';
@@ -146,7 +145,7 @@ const AccountScreen = () => {
           <AppView className="flex-row items-center gap-x-[14px]">
             <AppView className="relative items-center justify-center">
                 <AppImage
-                  source={!isValidImg ? require('@/assets/images/user.png') :{
+                  source={!isValidImg ? require('@/assets/images/default-user-profile.webp') :{
                     uri: profilePic,
                     priority: FastImage.priority.high,
                   }}
@@ -250,29 +249,7 @@ const AccountScreen = () => {
                   </AppText>
                 </TouchableOpacity>
               </AppView>
-            ) : (
-              <TouchableOpacity
-              disabled
-                onPress={() =>
-                  // navigate(routes.SUBSCRIPTION_SCREEN, { tab: 'getSubscription' })
-                  console.log('first')
-                }
-                className="flex-row items-center gap-x-2 mb-7 opacity-50">
-                <SubscribeIcon />
-                <AppText className=" font-MANROPE_400 text-yellow text-base">
-                  Get Subscription
-                </AppText>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity disabled className="flex-row items-center justify-between opacity-50 ml-1 mb-8">
-              <AppText className=" font-MANROPE_400 text-[16px] text-white">
-                {billingService
-                  ? 'Your next billing date is Jan 14, 2024'
-                  : 'Your next billing date is not available'}
-              </AppText>
-              <ArrowRight />
-            </TouchableOpacity>
+            ) : null}
 
             <TouchableOpacity
               onPress={() => navigate(routes.TRANSACTION_HISTORY_SCREEN)}

@@ -119,6 +119,7 @@ type RenderVideoProps = Pick<
   handleGoBackFunc?: () => void;
   contentData: IContentData;
   isSaveProgress?: boolean;
+  castSourceUrl?: string;
   // videoRef: React.RefObject<VideoRef | null>
 };
 
@@ -190,6 +191,7 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
   const progressRef = useRef(0);
   const currentTimeRef = useRef(0);
   const durationRef = useRef(0);
+  const lastCastUrlRef = useRef('');
   /** Content-only duration — never overwritten by IMA ad load/progress. */
   const contentDurationRef = useRef(0);
   const isAdPlayingRef = useRef(false);
@@ -578,7 +580,10 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
 
     try {
       if (parentId) {
-        const res = await getSubtitles({parentId});
+        const res = await getSubtitles({
+          parentId,
+          parentType: props.type === 'series' ? 'episode' : 'vod',
+        });
         if (res.ok && res.data?.data?.length) {
           const apiTracks = (
             await Promise.all(
@@ -796,37 +801,65 @@ if(isSaveProgress) {
     },
   }));
 
-   useEffect(() => {
-        if (isCasting && remoteClient && source?.uri) {
-            // Stop local playback before casting
-            setIsPlaying(false);
-            videoRef.current?.pause();
+  const castSourceUrl =
+    props.castSourceUrl ||
+    (typeof source?.uri === 'string' ? source.uri : '');
 
-            const mediaInfo: MediaInfo = {
-                contentUrl: typeof source.uri === 'string' ? source.uri :'',
-                contentType: 'video/mp4',
-                metadata: {
-                    type: 'generic',
-                    title: props.contentData.title,
-                    subtitle: props.contentData.desc, // Dynamically set this
-                    images: [{ url:typeof props.thumbnail === 'string'? props.thumbnail:'' }],
-                },
-            };
+  useEffect(() => {
+    if (!isCasting || !remoteClient || !castSourceUrl) {
+      if (!isCasting) {
+        lastCastUrlRef.current = '';
+      }
+      return;
+    }
 
-            remoteClient.loadMedia({...mediaInfo, autoplay: true, startTime: progressRef.current * duration })
-                .then(() => console.log(`[${new Date().toLocaleTimeString()}] Media loaded on Cast device.`))
-                .catch(error => console.error(`[${new Date().toLocaleTimeString()}] Failed to load media on Cast device:`, error));
+    if (lastCastUrlRef.current === castSourceUrl) {
+      return;
+    }
 
-            // showControls();
+    setIsPlaying(false);
+    videoRef.current?.pause();
 
-        } 
-        // else if (!isCasting && !session) {
-        //     console.log(`[${new Date().toLocaleTimeString()}] Casting session ended. Resetting local player.`);
-        //     setIsPlaying(false);
-        //     videoRef.current?.pause();
-        //     _showControls();
-        // }
-    }, [isCasting, remoteClient, source, session]);
+    const mediaInfo: MediaInfo = {
+      contentUrl: castSourceUrl,
+      contentType: castSourceUrl.toLowerCase().includes('.m3u8')
+        ? 'application/x-mpegURL'
+        : 'video/mp4',
+      metadata: {
+        type: 'generic',
+        title: props.contentData.title,
+        subtitle: props.contentData.desc,
+        images: posterUri ? [{url: posterUri}] : [],
+      },
+    };
+
+    lastCastUrlRef.current = castSourceUrl;
+    void remoteClient
+      .loadMedia({
+        mediaInfo,
+        autoplay: true,
+        startTime: currentTimeRef.current,
+      })
+      .then(() =>
+        console.log(
+          `[${new Date().toLocaleTimeString()}] Media loaded on Cast device.`,
+        ),
+      )
+      .catch(error => {
+        lastCastUrlRef.current = '';
+        console.error(
+          `[${new Date().toLocaleTimeString()}] Failed to load media on Cast device:`,
+          error,
+        );
+      });
+  }, [
+    castSourceUrl,
+    isCasting,
+    posterUri,
+    props.contentData.desc,
+    props.contentData.title,
+    remoteClient,
+  ]);
 
   useEffect(() => {
   scheduleAutoHide();

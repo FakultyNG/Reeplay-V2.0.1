@@ -1,7 +1,6 @@
 import {StyleSheet} from 'react-native';
-import React, { useEffect, useState } from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {AppImage, AppText, AppView, TouchableOpacity} from '@/components';
-import {LibraryData} from '@/configs/data';
 import Size from '@/Utils/useResponsiveSize';
 import {previewContentType, RootNav} from '@/navigation/AppNavigator';
 import routes from '@/navigation/routes';
@@ -26,7 +25,12 @@ const RelatedContent = ({title, vodId, genreId}: props) => {
   const [content, setContent] = useState<IVODContent[]>([]);
   const dispatch = useAppDispatch();
 
-  async function handleFetchContent(){
+  const handleFetchContent = useCallback(async () => {
+    if (!genreId) {
+      setContent([]);
+      return;
+    }
+
     try {
       setLoading(true);
       const res = await getVODbyGenreID({vodId, pagination:{page:1, limit:6}, enumId:genreId})
@@ -38,11 +42,11 @@ const RelatedContent = ({title, vodId, genreId}: props) => {
     }finally{
       setLoading(false)
     }
-  }
+  }, [genreId, vodId]);
 
   useEffect(() =>{
     handleFetchContent();
-  }, [vodId])
+  }, [handleFetchContent])
 
   return (
     <AppView className="mt-5">

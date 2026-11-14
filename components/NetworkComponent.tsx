@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import AppModal from './AppModal'
 import { CloseLogo } from '@/assets/icons';
 import colors from '@/configs/colors';
@@ -30,6 +30,8 @@ const NetworkComponent = ({refreshNetwork, setStage,stage}:Props) => {
             {(injectedProps) => <DownoadScreen {...injectedProps} />}
             </OrientationWrapper>
   }
+
+  return null;
 }
 
 export default NetworkComponent

@@ -64,7 +64,7 @@ const tabs = [
   'Settings',
 ];
 
-const skippedTab = ['Log In', 'Suggestions'];
+const skippedTab = ['Log In'];
 
 const BACKEND_PACKAGE_URL =
   'https://raw.githubusercontent.com/Fakulty-Media-and-Technology/RP-backend/main/package.json';
@@ -119,7 +119,10 @@ const MenuScreen = () => {
     const hasSkipped = await authGet(HAS_SKIPPED);
     if (hasSkipped) {
       setIsSkipped(true);
+      return true;
     }
+    setIsSkipped(false);
+    return false;
   }, []);
 
   const handleValidImg = useCallback(async () => {
@@ -187,9 +190,12 @@ const MenuScreen = () => {
     }, [dispatch]);
 
   useEffect(() => {
-    getWatchList();
-    getWallet();
-    getSkippedState();
+    getSkippedState().then(skipped => {
+      if (!skipped) {
+        getWatchList();
+        getWallet();
+      }
+    });
     handleValidImg();
   }, [getWatchList, getWallet, getSkippedState, handleValidImg, user?._id]);
 

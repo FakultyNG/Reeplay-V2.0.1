@@ -6,13 +6,12 @@ import {
   ScrollView,
   StatusBar,
 } from 'react-native';
-import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {AppScreen, AppText} from '@/components';
 import colors from '@/configs/colors';
 import UpcomingView from './components/UpcomingView';
 import Orientation, {PORTRAIT} from 'react-native-orientation-locker';
 import {
-  getLegacyUpcomingEvents,
   getUpcomingEvents,
 } from '@/api/upcomingEvents.api';
 import {IPagination} from '@/types/api/auth.types';
@@ -49,34 +48,18 @@ const UpcomingScreen = ({
   const [isLoading, setIsLoading] = useState(true);
   const dispatch = useAppDispatch();
 
-  async function handleUpcomingEvents() {
+  const handleUpcomingEvents = useCallback(async () => {
     try {
       setIsLoading(true);
-      const results = await Promise.allSettled([
-        getUpcomingEvents(pagination),
-        getLegacyUpcomingEvents(pagination),
-      ]);
-      const responses = results
-        .flatMap(result =>
-          result.status === 'fulfilled' ? [result.value] : [],
-        )
-        .filter(response => response.ok && response.data?.data);
+      const response = await getUpcomingEvents(pagination);
 
-      if (responses.length > 0) {
-        const merged = responses.flatMap(response => [
-          ...(response.data?.data.lives ?? []),
-          ...(response.data?.data.vods ?? []),
-        ]);
-        const unique = Array.from(
-          new Map(
-            merged.map(item => [
-              `${'start' in item ? 'live' : 'vod'}:${item._id}`,
-              item,
-            ]),
-          ).values(),
-        );
+      if (response.ok && response.data?.data) {
+        const merged = [
+          ...(response.data.data.lives ?? []),
+          ...(response.data.data.vods ?? []),
+        ];
 
-        const sortedData = unique.sort((a, b) => {
+        const sortedData = merged.sort((a, b) => {
           let dateA: Date;
           let dateB: Date;
 
@@ -95,7 +78,7 @@ const UpcomingScreen = ({
           return dateA.getTime() - dateB.getTime();
         });
 
-        setUpcomingEvents(sortedData);
+        setUpcomingEvents(sortedData.slice(0, 100));
       } else {
         Alert.alert(
           'Unable to load upcoming titles',
@@ -107,13 +90,13 @@ const UpcomingScreen = ({
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [pagination]);
 
   useLayoutEffect(() => {
     handleUpcomingEvents();
-  }, []);
+  }, [handleUpcomingEvents]);
 
-  function checkOrientation() {
+  const checkOrientation = useCallback(() => {
     Orientation.getOrientation(orient => {
       if (orientation !== orient) dispatch(setOrientations(orient));
 
@@ -124,15 +107,15 @@ const UpcomingScreen = ({
         setOrientation(orient);
       }
     });
-  }
+  }, [dispatch, orientation]);
 
   useEffect(() => {
     checkOrientation();
-  }, []);
+  }, [checkOrientation]);
 
   useEffect(() => {
     dispatch(setHideTabBar(isFullscreen));
-  }, [isFullscreen]);
+  }, [dispatch, isFullscreen]);
 
   useEffect(() => {
     const id = scrollY.addListener(({value}) => {
@@ -192,7 +175,7 @@ const UpcomingScreen = ({
                   {upcomingEvents.map((item, i) => {
                     return (
                       <UpcomingView
-                        key={i}
+                        key={`${'start' in item ? 'live' : 'vod'}:${item._id}`}
                         items={item}
                         index={i}
                         scrollY={scrollY}

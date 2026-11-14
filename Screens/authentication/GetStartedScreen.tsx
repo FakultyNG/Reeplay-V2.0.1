@@ -5,8 +5,6 @@ import {
   Pressable,
   StatusBar,
   StyleSheet,
-  Text,
-  View,
 } from 'react-native';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
@@ -39,6 +37,8 @@ import PrivacyScreen from '../support/PrivacyScreen';
 import TermScreen from '../support/TermScreen';
 import { setCategories } from '@/store/slices/bannerSlice.slice';
 import { contentGetJson, CONTENT_MMKV_KEYS } from '@/Utils/contentMmkv';
+import {useGuestAccessStore} from '@/store/guestAccess.store';
+import {startGuestSession} from '@/Utils/guestAccess';
 
 export const HAS_SET_NEWPIN = AUTH_MMKV_KEYS.HAS_SET_NEWPIN;
 const HAS_LOCK_APP = AUTH_MMKV_KEYS.HAS_LOCK_APP;
@@ -59,6 +59,7 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
   const [modal, setModal] = useState<'privacy' | 'terms' | null>(null)
   const [adsReady, setAdsReady] = useState(ads.length > 0);
   const [videoReady, setVideoReady] = useState(false);
+  const guestAccessEnabled = useGuestAccessStore(state => state.enabled);
   const adVideoUrl = ads[0]?.videoUrl;
   const videoSource = adVideoUrl
     ? { uri: adVideoUrl }
@@ -87,6 +88,11 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
         ],
       });
     }
+  }
+
+  async function handleGuestAccess() {
+    await startGuestSession();
+    navigation.reset({index: 0, routes: [{name: routes.TAB_MAIN}]});
   }
 
   async function getLockState() {
@@ -295,9 +301,9 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
             />
 
             <AppButton
-              title="Create a New Account"
+              title={guestAccessEnabled ? 'Skip to free Contents' : 'Create a New Account'}
               bgColor={colors.RED}
-              onPress={() => replace(routes.SIGNUP_SCREEN)}
+              onPress={guestAccessEnabled ? handleGuestAccess : () => replace(routes.SIGNUP_SCREEN)}
               style={{ marginTop: Size.calcHeight(20) }}
               labelStyle={styles.labelStyle}
             />

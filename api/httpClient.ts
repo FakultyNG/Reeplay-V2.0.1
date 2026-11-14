@@ -9,6 +9,8 @@ import {
   saveTokens,
 } from '@/Utils/secureTokenStorage';
 import {useAppPersistStore} from '@/store/zustand.store';
+import {useGuestAccessStore} from '@/store/guestAccess.store';
+import {endGuestSession} from '@/Utils/guestAccess';
 
 /** Ignore auth-failure side effects right after a successful login. */
 let authGraceUntil = 0;
@@ -158,6 +160,18 @@ api.axiosInstance.interceptors.response.use(
   async (error: AxiosError) => {
     const status = error.response?.status;
     const original = error.config as RetryConfig | undefined;
+
+    if (status === 403 && useGuestAccessStore.getState().isGuest) {
+      const message = String((error.response?.data as {message?: string})?.message || '');
+      if (message.toLowerCase().includes('guest access is disabled')) {
+        await endGuestSession();
+        useGuestAccessStore.getState().setEnabled(false);
+        useGuestAccessStore.getState().requestAuthRedirect();
+      } else {
+        useGuestAccessStore.getState().showLoginRequired();
+      }
+      return Promise.reject(error);
+    }
 
     if (!original || status !== 401 || original._authRetry) {
       return Promise.reject(error);

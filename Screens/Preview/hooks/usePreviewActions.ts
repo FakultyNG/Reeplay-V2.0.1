@@ -26,6 +26,11 @@ import {formatAmount} from '@/Utils/formatAmount';
 import {selectUserPremiumCost} from '@/store/slices/bannerSlice.slice';
 import getSymbolFromCurrency from 'currency-symbol-map';
 import Orientation from 'react-native-orientation-locker';
+import {
+  analyticsId,
+  flushAnalyticsEvents,
+  queueAnalyticsEvent,
+} from '@/api/analytics.api';
 
 type Options = {
   isFullscreen: boolean;
@@ -190,10 +195,22 @@ export function usePreviewActions({
   }, [contentType, previewContent._id]);
 
   const handleShare = useCallback(() => {
-    Share.open({message: 'share movie'})
-      .then(res => console.log(res))
+    Share.open({message: `Watch ${previewContent.title} on Reeplay.`})
+      .then(res => {
+        queueAnalyticsEvent({
+          sessionId: analyticsId('share'),
+          contentId: previewContent._id,
+          contentType: 'vod',
+          eventType: 'share',
+          shareDestination:
+            typeof res === 'object' && res && 'app' in res
+              ? String(res.app).slice(0, 40)
+              : 'system-share',
+        });
+        void flushAnalyticsEvents();
+      })
       .catch(err => err && console.log(err));
-  }, []);
+  }, [previewContent._id, previewContent.title]);
 
   useEffect(() => {
     if (!isFocused) {

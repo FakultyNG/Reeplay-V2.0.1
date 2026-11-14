@@ -121,6 +121,11 @@ handleVODTrailer
 
   const title = item.title ?? '';
   const contentType = item.type ?? '';
+  const isMusicVideo =
+    !live &&
+    contentType.toLowerCase().replace(/[\s_-]+/g, '-') === 'music-video';
+  const artistName =
+    'adminId' in item ? item.artistName?.trim() : undefined;
   const openPreview = () => {
     dispatch(setPreviewContent(item as IVODContent));
     navigate(routes.PREVIEW_SCREEN, {
@@ -275,11 +280,18 @@ handleVODTrailer
         </AppText>
         {!live && (
           <AppView className="flex-row items-center justify-center">
-            {'adminId' in item &&
+            {isMusicVideo ? (
+              artistName ? (
+                <AppText className="font-ROBOTO_400 text-sm text-grey_200">
+                  {artistName}
+                </AppText>
+              ) : null
+            ) : (
+              'adminId' in item &&
               Array.isArray(item.genre) &&
               item.genre.map((tag, i) => {
                 return (
-                  <Fragment key={i}>
+                  <Fragment key={tag?._id ?? i}>
                     <AppText className="font-ROBOTO_400 text-sm text-grey_200">
                       {tag?.name}
                     </AppText>
@@ -288,7 +300,8 @@ handleVODTrailer
                     )}
                   </Fragment>
                 );
-              })}
+              })
+            )}
           </AppView>
         )}
 

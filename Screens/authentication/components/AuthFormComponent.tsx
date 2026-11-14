@@ -17,7 +17,7 @@ import useToggle from '@/Hooks/useToggle';
 import { useNavigation } from '@react-navigation/native';
 import routes from '@/navigation/routes';
 import { handleLoginAPI, handleSignUpAPI, resendToken } from '@/api/auth.api';
-import { GUEST_TOKEN, WEB_CLIENT_ID } from '@env';
+import { WEB_CLIENT_ID } from '@env';
 import { getProfileDetails, armAuthGrace } from '@/api/profile.api';
 import { useAppDispatch } from '@/Hooks/reduxHook';
 import { setCredentials } from '@/store/slices/userSlice';
@@ -39,6 +39,8 @@ import TermScreen from '@/Screens/support/TermScreen';
 import { getDeviceId } from 'react-native-device-info';
 import { registerNotificationDevice } from '@/api/notification.api';
 import messaging from '@react-native-firebase/messaging';
+import {useGuestAccessStore} from '@/store/guestAccess.store';
+import {startGuestSession} from '@/Utils/guestAccess';
 
 
 const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -73,6 +75,7 @@ const AuthFormComponent = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const { setIsSessionExpired } = useAppPersistStore()
+  const guestAccessEnabled = useGuestAccessStore(state => state.enabled)
   const [modal, setModal] = useState<'privacy' | 'terms' | null>(null)
   const deviceId = getDeviceId();
   const deviceType =
@@ -88,6 +91,7 @@ const AuthFormComponent = ({
     setPreferredName('');
     setError('');
     await authRemove(HAS_SKIPPED);
+    useGuestAccessStore.getState().setGuest(false);
   }
 
   const requestUserPermission = async () => {
@@ -382,8 +386,7 @@ const AuthFormComponent = ({
   }
 
   async function handleSkip() {
-    await authSet(HAS_SKIPPED, 'true');
-    await saveTokens({accessToken: GUEST_TOKEN});
+    await startGuestSession();
     //navigate to home
     reset({
       index: 0,
@@ -584,10 +587,10 @@ const AuthFormComponent = ({
 
       {screen === 'login' && !isSession && (
         <Pressable
-          onPress={() => nav.navigate(routes.SIGNUP_SCREEN)}
+          onPress={guestAccessEnabled ? handleSkip : () => nav.navigate(routes.SIGNUP_SCREEN)}
           style={{ marginTop: Size.calcHeight(38) }}>
           <AppText className="font-MANROPE_400 text-base text-red">
-            Create new account
+            {guestAccessEnabled ? 'Skip to free Contents' : 'Create new account'}
           </AppText>
         </Pressable>
       )}

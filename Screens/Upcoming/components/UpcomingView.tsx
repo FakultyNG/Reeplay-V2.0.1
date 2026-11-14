@@ -69,6 +69,13 @@ const UpcomingView = ({
   const [isBuffering, setIsBuffering] = useState(false);
   const [isBufferingLoad, setIsBufferingLoad] = useState(false);
   const [videoURL, setVideoURL] = useState<string>('');
+  const primaryPosterUrl =
+    'start' in items
+      ? items.coverPhoto ?? ''
+      : items.landscapePhoto || items.portraitPhoto || '';
+  const fallbackPosterUrl =
+    'start' in items ? '' : items.portraitPhoto || '';
+  const [posterUrl, setPosterUrl] = useState(primaryPosterUrl);
 
   const onLoad = (data: OnLoadData) => {
     setIsLoading(false);
@@ -157,6 +164,10 @@ const UpcomingView = ({
     getSubscribedStatus();
   }, []);
 
+  useEffect(() => {
+    setPosterUrl(primaryPosterUrl);
+  }, [primaryPosterUrl]);
+
 
   return (
     <AnimatedView
@@ -167,9 +178,14 @@ const UpcomingView = ({
           <>
             <FastImage
               source={{
-                uri: 'start' in items ? items.coverPhoto ?? '' : items.landscapePhoto,
+                uri: posterUrl,
                 priority: FastImage.priority.high,
                 cache: FastImage.cacheControl.immutable,
+              }}
+              onError={() => {
+                if (fallbackPosterUrl && posterUrl !== fallbackPosterUrl) {
+                  setPosterUrl(fallbackPosterUrl);
+                }
               }}
               style={{
                 width: Size.wp(92),
@@ -234,7 +250,7 @@ const UpcomingView = ({
               <TouchableOpacity
                 onPress={() =>
                 [
-                  setFullscreenContent({_id:items._id,desc:items.description,landscapePhoto: 'start' in items ? items.coverPhoto ?? '' : items.landscapePhoto,pg:items.pg,portraitPhoto:'start' in items ? items.coverPhoto ?? '' : items.portraitPhoto,title:items.title,video:'start' in items ? items.previewVideo ?? '' : items.trailer,size:'30',type:items.type,viewsCount:items.viewsCount,vidClass:items.vidClass})
+                  setFullscreenContent({_id:items._id,desc:items.description,landscapePhoto:posterUrl,pg:items.pg,portraitPhoto:'start' in items ? items.coverPhoto ?? '' : items.portraitPhoto || posterUrl,title:items.title,video:'start' in items ? items.previewVideo ?? '' : items.trailer,size:'30',type:items.type,viewsCount:items.viewsCount,vidClass:items.vidClass})
                   ,makeFullscreen()
                 ]
                 }>

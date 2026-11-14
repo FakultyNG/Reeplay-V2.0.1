@@ -52,6 +52,12 @@ import {
   maxBitRateForQuality,
 } from './playbackConfig';
 import {buildSampleEnglishCues} from '@/assets/subtitles/sampleEnglish';
+import {
+  analyticsId,
+  flushAnalyticsEvents,
+  queueAnalyticsEvent,
+  type AnalyticsContentType,
+} from '@/api/analytics.api';
 
 /** Single linear pre-roll (one ad). Avoids VMAP pods that stack multiple ads per break. */
 export const SINGLE_AD_TAG =
@@ -118,6 +124,11 @@ type RenderVideoProps = Pick<
 
 export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
   (props, ref) => {
+    const analyticsSessionRef = useRef(analyticsId('play'));
+    const analyticsStartedRef = useRef(false);
+    const lastAnalyticsPositionRef = useRef(0);
+    const analyticsContentType: AnalyticsContentType =
+      props.type === 'live' ? 'live' : props.type === 'series' ? 'episode' : 'vod';
   const {
     autoplay = false,
     controlsTimeout = 5000,
@@ -182,7 +193,7 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
   /** Content-only duration — never overwritten by IMA ad load/progress. */
   const contentDurationRef = useRef(0);
   const isAdPlayingRef = useRef(false);
-  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSubtitlePickerOpenRef = useRef(false);
   const isBrightnessSlidingRef = useRef(false);
 
@@ -299,6 +310,27 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
       }
     }, 15000), // send at most once every 15s
     [duration]
+  );
+
+  const reportAnalyticsProgress = useCallback(
+    throttle((positionSeconds: number, durationSeconds: number) => {
+      const positionDelta = positionSeconds - lastAnalyticsPositionRef.current;
+      const watchedSeconds = positionDelta > 0 && positionDelta <= 30 ? positionDelta : 0;
+      lastAnalyticsPositionRef.current = positionSeconds;
+      queueAnalyticsEvent({
+        sessionId: analyticsSessionRef.current,
+        contentId: props.contentData._id,
+        contentType: analyticsContentType,
+        eventType: 'progress',
+        positionSeconds,
+        durationSeconds,
+        watchedSeconds,
+        completionPercent: durationSeconds > 0
+          ? Math.min((positionSeconds / durationSeconds) * 100, 100)
+          : 0,
+      });
+    }, 15000, {leading: false, trailing: true}),
+    [analyticsContentType, props.contentData._id],
   );
 
     async function removeSaveWatch(){
@@ -419,6 +451,7 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
       progressRef.current = next;
       setProgress(next);
       controlsRef.current?.onProgress(next);
+      reportAnalyticsProgress(e.currentTime, knownDuration);
 
       if (props.type !== 'live') {
         const isFree = props.contentData.vidClass === 'free';
@@ -442,6 +475,7 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
       isSaveProgress,
       props.type,
       props.contentData.vidClass,
+      reportAnalyticsProgress,
     ],
   );
 
@@ -674,6 +708,19 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
       if (loadedDuration > 0) {
         applyContentDuration(loadedDuration);
 
+        if (!analyticsStartedRef.current) {
+          analyticsStartedRef.current = true;
+          lastAnalyticsPositionRef.current = props.contentData.seekTo || 0;
+          queueAnalyticsEvent({
+            sessionId: analyticsSessionRef.current,
+            contentId: props.contentData._id,
+            contentType: analyticsContentType,
+            eventType: 'play_start',
+            positionSeconds: props.contentData.seekTo || 0,
+            durationSeconds: loadedDuration,
+          });
+        }
+
         const known = contentDurationRef.current;
         if (!(known > 0)) {
           return;
@@ -699,10 +746,28 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
         handleSeek(resumeAt);
       }
     },
-    [applyContentDuration, handleSeek, props.contentData.seekTo],
+    [
+      analyticsContentType,
+      applyContentDuration,
+      handleSeek,
+      props.contentData._id,
+      props.contentData.seekTo,
+    ],
   );
 
   const handleEnd = useCallback(() => {
+    reportAnalyticsProgress.flush?.();
+    queueAnalyticsEvent({
+      sessionId: analyticsSessionRef.current,
+      contentId: props.contentData._id,
+      contentType: analyticsContentType,
+      eventType: 'complete',
+      positionSeconds: durationRef.current,
+      durationSeconds: durationRef.current,
+      watchedSeconds: 0,
+      completionPercent: 100,
+    });
+    void flushAnalyticsEvents();
     controlsRef.current?.onProgress(1);
 if(isSaveProgress) {
           saveProgress(duration);
@@ -714,7 +779,12 @@ if(isSaveProgress) {
     setIsPlaying(repeat ?? false);
     showControls();
     rest.onEnd?.();
-  }, [repeat]);
+  }, [analyticsContentType, props.contentData._id, repeat, reportAnalyticsProgress]);
+
+  useEffect(() => () => {
+    reportAnalyticsProgress.flush?.();
+    void flushAnalyticsEvents();
+  }, [reportAnalyticsProgress]);
 
   /* ---------------- IMPERATIVE ---------------- */
   // If you want, you can still use useImperativeHandle inside parent

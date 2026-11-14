@@ -23,6 +23,7 @@ import {
 import {
   authGet,
   authMultiRemove,
+  authRemove,
   authSet,
   AUTH_MMKV_KEYS,
 } from './Utils/authMmkv';
@@ -48,6 +49,10 @@ import {hideSystemNavigationBar} from '@/Utils/systemNav';
 import {BASE_URL} from '@env';
 import {clearTokens} from '@/Utils/secureTokenStorage';
 import {clearContentCache} from '@/Utils/contentMmkv';
+import {getGuestAccessSetting} from '@/api/platformSettings.api';
+import {useGuestAccessStore} from '@/store/guestAccess.store';
+import {endGuestSession} from '@/Utils/guestAccess';
+import LoginRequiredModal from '@/components/LoginRequiredModal';
 
 const LEFT_APP_TIME = AUTH_MMKV_KEYS.LEFT_APP_TIME;
 const API_ENVIRONMENT_KEY = 'API_BASE_URL';
@@ -68,22 +73,56 @@ const PUBLIC_ROUTES = new Set<string>([
   routes.INTEREST_SCREEN,
 ]);
 
+const GUEST_PROTECTED_ROUTES = new Set<string>([
+  routes.DOWNLOAD_SCREEN,
+  routes.WATCHLIST_SCREEN,
+  routes.CREATE_ADS_SCREEN,
+  routes.NOTIFICATION_SCREEN,
+  routes.SUGGESTION_SCREEN,
+  routes.SETTINGS_SCREEN,
+  routes.NOTIFICATION_SCREEN_S,
+  routes.ACCOUNT_SCREEN,
+  routes.CHANGE_EMAIL,
+  routes.CHANGE_PASSWORD,
+  routes.CHANGE_PIN,
+  routes.ADD_PAYMENT_METHOD,
+  routes.SUBSCRIPTION_SCREEN,
+  routes.GIFT_CARD_SCREEN,
+  routes.TRANSACTION_HISTORY_SCREEN,
+  routes.PAYMENT_SCREEN,
+  routes.DELETE_ACCOUNT_SCREEN,
+  routes.CANCEL_SUBSCRIPTION_SCREEN,
+  routes.VOTE_SCREEN,
+  routes.INTEREST_SCREEN,
+]);
+
 function App(): React.JSX.Element {
   const appState = useRef(AppState.currentState);
   const [stage, setStage] = useState<string>('network');
-  const [network, setNetwork] = useState<boolean | null>(true);
+  const [network, setNetwork] = useState<boolean | null>(null);
   const [isBackendEnvironmentReady, setIsBackendEnvironmentReady] =
     useState(false);
   const navigationRef = useRef<any>(null);
   const [currentRouteName, setCurrentRouteName] = useState<string | undefined>();
   const {isSessionExpired, isLock, setIsLock, setIsSessionExpired} =
     useAppPersistStore();
+  const {
+    isGuest,
+    setEnabled: setGuestAccessEnabled,
+    setGuest,
+    showLoginRequired,
+    hideLoginRequired,
+    needsAuthRedirect,
+    clearAuthRedirect,
+  } = useGuestAccessStore();
 
   useEffect(() => {
     let isMounted = true;
 
     const migrateBackendEnvironment = async () => {
       try {
+        let hasSkipped = (await authGet(AUTH_MMKV_KEYS.HAS_SKIPPED)) === 'true';
+        setGuest(hasSkipped);
         const previousBaseUrl = await authGet(API_ENVIRONMENT_KEY);
         if (previousBaseUrl !== BASE_URL) {
           await clearTokens();
@@ -92,6 +131,7 @@ function App(): React.JSX.Element {
             AUTH_MMKV_KEYS.HAS_SET_NEWPIN,
             AUTH_MMKV_KEYS.HAS_LOCK_APP,
             AUTH_MMKV_KEYS.LEFT_APP_TIME,
+            AUTH_MMKV_KEYS.HAS_SKIPPED,
           ]);
           clearContentCache();
           appPersistStorage.clearAll();
@@ -103,6 +143,18 @@ function App(): React.JSX.Element {
             downloadedList: [],
           });
           await authSet(API_ENVIRONMENT_KEY, BASE_URL);
+          hasSkipped = false;
+        }
+
+        const guestSetting = await getGuestAccessSetting();
+        if (guestSetting.ok && guestSetting.data?.data) {
+          const enabled = guestSetting.data.data.enabled;
+          setGuestAccessEnabled(enabled);
+          setGuest(enabled && hasSkipped);
+          if (!enabled && hasSkipped) {
+            await authRemove(AUTH_MMKV_KEYS.HAS_SKIPPED);
+            await clearTokens();
+          }
         }
       } finally {
         if (isMounted) {
@@ -116,7 +168,25 @@ function App(): React.JSX.Element {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [setGuest, setGuestAccessEnabled]);
+
+  useEffect(() => {
+    if (!needsAuthRedirect || !navigationRef.current) return;
+    clearAuthRedirect();
+    navigationRef.current.reset({
+      index: 0,
+      routes: [{name: routes.AUTH}],
+    });
+  }, [clearAuthRedirect, needsAuthRedirect]);
+
+  const openLogin = async () => {
+    hideLoginRequired();
+    await endGuestSession();
+    navigationRef.current?.reset({
+      index: 0,
+      routes: [{name: routes.AUTH, params: {screen: routes.LOGIN_SCREEN}}],
+    });
+  };
 
   // const requestUserPermission = async () => {
   //   await PermissionsAndroid.request(
@@ -145,10 +215,21 @@ function App(): React.JSX.Element {
     // return false;
   };
 
+  const applyNetworkState = useCallback(
+    (state: {isConnected: boolean | null; isInternetReachable: boolean | null}) => {
+      const isOnline =
+        state.isConnected === true && state.isInternetReachable !== false;
+      setNetwork(isOnline);
+
+      if (isOnline) {
+        setStage('network');
+      }
+    },
+    [],
+  );
+
   function refreshNetwork() {
-    NetInfo.refresh().then(state => {
-      if (state.isConnected) setNetwork(state.isConnected);
-    });
+    NetInfo.refresh().then(applyNetworkState);
   }
 
   const ensureAESKeysExist = async () => {
@@ -242,14 +323,13 @@ function App(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = addEventListener(state => {
-      setNetwork(state.isConnected);
-    });
+    NetInfo.fetch().then(applyNetworkState);
+    const unsubscribe = addEventListener(applyNetworkState);
 
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [applyNetworkState]);
   const navTheme = {
     ...DefaultTheme,
     colors: {
@@ -282,6 +362,14 @@ function App(): React.JSX.Element {
           onStateChange={() => {
             const routeName = navigationRef.current?.getCurrentRoute()?.name;
             setCurrentRouteName(routeName);
+            if (isGuest && routeName && GUEST_PROTECTED_ROUTES.has(routeName)) {
+              navigationRef.current?.reset({
+                index: 0,
+                routes: [{name: routes.TAB_MAIN}],
+              });
+              showLoginRequired();
+              return;
+            }
             if (routeName && PUBLIC_ROUTES.has(routeName)) {
               setIsSessionExpired(false);
             }
@@ -289,7 +377,8 @@ function App(): React.JSX.Element {
           {stage !== 'downloadScreen' && <AppNavigator />}
           {isLock && <ModalComponent />}
           {showSessionModal && <SessionComponent />}
-          {!network && <NetworkComponent 
+          <LoginRequiredModal onLogin={openLogin} />
+          {network === false && <NetworkComponent 
           refreshNetwork={refreshNetwork} 
           setStage={setStage}
           stage={stage}

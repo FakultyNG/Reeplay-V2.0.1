@@ -58,6 +58,7 @@ export interface IVODContent {
     title: string;
     subtitle: string;
     type: string
+    artistName?: string;
     description: string
     pg: string;
     genre: IGenre[]

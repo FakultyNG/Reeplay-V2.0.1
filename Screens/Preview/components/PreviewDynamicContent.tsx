@@ -20,10 +20,11 @@ const PreviewDynamicContent = ({
   makeFullscreen,
   setFullscreenContent,
 }: Props) => {
-  const genreId =
-    previewContent.genre[
-      Math.floor(Math.random() * previewContent.genre.length)
-    ]._id;
+  const genreId = previewContent.genre.length
+    ? previewContent.genre[
+        Math.floor(Math.random() * previewContent.genre.length)
+      ]?._id ?? ''
+    : '';
 
   if (content === previewContentType['music video']) {
     return (

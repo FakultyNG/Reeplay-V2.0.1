@@ -31,6 +31,8 @@ import {
   flushAnalyticsEvents,
   queueAnalyticsEvent,
 } from '@/api/analytics.api';
+import {useGuestAccessStore} from '@/store/guestAccess.store';
+import {requireRegisteredUser} from '@/Utils/guestAccess';
 
 type Options = {
   isFullscreen: boolean;
@@ -49,6 +51,7 @@ export function usePreviewActions({
   const previewContent = useAppSelector(selectPreviewVODContent);
   const premiumCost = useAppSelector(selectUserPremiumCost);
   const isFocused = useIsFocused();
+  const isGuest = useGuestAccessStore(state => state.isGuest);
 
   const [addWatchList_boolean, setAddWatchList] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -102,6 +105,7 @@ export function usePreviewActions({
   }, [previewContent._id]);
 
   const handleAddRating = useCallback(async () => {
+    if (!requireRegisteredUser()) return;
     try {
       setLoading_r(true);
       const res = await addVODRating({
@@ -130,13 +134,18 @@ export function usePreviewActions({
   ]);
 
   const getWatchListStatus = useCallback(async () => {
+    if (isGuest) {
+      setAddWatchList(false);
+      return;
+    }
     const res = await checkIsWatchList(previewContent._id);
     if (res.ok && res.data) {
       setAddWatchList(res.data.data.isListed);
     }
-  }, [previewContent._id]);
+  }, [isGuest, previewContent._id]);
 
   const handleAddWatchList = useCallback(async () => {
+    if (!requireRegisteredUser()) return;
     try {
       setLoading(true);
       setAddWatchList(!addWatchList_boolean);
@@ -183,6 +192,10 @@ export function usePreviewActions({
       setAccessStatus(true);
       return;
     }
+    if (isGuest) {
+      setAccessStatus(false);
+      return;
+    }
     const res = await hasPaidContentStatus({
       contentType: 'vod',
       _id: previewContent._id,
@@ -192,7 +205,7 @@ export function usePreviewActions({
     } else {
       ToastNotification('error', `${res.data?.message}`);
     }
-  }, [contentType, previewContent._id]);
+  }, [contentType, isGuest, previewContent._id]);
 
   const handleShare = useCallback(() => {
     Share.open({message: `Watch ${previewContent.title} on Reeplay.`})
@@ -219,10 +232,10 @@ export function usePreviewActions({
     Orientation.lockToPortrait();
     handleContentStatusUpdate();
     handleVODRating();
-    getWatchListStatus();
+    if (!isGuest) getWatchListStatus();
     getCommentCount();
     handleFetchVodMeta();
-  }, [isFocused]);
+  }, [isFocused, isGuest]);
 
   useEffect(() => {
     handleFetchComments();

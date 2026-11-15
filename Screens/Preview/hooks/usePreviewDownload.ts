@@ -5,6 +5,7 @@ import {getRemoteFileSize} from '@/api/external.api';
 import {useAppPersistStore} from '@/store/zustand.store';
 import {IVODContent} from '@/types/api/content.types';
 import {downloadAndSave, encryptFile, getAESKeys} from '../utils/downloadUtils';
+import {fetchVODSource} from '@/api/content.api';
 
 export function usePreviewDownload(previewContent: IVODContent) {
   const {hasDownloadById, addDownload} = useAppPersistStore();
@@ -14,6 +15,19 @@ export function usePreviewDownload(previewContent: IVODContent) {
   const lastUpdateRef = useRef(Date.now());
 
   const handleDownload = useCallback(async () => {
+    const sourceResponse = await fetchVODSource(previewContent._id, 'vod');
+    const source =
+      sourceResponse.ok && sourceResponse.data
+        ? sourceResponse.data.data.source
+        : '';
+    if (!source) {
+      ToastNotification(
+        'error',
+        sourceResponse.data?.message ?? 'Successful wallet payment required',
+      );
+      return;
+    }
+
     const keys = await getAESKeys();
     if (!keys) {
       ToastNotification('error', 'Encryption keys missing');
@@ -21,7 +35,7 @@ export function usePreviewDownload(previewContent: IVODContent) {
     }
     const {key, iv} = keys;
 
-    const fileSize = await getRemoteFileSize(previewContent.video);
+    const fileSize = await getRemoteFileSize(source);
     const sizeInMB = fileSize
       ? (fileSize / (1024 * 1024)).toFixed(2)
       : null;
@@ -30,7 +44,7 @@ export function usePreviewDownload(previewContent: IVODContent) {
     setIsDownloading(true);
 
     const path = await downloadAndSave({
-      url: previewContent.video,
+      url: source,
       filename: `${previewContent._id}.mp4`,
       onProgress: percent => {
         const now = Date.now();
@@ -58,7 +72,7 @@ export function usePreviewDownload(previewContent: IVODContent) {
         portraitPhoto: previewContent.portraitPhoto,
         landscapePhoto: previewContent.landscapePhoto,
         video: encryptedPath,
-        castVideo: previewContent.video,
+        castVideo: source,
         size: sizeInMB,
         desc: previewContent.description,
         type: previewContent.type,

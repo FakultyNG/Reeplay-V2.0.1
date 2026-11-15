@@ -34,7 +34,7 @@ const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}
       const [loading, setLoading] = useState<boolean>(false);
       const [collapsedSections, setCollapsedSections] = useState(new Set());
 
-      async function handleGetSeasons(page?: number) {
+      async function handleGetSeasons(page?: number, replace = false) {
       try {
         setLoading(true);
         const res = await fetchSeasonsForSeries({_id:vod._id, pagination:{page: page ?? 1, limit}});
@@ -42,12 +42,13 @@ const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}
           const data = res.data.data
 
           setSeasons(prev =>{
-            const existing = new Set(prev.map(x => x._id));
+            const current = replace ? [] : prev;
+            const existing = new Set(current.map(x => x._id));
             const merged = [
-              ...prev,
+              ...current,
               ...data.filter(x => !existing.has(x._id)),
             ];
-            if (merged.length === prev.length) setHasMore(false);
+            if (!replace && merged.length === prev.length) setHasMore(false);
 
             return merged
           })
@@ -88,8 +89,10 @@ const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}
   const isSectionCollapsed = (title:number) => collapsedSections.has(title);
 
     useEffect(() =>{
-      handleGetSeasons();
-    }, []);  
+      setPage(1);
+      setHasMore(true);
+      handleGetSeasons(1, true);
+    }, [vod._id, accessStatus]);
   return (
     <AppView className="mt-3 pt-[10px] border-t border-grey_200/10">
       <AppView className="w-[82px]">

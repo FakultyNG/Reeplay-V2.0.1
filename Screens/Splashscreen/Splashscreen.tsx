@@ -12,7 +12,6 @@ import {useAppDispatch} from '@/Hooks/reduxHook';
 import {setCredentials} from '@/store/slices/userSlice';
 import {HAS_SET_NEWPIN} from '../authentication/GetStartedScreen';
 import LottieView from 'lottie-react-native';
-import Size from '@/Utils/useResponsiveSize';
 import {authGet, authSet, AUTH_MMKV_KEYS} from '@/Utils/authMmkv';
 import {useAppPersistStore} from '@/store/zustand.store';
 
@@ -59,21 +58,20 @@ const Splashscreen = () => {
 
     getUser();
     setDefaultLockState();
-  }, []);
+  }, [dispatch, setIsSessionExpired]);
 
   return (
     <SafeAreaView style={[styles.center, styles.container]}>
       <StatusBar hidden />
       <LottieView
-        source={require('@/assets/lottie/RPlogo.json')}
+        source={require('@/assets/lottie/ReeplaySplash.lottie')}
         autoPlay
         loop={false}
-        speed={3}
-        style={{
-          width: Size.calcAverage(800),
-          height: Size.calcAverage(800),
-        }}
+        speed={1}
+        resizeMode="contain"
+        style={styles.animation}
         onAnimationFinish={handleNav}
+        onAnimationFailure={handleNav}
       />
     </SafeAreaView>
   );
@@ -90,5 +88,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.DEEP_BLACK,
     position: 'relative',
+  },
+  animation: {
+    width: '100%',
+    height: '100%',
   },
 });

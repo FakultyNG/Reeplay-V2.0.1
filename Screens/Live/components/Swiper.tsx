@@ -53,6 +53,7 @@ import { useAppDispatch } from '@/Hooks/reduxHook';
 import { setFullVideoProps, setLiveModalContent } from '@/store/slices/fullScreenVideo.slice';
 import { hasPaidContentStatus } from '@/api/content.api';
 import ToastNotification from '@/components/ToastNotifications';
+import {getLivestreamWatch} from '@/api/live.api';
 
 
 interface SwiperPros extends headerProps {
@@ -240,6 +241,8 @@ export const NonChannelComp = ({
   const [isBufferingLoad, setIsBufferingLoad] = useState(false);
   const [accessStatus, setAccessStatus] = useState<boolean>(false);
   const isTime = checkTimeStatus(item.start, item.expiry);
+  const isLiveNow =
+    isTime === 'now' && item.active !== false && item.expired !== true;
   const dateObj = new Date(item.start);
   const countDown = useCountdownTimer(new Date(item.start).getTime());
   const dispatch = useAppDispatch();
@@ -258,26 +261,35 @@ export const NonChannelComp = ({
     hour12: false,
   });
 
-  async function handleVideo() {
-    if (isTime === 'normal' || isTime === 'countdown') {
+  async function handleVideo(canView = accessStatus) {
+    if (!isLiveNow) {
+      setVideoURL(item.previewVideo ?? '')
+    } else if (!canView) {
       setVideoURL(item.previewVideo ?? '')
     } else {
-      //USE SOCKET AND ADD RTMP_HTML_URL
-      setVideoURL(item.stream_url)
+      const response = await getLivestreamWatch(item._id);
+      setVideoURL(
+        response.ok && response.data?.data.url
+          ? response.data.data.url
+          : item.previewVideo ?? '',
+      );
     }
   }
 
     async function handleContentStatusUpdate(){
         if(item.vidClass === 'free'){
           setAccessStatus(true);
+          return true;
         }else{
           const res = await hasPaidContentStatus({contentType:'live', _id:item._id})
           if(res.ok && res.data){
             setAccessStatus(res.data.data.canView)
+            return res.data.data.canView;
           }else{
             ToastNotification('error', `${res.data?.message}`)
           }
         }
+        return false;
       }
 
   const onLoad = (data: OnLoadData) => {
@@ -298,7 +310,7 @@ export const NonChannelComp = ({
   };
 
   function handleOnPressFullscreen(){
-    if(!accessStatus && isTime !== 'now'){
+    if(!accessStatus){
       dispatch(setLiveModalContent(item))
     }else{
       dispatch(setFullVideoProps(item)); 
@@ -308,8 +320,7 @@ export const NonChannelComp = ({
   }
 
   useEffect(() => {
-    handleVideo();
-    handleContentStatusUpdate();
+    handleContentStatusUpdate().then(canView => handleVideo(canView));
   }, [item, index]);
 
 
@@ -356,7 +367,7 @@ export const NonChannelComp = ({
         <>
           <AppView className="absolute w-[303px] bottom-[14px] mb-1 px-2 flex-row items-center justify-between z-30">
             <AppView className="flex-row items-center gap-x-4">
-              {isTime === 'now' && (
+              {isLiveNow && (
                 <AppView className="flex-row items-center gap-x-1">
                   <MotiView
                     from={{ opacity: 0 }}
@@ -419,7 +430,7 @@ export const NonChannelComp = ({
               <AppText className="font-ROBOTO_500 text-[11px] text-white mr-[2px]">
                 {item.pg}
               </AppText>
-              {isTime === 'now' ? (
+              {isLiveNow ? (
                 <InfoLiveBtn />
               ) : (
                 <AppView className="bg-[#626161] rounded-sm pl-1.5 pr-1 pt-[1px] pb-[2.5px]">
@@ -503,11 +514,20 @@ export const ChannelComp = ({
   const playbackMode = isLiveNow ? 'live' : 'vod';
 
   useEffect(() => {
-    if (isLiveNow) {
-      setVideoURL(item.stream_url || item.previewVideo || '');
-    } else {
+    if (!isLiveNow) {
       setVideoURL(item.previewVideo ?? '');
+      return;
     }
+
+    getLivestreamWatch(item._id)
+      .then(response =>
+        setVideoURL(
+          response.ok && response.data?.data.url
+            ? response.data.data.url
+            : item.previewVideo ?? '',
+        ),
+      )
+      .catch(() => setVideoURL(item.previewVideo ?? ''));
   }, [item, isLiveNow]);
 
   useEffect(() => {

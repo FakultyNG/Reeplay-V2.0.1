@@ -316,7 +316,7 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
             />
 
             <AppButton
-              title={guestAccessEnabled ? 'Skip to free Contents' : 'Create a New Account'}
+              title={guestAccessEnabled ? 'SKIP' : 'Create a New Account'}
               bgColor={colors.RED}
               onPress={guestAccessEnabled ? handleGuestAccess : () => replace(routes.SIGNUP_SCREEN)}
               style={{ marginTop: Size.calcHeight(20) }}

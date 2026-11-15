@@ -24,6 +24,7 @@ import { hasPaidContentStatus } from '@/api/content.api'
 import ToastNotification from '@/components/ToastNotifications'
 import { useAppDispatch } from '@/Hooks/reduxHook'
 import { setFullVideoProps } from '@/store/slices/fullScreenVideo.slice'
+import {requireRegisteredUser} from '@/Utils/guestAccess'
 
 interface Props{
     item: IVODContent | ILiveContent
@@ -52,6 +53,26 @@ const LiveInfoModal = ({item, isBanner, makeFullscreen, handleClose}:Props) => {
           function runFullscreen(){
             dispatch(setFullVideoProps(item));
             makeFullscreen?.();
+          }
+
+          function handleWatchPress(){
+            if (accessStatus) {
+              runFullscreen();
+              handleClose();
+              return;
+            }
+            if (!requireRegisteredUser()) return;
+            navigate(routes.MAIN, {
+              screen: routes.SUBSCRIPTION_SCREEN,
+              params:{
+                tab: getWatchTag(item.vidClass.toLowerCase(), true),
+                currency: item.currency,
+                amount: `${item.amount}`,
+                stage:'paymentSummary',
+                metadata: {liveId: item._id},
+              },
+            });
+            handleClose();
           }
 
           useEffect(() =>{
@@ -121,15 +142,7 @@ const LiveInfoModal = ({item, isBanner, makeFullscreen, handleClose}:Props) => {
 
               <AppButton 
                 bgColor={colors.RED}
-                onPress={() => [accessStatus ? runFullscreen() : navigate(routes.MAIN, {
-                    screen: routes.SUBSCRIPTION_SCREEN, 
-                    params:{
-                        tab: getWatchTag(item.vidClass.toLowerCase(), true), 
-                        currency: item.currency, 
-                        amount: `${item.amount}`,
-                        stage:'paymentSummary',
-                        metadata: {liveId: item._id}
-                    }}), handleClose()]}
+                onPress={handleWatchPress}
                 style={{
                   width: Size.calcHeight(152),
                   borderRadius: 5,

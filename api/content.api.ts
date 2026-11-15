@@ -3,6 +3,11 @@ import { apiCall, getAuthToken } from "./profile.api";
 import { IAddReactionResponse, IAdsResponse, IBannerContentResponse, ICastsResponse, IContentUserStatusResponse, IContinueWatchingResponse, IEnumsResponse, IHomeAdsResponse, IPremiumContentCostResponse, IRatingData, IReactionData, IRegisteredContinueWatching, ISearchMainResponse, ISearchResponse, ISeasonDataResponse, IVODbyEnumIDResponse, IVodDetailsResponse, IVodMetaResponse, IVODRatingResponse, IVodSubtitleResponse } from "@/types/api/content.types";
 import {ApiResponse, create} from 'apisauce';
 import {BASE_URL} from '@env';
+import {useGuestAccessStore} from '@/store/guestAccess.store';
+
+interface IVideoSourceResponse extends IGeneric {
+    data: {source: string};
+}
 
 const publishingCatalogApi = create({
     baseURL: BASE_URL,
@@ -154,8 +159,23 @@ export const addReaction = async (data:IReactionData) =>
 export const deleteReaction = async (data:{reactionId:string}) =>
     await apiCall<IGeneric>(baseApi => baseApi.delete<IGeneric>(`/customers/socials/delete/reaction/${data.reactionId}`))
 
-export const hasPaidContentStatus = async (data:{contentType:'live'|'vod', _id:string}) =>
-    await apiCall<IContentUserStatusResponse>(baseApi => baseApi.get<IContentUserStatusResponse>(`/customers/shared/check-content-payment/${data.contentType}/${data._id}`))
+export const hasPaidContentStatus = async (data:{contentType:'live'|'vod', _id:string}) => {
+    // Guests have no purchases. Avoid an authenticated entitlement request while
+    // they are simply browsing; the amount button is what opens the login prompt.
+    if (useGuestAccessStore.getState().isGuest) {
+        return {
+            ok: true,
+            status: 200,
+            data: {status: 200, message: 'Guest access', data: {canView: false}},
+        } as ApiResponse<IContentUserStatusResponse>;
+    }
+    return await apiCall<IContentUserStatusResponse>(baseApi =>
+        baseApi.get<IContentUserStatusResponse>(`/customers/shared/check-content-payment/${data.contentType}/${data._id}`),
+    );
+}
+
+export const fetchVODSource = async (videoId: string, type: 'vod'|'trailer') =>
+    await apiCall<IVideoSourceResponse>(baseApi => baseApi.get<IVideoSourceResponse>(`/customers/shared/vods/video-source/${videoId}/${type}`))
 
 export const contentCostApi = async () =>
     await apiCall<IPremiumContentCostResponse>(baseApi => baseApi.get<IPremiumContentCostResponse>(`/customers/shared/content-costs`))
@@ -175,7 +195,7 @@ export const fetchVODNotificationDetails = async ({_id}:{_id:string}) =>
 export const getDefaultLibrary = async ({pagination}:{pagination:IPagination}) =>
     await getMergedVodList(`/customers/shared/vods/default-library?page=${pagination.page}&limit=${pagination.limit}`)
 
-export const updateViewsCount = async (data:{content:string,contentType:'vod'}) =>
+export const updateViewsCount = async (data:{content:string,contentType:'vod'|'episode'|'live'}) =>
     await apiCall<IGeneric>(baseApi => baseApi.post<IGeneric>(`/customers/view/content`, data))
 
 export const getSubtitles = async (data:{parentId:string; parentType:'vod'|'episode'}) =>

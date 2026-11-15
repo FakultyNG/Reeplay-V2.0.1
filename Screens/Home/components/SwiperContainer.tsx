@@ -180,10 +180,11 @@ const SwiperContainer = () => {
                       key={index}
                       style={styles.image}
                       source={{
-                        uri: item.portraitPhoto,
+                        uri: item.landscapePhoto || item.portraitPhoto,
                         priority: FastImage.priority.high,
                         cache: FastImage.cacheControl.immutable,
                       }}
+                      resizeMode={FastImage.resizeMode.cover}
                     />
                   </TouchableOpacity>
                 ) : (
@@ -222,7 +223,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: Size.getWidth() - 32,
-    height: Size.calcHeight(240),
+    aspectRatio: 16 / 9,
     marginTop: Size.calcHeight(20),
     borderRadius: 15,
     marginHorizontal: 16,

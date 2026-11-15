@@ -39,7 +39,7 @@ export const getVOD_Stream = async (data: VODStream) =>
 
 export const getLivestreamWatch = async (id: string) =>
   await apiCall<LiveStreamWatch>(baseApi =>
-    baseApi.get<LiveStreamWatch>(`/customers/live/event/stream/${id}`),
+    baseApi.get<LiveStreamWatch>(`/customers/live/events/stream/${id}`),
   );
 
 export const getChannelsPop = async () =>

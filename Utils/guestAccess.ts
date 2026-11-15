@@ -16,3 +16,11 @@ export async function endGuestSession(): Promise<void> {
   await clearTokens();
   useGuestAccessStore.getState().setGuest(false);
 }
+
+/** Returns false and opens the shared login prompt when a guest tries an account action. */
+export function requireRegisteredUser(): boolean {
+  const guestAccess = useGuestAccessStore.getState();
+  if (!guestAccess.isGuest) return true;
+  guestAccess.showLoginRequired();
+  return false;
+}

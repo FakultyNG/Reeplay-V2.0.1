@@ -13,7 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import React, {useEffect, useLayoutEffect, useState} from 'react';
+import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {
   AppButton,
   AppHeader,
@@ -35,7 +35,6 @@ import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
 import { selectAdsContent, setAdsContent } from '@/store/slices/adsSlice.slice';
 import { ILiveContent, IVODContent } from '@/types/api/content.types';
 import { fetchContentSuggestions, hasPaidContentStatus, randomAds, recentSearches, registerRecentSearch, searchContent } from '@/api/content.api';
-import debounce from 'lodash.debounce';
 import FastImage from 'react-native-fast-image';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { previewContentType, RootNav } from '@/navigation/AppNavigator';
@@ -49,6 +48,8 @@ import LiveInfoModal from '../Live/components/LiveInfoModal';
 import { OrientationInjectedProps } from '@/components/OrientationWrapper';
 import ToastNotification from '@/components/ToastNotifications';
 import { isAndroid } from '@/configs/constant';
+import {useGuestAccessStore} from '@/store/guestAccess.store';
+import {rankSearchResults} from '@/Utils/searchRelevance';
 
 const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedProps) => {
   const {navigate} = useNavigation<RootNav>()
@@ -59,9 +60,11 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
   const [suggestions, setSuggestions] = useState<(IVODContent|ILiveContent)[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [contents, setContents] = useState<(IVODContent|ILiveContent)[]>([])
+  const searchRequestId = useRef(0);
   const dispatch = useAppDispatch();
   const isFullscreenContent = useAppSelector(selectFullVideoProps);
   const isLiveModalContent = useAppSelector(selectLiveModalContent);
+  const isGuest = useGuestAccessStore(state => state.isGuest);
   const [currentContentState, setContentState] = useState<IVODContent|ILiveContent|null>(isFullscreenContent)
         const isFocused = useIsFocused();
   
@@ -73,7 +76,9 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
   };
 
   async function handleContentClick(item:(IVODContent|ILiveContent), canView?:boolean){
-    await registerRecentSearch({contentId:item._id, contentType:'adminId' in item ?'vod' :'live'})
+    if (!isGuest) {
+      await registerRecentSearch({contentId:item._id, contentType:'adminId' in item ?'vod' :'live'});
+    }
     // HANDLING NAVIGATION
     if('adminId' in item){
       dispatch(setPreviewContent(item)),
@@ -101,6 +106,10 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
     }
   }
   async function handleRecentSearches(){
+    if (isGuest) {
+      setRecentSearches([]);
+      return;
+    }
     const res = await recentSearches();
     if(res.ok && res.data){
       const data = res.data.data
@@ -113,44 +122,42 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
    
   }
 
-  async function handleSearchContent(key:string){
+  async function handleSearchContent(key:string, requestId:number){
     try {
       setLoading(true);
-      if(key === '') setContents([]);
 
       const res = await searchContent(key);
+      if (requestId !== searchRequestId.current) return;
+
       if(res.ok && res.data){
         const data = [...res.data.data.vods, ...res.data.data.events]
-         const sortedData = data.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
-        
-        setContents(prev =>{
-          const existingId = new Set<string>(prev.map(x => x._id));
-          const merged = [
-            ...prev,
-            ...sortedData.filter(x => !existingId.has(x._id))
-          ];
-          return merged
-        })
+        setContents(rankSearchResults(data, key));
       }else{
         ToastNotification('error', `${res.data?.message}`)
       }
     } catch (error) {
       ToastNotification('error', `${error}`)
     }finally{
-      setLoading(false);
+      if (requestId === searchRequestId.current) setLoading(false);
     }
   }
 
-  const debouncedSearchProfiles = debounce(async (key: string) => {
-    handleSearchContent(key);
-  }, 500);
+  useEffect(() => {
+    const query = text.trim();
+    const requestId = ++searchRequestId.current;
 
-  function onKeyInputChange(key: string) {
-    debouncedSearchProfiles(key);
-  }
+    setContents([]);
+    if (!query) {
+      setLoading(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      handleSearchContent(query, requestId);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [text]);
 
   useEffect(() => {
     const showKeyboard = Keyboard.addListener(
@@ -176,7 +183,7 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
     handleGetAds();
     handleRecentSearches();
     handleSuggestions();
-  }, []);
+  }, [isGuest]);
 
    useEffect(() =>{
       if(!currentContentState) setContentState(isFullscreenContent)
@@ -371,10 +378,7 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
               placeholderTextColor={colors.GREY_WHITE}
               style={styles.input}
               value={text}
-              onChangeText={text => [
-                setText(text),
-                onKeyInputChange(text)
-              ]}
+              onChangeText={setText}
             />
             <TouchableOpacity onPress={() => [setText(''), setContents([])]} className="ml-3">
               <CloseBtn_S />

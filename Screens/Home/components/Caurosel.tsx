@@ -38,6 +38,7 @@ import { selectUserPremiumCost } from '@/store/slices/bannerSlice.slice';
 import { hasPaidContentStatus } from '@/api/content.api';
 import { getWatchTag } from '@/Utils/contentUtils';
 import { setFullVideoProps } from '@/store/slices/fullScreenVideo.slice';
+import {requireRegisteredUser} from '@/Utils/guestAccess';
 
 const ITEM_WIDTH = Size.getWidth() * 0.88;
 const WIDTH = Dimensions.get('window').width;
@@ -147,6 +148,7 @@ handleVODTrailer
       handleVODTrailer?.();
       return;
     }
+    if (!requireRegisteredUser()) return;
     navigate(routes.MAIN, {
       screen: routes.SUBSCRIPTION_SCREEN,
       params: {

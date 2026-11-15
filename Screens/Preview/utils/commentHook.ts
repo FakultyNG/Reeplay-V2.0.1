@@ -5,6 +5,7 @@ import { addCommentReducers, addReplyByCommentId, selectPreviewVODComments, setC
 import { selectUser, selectUserProfilePic } from "@/store/slices/userSlice";
 import { IComment, ICommentData, IReplyData } from "@/types/api/comment.types";
 import { useState } from "react";
+import {requireRegisteredUser} from '@/Utils/guestAccess';
 
 interface Props{
     text:string
@@ -53,6 +54,7 @@ export const useCommentHook = ({reply, resetFunc, handleFinalFunc, text, vodId, 
 
 
     const addCommentFunc = async () => {
+    if (!requireRegisteredUser()) return;
     let comment: ICommentData = {
       message: text,
       parentType:'vod',

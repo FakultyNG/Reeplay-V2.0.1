@@ -66,7 +66,7 @@ const tabs = [
   'Settings',
 ];
 
-const skippedTab = ['Log In'];
+const skippedTab = ['Log In', 'About Reeplay'];
 
 const MenuScreen = () => {
   const user = useAppSelector(selectUser);
@@ -126,6 +126,7 @@ const MenuScreen = () => {
     if (selectedTab === 'Account') navigate(routes.ACCOUNT_SCREEN);
     if (selectedTab === 'Log In')
       navigation.navigate(routes.AUTH, { screen: routes.LOGIN_SCREEN });
+    if (selectedTab === 'About Reeplay') nav.navigate(routes.ABOUT_SCREEN);
     if (selectedTab === 'Watchlist') {
       // Watchlist lives on the root stack, not the menu stack.
       nav.navigate(routes.WATCHLIST_SCREEN);
@@ -228,6 +229,7 @@ const MenuScreen = () => {
                 key={i}
                 className="my-5 py-1.5 flex-row items-center gap-x-5">
                 {(tab === 'Account' || tab === 'Log In') && <AccountIcon />}
+                {tab === 'About Reeplay' && <SettingsIcon />}
                 {tab === 'Downloads' && <DownloadIcon />}
                 {tab === 'Watchlist' && <Watchlists />}
                 {tab === 'Create AD' && <CreateADIcon />}

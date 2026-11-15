@@ -4,6 +4,21 @@ import type {BufferConfig, ReactVideoSource} from 'react-native-video';
 
 export type PlaybackMode = 'vod' | 'live';
 
+export function getYouTubeVideoId(uri: string): string | null {
+  const match = uri.trim().match(
+    /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/i,
+  );
+  return match?.[1] ?? null;
+}
+
+export function getYouTubeEmbedUrl(uri: string): string | null {
+  const videoId = getYouTubeVideoId(uri);
+  if (!videoId) {
+    return null;
+  }
+  return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&controls=1&rel=0`;
+}
+
 /** Android ExoPlayer disk cache (MB). Global for the process; first positive value wins. */
 const VOD_CACHE_SIZE_MB = 256;
 

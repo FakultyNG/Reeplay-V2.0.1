@@ -14,6 +14,8 @@ import {resetFullVideo} from '@/store/slices/fullScreenVideo.slice';
 import {selectUserPremiumCost} from '@/store/slices/bannerSlice.slice';
 import {useSocket} from '@/Hooks/useSocket';
 import {getAuthToken} from '@/api/profile.api';
+import {getLivestreamWatch} from '@/api/live.api';
+import ToastNotification from '@/components/ToastNotifications';
 
 interface Props {
   isFullscreen: boolean;
@@ -40,6 +42,11 @@ const FullscreenModalPlayer = ({
     isLive ? content.start : '',
     isLive ? content.expiry : '',
   );
+  const isLiveNow =
+    isLive &&
+    isTime === 'now' &&
+    content.active !== false &&
+    content.expired !== true;
   const dispatch = useAppDispatch();
   const data = useAppSelector(selectUserPremiumCost);
   const {socket} = useSocket();
@@ -47,13 +54,22 @@ const FullscreenModalPlayer = ({
   async function handleVideo() {
     const token = await getAuthToken();
     if (isLive) {
-      if (isTime === 'normal' || isTime === 'countdown') {
+      if (!isLiveNow) {
         setVideoURL(content.previewVideo ?? '');
       } else {
+        const response = await getLivestreamWatch(content._id);
+        if (!response.ok || !response.data?.data.url) {
+          setVideoURL('');
+          ToastNotification(
+            'error',
+            response.data?.message ?? 'Successful wallet payment required',
+          );
+          return;
+        }
         if (token) {
           socket.emit('joinLivestream', {token, liveId: content._id});
         }
-        setVideoURL(content.stream_url);
+        setVideoURL(response.data.data.url);
       }
     } else {
       setVideoURL(content.trailer);
@@ -116,14 +132,14 @@ const FullscreenModalPlayer = ({
               }}
               source={resolvePlaybackSource(
                 videoURL,
-                isTime === 'now' && isLive ? 'live' : 'vod',
+                isLiveNow ? 'live' : 'vod',
               )}
               onError={e => console.log(e)}
               showDuration={true}
               isFullscreen={isFullscreen}
               onToggleFullScreen={setFullscreen}
               type={'live'}
-              isTime={isTime === 'now'}
+              isTime={isLiveNow}
               ctaType={
                 isLive ? (content.voteInfo ? 'vote' : 'donate') : undefined
               }

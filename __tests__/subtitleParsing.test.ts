@@ -1,0 +1,33 @@
+import {
+  cueTextAtTime,
+  ensureWebVtt,
+  parseVttCues,
+} from '../Utils/contentUtils';
+
+describe('mobile subtitle parsing', () => {
+  test('normalizes SRT and renders captions only inside their cue window', () => {
+    const vtt = ensureWebVtt(
+      '1\n00:00:01,000 --> 00:00:03,000\nHello Reeplay\n\n' +
+        '2\n00:00:04,500 --> 00:00:06,000\nSecond caption',
+    );
+    const cues = parseVttCues(vtt);
+
+    expect(vtt.startsWith('WEBVTT')).toBe(true);
+    expect(cues).toHaveLength(2);
+    expect(cueTextAtTime(cues, 0.9)).toBe('');
+    expect(cueTextAtTime(cues, 1.5)).toBe('Hello Reeplay');
+    expect(cueTextAtTime(cues, 3.5)).toBe('');
+    expect(cueTextAtTime(cues, 5)).toBe('Second caption');
+    expect(cueTextAtTime(cues, 6)).toBe('');
+  });
+
+  test('accepts existing WebVTT and removes markup from overlay text', () => {
+    const cues = parseVttCues(
+      ensureWebVtt('WEBVTT\n\n00:01.000 --> 00:02.000\n<b>Caption</b>'),
+    );
+
+    expect(cues).toEqual([
+      expect.objectContaining({start: 1, end: 2, text: 'Caption'}),
+    ]);
+  });
+});

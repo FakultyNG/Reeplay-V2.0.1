@@ -1,4 +1,4 @@
-import {Platform, StatusBar} from 'react-native';
+import {StatusBar} from 'react-native';
 import React, {useEffect, useState} from 'react';
 import {AppScreen, AppView} from '@/components';
 import colors from '@/configs/colors';
@@ -21,11 +21,11 @@ import PreviewStatsRow from './components/PreviewStatsRow';
 import PreviewHero from './components/PreviewHero';
 import PreviewRatingPanel from './components/PreviewRatingPanel';
 import PreviewDetailsBody from './components/PreviewDetailsBody';
-import PreviewWatchModal from './components/PreviewWatchModal';
 import PreviewPortraitScroll from './components/PreviewPortraitScroll';
 import {usePreviewActions} from './hooks/usePreviewActions';
 import {usePreviewDownload} from './hooks/usePreviewDownload';
 import {usePreviewExitCover} from './hooks/usePreviewExitCover';
+import {requireRegisteredUser} from '@/Utils/guestAccess';
 
 const PreviewScreen = ({
   isFullscreen,
@@ -35,7 +35,6 @@ const PreviewScreen = ({
   const userPic = useAppSelector(selectUserProfilePic);
   const [loading_r, setLoading_r] = useState(false);
   const [addRatting, setAddRating] = useToggle(false);
-  const [watchModal, setWatchModal] = useToggle(false);
   const [isComment, setIsComment] = useState(false);
   const route = useRoute<PreviewScreenRoute>();
   const {navigate} = useNavigation<RootNav>();
@@ -95,14 +94,11 @@ const PreviewScreen = ({
   }, [isFullscreen]);
 
   const handleWatchPress = () => {
-    if (Platform.OS === 'ios') {
-      setWatchModal();
-      return;
-    }
     if (accessStatus) {
       makeFullscreen();
       return;
     }
+    if (!requireRegisteredUser()) return;
     navigate(routes.MAIN, {
       screen: routes.SUBSCRIPTION_SCREEN,
       params: {
@@ -166,7 +162,11 @@ const PreviewScreen = ({
                     previewContent={previewContent}
                     commentCount={commentCount}
                     accessStatus={accessStatus}
-                    onRate={() => [setIsComment(false), setAddRating()]}
+                    onRate={() => {
+                      if (!requireRegisteredUser()) return;
+                      setIsComment(false);
+                      setAddRating();
+                    }}
                     onToggleComments={() => setIsComment(!isComment)}
                   />
                 )}
@@ -222,11 +222,6 @@ const PreviewScreen = ({
                 />
               </AppView>
 
-              <PreviewWatchModal
-                visible={watchModal}
-                contentType={contentType}
-                onClose={() => setWatchModal(false)}
-              />
             </>
           )}
         </AppScreen>

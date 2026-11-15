@@ -100,7 +100,12 @@ const PayStackView = ({
         await shouldStore({paymentId:data.paymentId, shouldStore:saveCard})
       }else{
         ToastNotification('error', `${res.data?.message}`);
-        if(res.data?.message.includes('insufficient')){
+        const paymentError = String(res.data?.message ?? '').toLowerCase();
+        if(
+          paymentError.includes('insufficient funds') ||
+          paymentError.includes('insufficient balance')
+        ){
+          setPaySuccessful(false);
           setIsShowModal(true);
         }else{
           setStage('paymentSummary');
@@ -230,7 +235,7 @@ const PayStackView = ({
             ):
             <>
            {!loading && <View className='flex-1 w-full'>
-              <Text className='mt-2.5 text-center font-MANROPE_700 text-base text-dark_grey'>Your payment was not successful due to low wallet balance. Please to continue topup your ReePlay wallet.</Text>
+              <Text className='mt-2.5 text-center font-MANROPE_700 text-base text-dark_grey'>Insufficient funds. This content remains locked. Top up your Reeplay wallet and try again.</Text>
 
               <View className='mt-auto items-center'>
                 <AppButton 

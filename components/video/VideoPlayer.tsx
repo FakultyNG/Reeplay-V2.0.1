@@ -128,6 +128,7 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
     const analyticsSessionRef = useRef(analyticsId('play'));
     const analyticsStartedRef = useRef(false);
     const lastAnalyticsPositionRef = useRef(0);
+    const viewReportedRef = useRef(false);
     const analyticsContentType: AnalyticsContentType =
       props.type === 'live' ? 'live' : props.type === 'series' ? 'episode' : 'vod';
   const {
@@ -197,6 +198,7 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
   const isAdPlayingRef = useRef(false);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSubtitlePickerOpenRef = useRef(false);
+  const subtitleLoadGenerationRef = useRef(0);
   const isBrightnessSlidingRef = useRef(false);
 
   /* ---------------- HELPERS ---------------- */
@@ -314,6 +316,36 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
     [duration]
   );
 
+  const reportUniqueView = useCallback(async () => {
+    if (
+      viewReportedRef.current ||
+      !isSaveProgress ||
+      disableControlsAutoHide ||
+      analyticsContentType === 'live'
+    ) {
+      return;
+    }
+
+    viewReportedRef.current = true;
+    const response = await updateViewsCount({
+      content: props.contentData._id,
+      contentType: analyticsContentType,
+    });
+    if (!response.ok) {
+      // Permit one retry during this player session after a network failure.
+      viewReportedRef.current = false;
+    }
+  }, [
+    analyticsContentType,
+    disableControlsAutoHide,
+    isSaveProgress,
+    props.contentData._id,
+  ]);
+
+  useEffect(() => {
+    viewReportedRef.current = false;
+  }, [analyticsContentType, props.contentData._id]);
+
   const reportAnalyticsProgress = useCallback(
     throttle((positionSeconds: number, durationSeconds: number) => {
       const positionDelta = positionSeconds - lastAnalyticsPositionRef.current;
@@ -395,11 +427,8 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
       setActiveCueText(atTime);
       return;
     }
-    // No cue at this timestamp — show nearest previous/next so selection is obvious.
-    const cues = track?.cues ?? [];
-    const previous = [...cues].reverse().find(c => c.start <= time);
-    const upcoming = cues.find(c => c.start > time);
-    setActiveCueText(previous?.text || upcoming?.text || 'Subtitles on');
+    // Do not display a previous/upcoming caption outside its actual cue window.
+    setActiveCueText('');
   }, []);
   const restoreContentDuration = useCallback(() => {
     const contentDur = contentDurationRef.current;
@@ -462,9 +491,9 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
           saveProgress(e.currentTime);
         }
         if (isFree && next >= 0.6) {
-          handleViews();
+          reportUniqueView().catch(() => {});
         } else if (!isFree && next >= 0.3) {
-          handleViews();
+          reportUniqueView().catch(() => {});
         }
       }
     },
@@ -477,16 +506,11 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
       isSaveProgress,
       props.type,
       props.contentData.vidClass,
+      reportUniqueView,
       reportAnalyticsProgress,
     ],
   );
 
-  async function handleViews(){
-    if(disableControlsAutoHide) return
-    const res =  await updateViewsCount({content:props.contentData._id, contentType:'vod'})
-    // console.log('updated views count....', res.data,props.contentData._id)
-  }
-  
   async function fetchAndConvertSubtitles(
     src: string,
     bucket?: string,
@@ -563,20 +587,21 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
     };
   }
 
-  async function handleSubtitles() {
+  async function handleSubtitles(loadGeneration: number) {
+    // English (Test) is Metro/dev only — never shipped in release/prod bundles.
+    const includeDevTest = typeof __DEV__ !== 'undefined' && __DEV__;
+    let data: ISubtitle[] = includeDevTest ? [buildDevTestTrack()] : [];
+    subtitleRef.current = data;
+    setSubtitle(data);
+    selectedSubtitleIndexRef.current = -1;
+    setSelectedSubtitleIndex(-1);
+    setActiveCueText('');
+
     if (props.type === 'live') {
       return;
     }
 
     const parentId = props.contentData._id;
-    // English (Test) is Metro/dev only — never shipped in release/prod bundles.
-    const includeDevTest = typeof __DEV__ !== 'undefined' && __DEV__;
-    let data: ISubtitle[] = includeDevTest ? [buildDevTestTrack()] : [];
-
-    if (includeDevTest) {
-      subtitleRef.current = data;
-      setSubtitle(data);
-    }
 
     try {
       if (parentId) {
@@ -640,6 +665,9 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
       console.warn('[subtitles] fetch failed', err);
     }
 
+    if (subtitleLoadGenerationRef.current !== loadGeneration) {
+      return;
+    }
     subtitleRef.current = data;
     setSubtitle(data);
   }
@@ -868,7 +896,13 @@ if(isSaveProgress) {
 }, [scheduleAutoHide]);
 
 useEffect(() =>{
-  handleSubtitles();
+  const loadGeneration = ++subtitleLoadGenerationRef.current;
+  void handleSubtitles(loadGeneration);
+  return () => {
+    if (subtitleLoadGenerationRef.current === loadGeneration) {
+      subtitleLoadGenerationRef.current += 1;
+    }
+  };
 }, [props.contentData._id, props.type]);
 
   useEffect(() => {

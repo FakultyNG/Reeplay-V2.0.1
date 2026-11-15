@@ -20,7 +20,10 @@ const customConfig = {
     }),
   },
   resolver: {
-    assetExts: defaultConfig.resolver.assetExts.filter(ext => ext !== 'svg'),
+    assetExts: [
+      ...defaultConfig.resolver.assetExts.filter(ext => ext !== 'svg'),
+      'lottie',
+    ],
     blockList: [/ios\/Pods\/.*/, /ios\/build\/.*/],
     sourceExts: [...defaultConfig.resolver.sourceExts, 'svg'],
   },

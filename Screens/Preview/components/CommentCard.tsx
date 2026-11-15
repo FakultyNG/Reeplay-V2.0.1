@@ -16,6 +16,7 @@ import { formatLikesNumber } from '@/Utils/formatAmount';
 import { addReaction, deleteReaction } from '@/api/content.api';
 import { useAppPersistStore } from '@/store/zustand.store';
 import FastImage from 'react-native-fast-image';
+import {requireRegisteredUser} from '@/Utils/guestAccess';
 
 interface Props{
   item: IComment
@@ -153,6 +154,7 @@ const SingleCommentCard = ({item, isReply, showReplies, setRepliesDetails, showB
   const {setIsSessionExpired} = useAppPersistStore()
 
   function handleReplyTo(){
+    if (!requireRegisteredUser()) return;
     if(item.loading) return;
     setRepliesDetails?.({
       name: item.author.fullName,
@@ -181,6 +183,7 @@ const SingleCommentCard = ({item, isReply, showReplies, setRepliesDetails, showB
   // }
 
   async function handleCommentReaction() {
+    if (!requireRegisteredUser()) return;
     if (item.loading || clicked) return;
     try {
       setClicked(true);

@@ -19,7 +19,7 @@ export default function LoginRequiredModal({onLogin}: Props) {
         <Pressable style={styles.card} onPress={() => undefined}>
           <Text style={styles.title}>Login required</Text>
           <Text style={styles.body}>
-            Only free content is available without registration. Log in to use this feature.
+            Log in to purchase paid content or use account features such as comments, likes, and your watchlist.
           </Text>
           <Pressable style={styles.loginButton} onPress={onLogin}>
             <Text style={styles.loginText}>Login</Text>

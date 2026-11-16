@@ -4,6 +4,7 @@ import { IAddReactionResponse, IAdsResponse, IBannerContentResponse, ICastsRespo
 import {ApiResponse, create} from 'apisauce';
 import {BASE_URL} from '@env';
 import {useGuestAccessStore} from '@/store/guestAccess.store';
+import {getGuestInterestPreferences} from '@/Utils/interestPreferences';
 
 interface IVideoSourceResponse extends IGeneric {
     data: {source: string};
@@ -174,8 +175,11 @@ export const hasPaidContentStatus = async (data:{contentType:'live'|'vod', _id:s
     );
 }
 
-export const fetchVODSource = async (videoId: string, type: 'vod'|'trailer') =>
-    await apiCall<IVideoSourceResponse>(baseApi => baseApi.get<IVideoSourceResponse>(`/customers/shared/vods/video-source/${videoId}/${type}`))
+export const fetchVODSource = async (videoId: string, type: 'vod'|'trailer', download = false) =>
+    await apiCall<IVideoSourceResponse>(baseApi => baseApi.get<IVideoSourceResponse>(`/customers/shared/vods/video-source/${videoId}/${type}${download ? '?download=true' : ''}`))
+
+export const fetchDownloadSource = async (videoUploadId: string) =>
+    await apiCall<IVideoSourceResponse>(baseApi => baseApi.get<IVideoSourceResponse>(`/customers/shared/vods/download-source/${videoUploadId}`))
 
 export const contentCostApi = async () =>
     await apiCall<IPremiumContentCostResponse>(baseApi => baseApi.get<IPremiumContentCostResponse>(`/customers/shared/content-costs`))
@@ -192,8 +196,36 @@ export const fetchVODDetails = async ({_id}:{_id:string}) =>
 export const fetchVODNotificationDetails = async ({_id}:{_id:string}) =>
     await apiCall<IVodDetailsResponse>(baseApi => baseApi.get<IVodDetailsResponse>(`/customers/shared/vods/details/${_id}`))
 
-export const getDefaultLibrary = async ({pagination}:{pagination:IPagination}) =>
-    await getMergedVodList(`/customers/shared/vods/default-library?page=${pagination.page}&limit=${pagination.limit}`)
+export const getDefaultLibrary = async ({pagination}:{pagination:IPagination}) => {
+    const local = useGuestAccessStore.getState().isGuest
+        ? await getGuestInterestPreferences()
+        : {genreIds: [], categoryIds: []};
+    const preferenceQuery = [
+        local.genreIds.length ? `genreIds=${encodeURIComponent(local.genreIds.join(','))}` : '',
+        local.categoryIds.length ? `categoryIds=${encodeURIComponent(local.categoryIds.join(','))}` : '',
+    ].filter(Boolean).join('&');
+    return await getMergedVodList(
+        `/customers/shared/vods/default-library?page=${pagination.page}&limit=${pagination.limit}${preferenceQuery ? `&${preferenceQuery}` : ''}`,
+    );
+}
+
+export const getPersonalizedContent = async ({
+    pagination,
+    genreIds = [],
+    categoryIds = [],
+}: {
+    pagination: IPagination;
+    genreIds?: string[];
+    categoryIds?: string[];
+}) => {
+    const params = [
+        `page=${pagination.page}`,
+        `limit=${pagination.limit}`,
+        ...(genreIds.length ? [`genreIds=${encodeURIComponent(genreIds.join(','))}`] : []),
+        ...(categoryIds.length ? [`categoryIds=${encodeURIComponent(categoryIds.join(','))}`] : []),
+    ].join('&');
+    return getMergedVodList(`/customers/shared/vods/personalized?${params}`);
+}
 
 export const updateViewsCount = async (data:{content:string,contentType:'vod'|'episode'|'live'}) =>
     await apiCall<IGeneric>(baseApi => baseApi.post<IGeneric>(`/customers/view/content`, data))

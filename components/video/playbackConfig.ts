@@ -76,16 +76,12 @@ export function getPreferredForwardBufferDuration(mode: PlaybackMode): number {
 export function maxBitRateForQuality(quality?: string | null): number {
   const q = (quality ?? '').trim().toLowerCase();
   switch (q) {
-    case '4k':
-      return 20_000_000;
-    case '2k':
-      return 12_000_000;
     case '1080p':
-      return 8_000_000;
+      return 6_500_000;
     case '720p':
-      return 5_000_000;
+      return 3_500_000;
     case '480p':
-      return 2_500_000;
+      return 1_500_000;
     case 'automatic':
     case 'auto':
     case '':
@@ -133,6 +129,16 @@ export function resolvePlaybackSource(
   if (isLocalUri(uri)) {
     return {
       uri,
+      shouldCache: false,
+      bufferConfig: getVodBufferConfig(),
+      minLoadRetryCount: 5,
+    };
+  }
+
+  if (uri.toLowerCase().includes('.m3u8')) {
+    return {
+      uri,
+      type: 'm3u8',
       shouldCache: false,
       bufferConfig: getVodBufferConfig(),
       minLoadRetryCount: 5,

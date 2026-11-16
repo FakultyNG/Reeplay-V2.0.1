@@ -15,7 +15,7 @@ export function usePreviewDownload(previewContent: IVODContent) {
   const lastUpdateRef = useRef(Date.now());
 
   const handleDownload = useCallback(async () => {
-    const sourceResponse = await fetchVODSource(previewContent._id, 'vod');
+    const sourceResponse = await fetchVODSource(previewContent._id, 'vod', true);
     const source =
       sourceResponse.ok && sourceResponse.data
         ? sourceResponse.data.data.source

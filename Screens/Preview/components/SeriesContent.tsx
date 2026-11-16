@@ -16,6 +16,7 @@ import { downloadAndSave, encryptFile, getAESKeys } from '../utils/downloadUtils
 import RNFS from 'react-native-fs';
 import {createThumbnail} from 'react-native-create-thumbnail';
 import DownloadedCompleteIcon from '@/assets/icons/Download.svg';
+import { fetchDownloadSource } from '@/api/content.api';
 import {useAppPersistStore} from '@/store/zustand.store';
 
 
@@ -211,6 +212,18 @@ const SeriesView = ({
     };
 
   async function handleDownload() {
+          if (!item.videoUploadId) {
+            ToastNotification('error', 'Download source is unavailable');
+            return;
+          }
+          const sourceResponse = await fetchDownloadSource(item.videoUploadId);
+          const downloadURL = sourceResponse.ok && sourceResponse.data
+            ? sourceResponse.data.data.source
+            : '';
+          if (!downloadURL) {
+            ToastNotification('error', sourceResponse.data?.message ?? 'Download source is unavailable');
+            return;
+          }
           const keys = await getAESKeys();
             if (!keys) {
               ToastNotification('error', 'Encryption keys missing');
@@ -218,7 +231,7 @@ const SeriesView = ({
             }
             const { key, iv } = keys;
   
-            const fileSize = await getRemoteFileSize(videoURL);
+            const fileSize = await getRemoteFileSize(downloadURL);
             const sizeInMB = fileSize ? (fileSize / (1024 * 1024)).toFixed(2) : null;
             if(sizeInMB) setSize(sizeInMB)
   
@@ -226,7 +239,7 @@ const SeriesView = ({
             setIsDownloading(true);
   
           const path = await downloadAndSave({
-            url: videoURL,
+            url: downloadURL,
             filename: `${item._id}.mp4`,
              onProgress: (percent) => {
               const now = Date.now();
@@ -255,7 +268,7 @@ const SeriesView = ({
             portraitPhoto:thumbnail,
             landscapePhoto:thumbnail,
             video: encryptedPath,
-            castVideo: videoURL,
+            castVideo: downloadURL,
             size:sizeInMB,
             desc:item.description,
             type:'series',

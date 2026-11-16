@@ -314,6 +314,7 @@ export interface IEpisode {
   viewsCount: number;
   averageRating: number;
   video: string;
+  videoUploadId?: string;
   trailer: string;
   durationWatched:number
 }

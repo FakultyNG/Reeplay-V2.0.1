@@ -12,12 +12,13 @@ interface PlayButtonProps {
   isPlaying: boolean;
   isFullscreen: boolean;
   onPlayPress: () => void;
+  minimal?: boolean;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export const PlayButton = memo(
-  ({isPlaying, isFullscreen, onPlayPress}: PlayButtonProps) => {
+  ({isPlaying, isFullscreen, onPlayPress, minimal = false}: PlayButtonProps) => {
     const scale = useSharedValue(1);
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [{scale: scale.value}],
@@ -35,7 +36,16 @@ export const PlayButton = memo(
         hitSlop={16}
         style={animatedStyle}
         className="w-[56px] h-[72px] justify-center items-center">
-        {!isPlaying ? (
+        {minimal ? (
+          !isPlaying ? (
+            <View style={styles.minimalPlay} />
+          ) : (
+            <View style={styles.minimalPause}>
+              <View style={styles.pauseBar} />
+              <View style={styles.pauseBar} />
+            </View>
+          )
+        ) : !isPlaying ? (
           !isFullscreen ? (
             <BigPlayIcon />
           ) : (
@@ -53,3 +63,28 @@ export const PlayButton = memo(
     );
   },
 );
+
+const styles = {
+  minimalPlay: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 15,
+    borderBottomWidth: 15,
+    borderLeftWidth: 23,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: '#FFFFFF',
+    marginLeft: 5,
+  },
+  minimalPause: {
+    flexDirection: 'row' as const,
+    gap: 9,
+    alignItems: 'center' as const,
+  },
+  pauseBar: {
+    width: 7,
+    height: 34,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
+  },
+};

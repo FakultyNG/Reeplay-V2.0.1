@@ -54,11 +54,17 @@ import {useGuestAccessStore} from '@/store/guestAccess.store';
 import {endGuestSession} from '@/Utils/guestAccess';
 import LoginRequiredModal from '@/components/LoginRequiredModal';
 import messaging from '@react-native-firebase/messaging';
-import {queueNotificationOpen, registerNotificationOpenHandler} from '@/Utils/notificationNavigation';
+import {
+  queueNotificationOpen,
+  registerNotificationOpenHandler,
+  registerNotificationReceivedHandler,
+} from '@/Utils/notificationNavigation';
 import {fetchVODNotificationDetails} from '@/api/content.api';
 import {setPreviewContent} from '@/store/slices/previewContentSlice';
 import {previewContentType} from '@/navigation/AppNavigator';
 import {syncRefreshedNotificationToken} from '@/Utils/notificationDevice';
+import {getAllNotifications} from '@/api/notification.api';
+import {setNoticationsList} from '@/store/slices/userSlice';
 
 const LEFT_APP_TIME = AUTH_MMKV_KEYS.LEFT_APP_TIME;
 const API_ENVIRONMENT_KEY = 'API_BASE_URL';
@@ -196,6 +202,13 @@ function App(): React.JSX.Element {
       openedSubscription();
     };
   }, []);
+
+  useEffect(() => registerNotificationReceivedHandler(async () => {
+    const response = await getAllNotifications({page: 1, limit: 20});
+    if (response.ok && response.data) {
+      store.dispatch(setNoticationsList(response.data.data));
+    }
+  }), []);
 
   useEffect(() => {
     if (!navigationReady) return;

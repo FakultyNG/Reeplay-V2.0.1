@@ -27,7 +27,7 @@ import {useNavigation} from '@react-navigation/native';
 import PaymentSummaryView from '@/Screens/Payments/PaymentSummaryView';
 import LanguageScreen from '@/Screens/Language/LanguageScreen';
 import {LiveEvents} from '@/types/api/live.types';
-import { ICast } from '@/types/api/content.types';
+import {ICast, IVoteInfo} from '@/types/api/content.types';
 import OrientationWrapper, { OrientationInjectedProps } from '@/components/OrientationWrapper';
 
 const RootStack = createNativeStackNavigator();
@@ -80,6 +80,8 @@ export type RootStackParamList = {
     title: string;
     coverImg?: string;
     isTime?: boolean;
+    viewsCount?: number;
+    voteInfo?: IVoteInfo | null;
     _id: string;
   };
   [routes.PAYMENT_SCREEN]: undefined;

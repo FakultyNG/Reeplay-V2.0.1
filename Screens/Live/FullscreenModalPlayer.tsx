@@ -1,5 +1,5 @@
 import {View, StatusBar, StyleSheet} from 'react-native';
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import DynamicVideoComponent, {
   VideoPlayerRef,
 } from '@/components/video/DynamicVideoComponent';
@@ -51,7 +51,7 @@ const FullscreenModalPlayer = ({
   const data = useAppSelector(selectUserPremiumCost);
   const {socket} = useSocket();
 
-  async function handleVideo() {
+  const handleVideo = useCallback(async () => {
     const token = await getAuthToken();
     if (isLive) {
       if (!isLiveNow) {
@@ -74,7 +74,7 @@ const FullscreenModalPlayer = ({
     } else {
       setVideoURL(content.trailer);
     }
-  }
+  }, [content, isLive, isLiveNow, socket]);
 
   async function handleCTAFunc() {
     setContentState(null);
@@ -112,7 +112,7 @@ const FullscreenModalPlayer = ({
 
   useEffect(() => {
     handleVideo();
-  }, []);
+  }, [handleVideo]);
 
   return (
     <View className="bg-black flex-1">
@@ -140,6 +140,7 @@ const FullscreenModalPlayer = ({
               onToggleFullScreen={setFullscreen}
               type={'live'}
               isTime={isLiveNow}
+              minimalUi={isLiveNow}
               ctaType={
                 isLive ? (content.voteInfo ? 'vote' : 'donate') : undefined
               }

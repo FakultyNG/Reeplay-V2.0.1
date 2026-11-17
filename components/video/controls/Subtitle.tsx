@@ -21,10 +21,11 @@ interface SubtitleProps {
   selectedIndex: number; // -1 = Off
   onSelect: (index: number) => void;
   onOpenChange?: (open: boolean) => void;
+  compact?: boolean;
 }
 
 const Subtitle = memo(
-  ({tracks, selectedIndex, onSelect, onOpenChange}: SubtitleProps) => {
+  ({tracks, selectedIndex, onSelect, onOpenChange, compact = false}: SubtitleProps) => {
   const [open, setOpen] = useState(false);
   const {height: windowHeight} = useWindowDimensions();
   const listMaxHeight = Math.min(windowHeight * 0.5, 360);
@@ -47,7 +48,7 @@ const Subtitle = memo(
       <TouchableOpacity onPress={() => setPickerOpen(true)} style={styles.trigger}>
         <SubtitleIcon />
         <Text className="ml-[5px] font-ROBOTO_700 text-white text-[10px]">
-          Subtitle
+          {compact ? 'CC' : 'Subtitle'}
         </Text>
       </TouchableOpacity>
 

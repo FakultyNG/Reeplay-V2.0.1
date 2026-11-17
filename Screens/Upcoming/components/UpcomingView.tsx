@@ -1,7 +1,6 @@
-import { Alert, Animated as Ani, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated as Ani, StyleSheet } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  AppImage,
   AppText,
   AppVideo,
   AppView,
@@ -16,17 +15,11 @@ import {
   VolumeIcon,
 } from '@/assets/icons';
 import { OnLoadData, VideoRef } from 'react-native-video';
-import useToggle from '@/Hooks/useToggle';
 import LinearGradient from 'react-native-linear-gradient';
-import { fullVideoType } from '@/navigation/AppNavigator';
-import routes from '@/navigation/routes';
-import { useNavigation } from '@react-navigation/native';
 import LottieView from 'lottie-react-native';
-import { IUpcomingEvents } from '@/types/api/upcomingEvents.types';
 import FastImage from 'react-native-fast-image';
 import { upcomingEventDate } from '@/Utils/formatTime';
 import Size from '@/Utils/useResponsiveSize';
-import { getVOD_Stream } from '@/api/live.api';
 import {
   getReminderStatus,
   subscribeReminderStatus,
@@ -36,8 +29,6 @@ import Animated, { FadeInLeft } from 'react-native-reanimated';
 import { IDownloadData, ILiveContent, IVODContent } from '@/types/api/content.types';
 import { resolvePlaybackSource } from '@/components/video/playbackConfig';
 
-
-const AnimatedView = Animated.createAnimatedComponent(AppView);
 
 interface Props {
   items: IVODContent | ILiveContent;
@@ -62,11 +53,12 @@ const UpcomingView = ({
   const videoRefs = useRef<Record<number, VideoRef | null>>({});
   const [muteVideo, setMuteVideo] = useState(true);
   const [remindMe, setRemindMe] = useState<boolean>(false);
+  const [isReminderUpdating, setIsReminderUpdating] = useState(false);
+  const reminderActionVersion = useRef(0);
   const [verticalScrollState, setVerticalScrollState] = useState<number | null>(
     null,
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isBuffering, setIsBuffering] = useState(false);
   const [isBufferingLoad, setIsBufferingLoad] = useState(false);
   const [videoURL, setVideoURL] = useState<string>('');
   const primaryPosterUrl =
@@ -76,15 +68,15 @@ const UpcomingView = ({
   const fallbackPosterUrl =
     'start' in items ? '' : items.portraitPhoto || '';
   const [posterUrl, setPosterUrl] = useState(primaryPosterUrl);
+  const contentType: 'live' | 'vod' = 'start' in items ? 'live' : 'vod';
 
-  const onLoad = (data: OnLoadData) => {
+  const onLoad = (_data: OnLoadData) => {
     setIsLoading(false);
   };
 
   const onLoadStart = () => setIsLoading(true);
 
   const onBuffer = ({ isBuffering }: { isBuffering: boolean }) => {
-    setIsBuffering(isBuffering);
     if (isBuffering) {
       setIsBufferingLoad(true);
     }
@@ -106,36 +98,28 @@ const UpcomingView = ({
     }
   }
 
-  async function handleVideo() {
-    if ("start" in items) setVideoURL(items.previewVideo ?? '')
-    if ("adminId" in items) setVideoURL(items.trailer)
-  }
-
-  async function getSubscribedStatus() {
-    try {
-      const res = await getReminderStatus(items._id, 'start' in items ? 'live':'vod');
-      if (res.ok && res.data) {
-        setRemindMe(res.data.data.user_subscribed);
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  }
-
   const handleSubscribe = async () => {
-    setRemindMe(!remindMe);
+    if (isReminderUpdating) return;
+
+    const previousValue = remindMe;
+    const nextValue = !previousValue;
+    reminderActionVersion.current += 1;
+    setRemindMe(nextValue);
+    setIsReminderUpdating(true);
+
     try {
-      const res = remindMe
-        ? await unsubscribeReminderStatus(items._id,'start' in items ? 'live':'vod')
-        : await subscribeReminderStatus(items._id,'start' in items ? 'live':'vod');
-      if (res.ok) {
-        getSubscribedStatus();
-      } else {
+      const res = previousValue
+        ? await unsubscribeReminderStatus(items._id, contentType)
+        : await subscribeReminderStatus(items._id, contentType);
+      if (!res.ok) {
         Alert.alert("Opps! couldn't subscribe for the event");
-        setRemindMe(remindMe);
+        setRemindMe(previousValue);
       }
     } catch (error) {
       console.log(error);
+      setRemindMe(previousValue);
+    } finally {
+      setIsReminderUpdating(false);
     }
   };
 
@@ -157,12 +141,33 @@ const UpcomingView = ({
       // Remove the listener when the component unmounts
       scrollY.removeAllListeners();
     };
-  }, [scrollY, playingIndexes, verticalScrollState]);
+  }, [scrollY, playingIndexes, setPlayingIndexes, verticalScrollState]);
 
   useEffect(() => {
-    handleVideo();
-    getSubscribedStatus();
-  }, []);
+    setVideoURL('start' in items ? items.previewVideo ?? '' : items.trailer);
+  }, [items]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const requestVersion = reminderActionVersion.current;
+    setRemindMe(false);
+    getReminderStatus(items._id, contentType)
+      .then(res => {
+        if (
+          !cancelled &&
+          requestVersion === reminderActionVersion.current &&
+          res.ok &&
+          res.data
+        ) {
+          setRemindMe(res.data.data.user_subscribed);
+        }
+      })
+      .catch(error => console.log(error));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [contentType, items._id]);
 
   useEffect(() => {
     setPosterUrl(primaryPosterUrl);
@@ -170,7 +175,7 @@ const UpcomingView = ({
 
 
   return (
-    <AnimatedView
+    <Animated.View
       entering={FadeInLeft.delay(index * 200).springify()}
       className="items-center mt-1.5">
       <AppView className="relative max-w-[400px] h-[196px] items-center justify-center">
@@ -297,7 +302,12 @@ const UpcomingView = ({
           <AppText className="uppercase mr-2 font-MANROPE_700 text-[10px] text-grey_200">
             coming {upcomingEventDate('start' in items ? items.start : items.releaseDate)}
           </AppText>
-          <TouchableOpacity onPress={handleSubscribe}>
+          <TouchableOpacity
+            onPress={handleSubscribe}
+            activeOpacity={1}
+            disabled={isReminderUpdating}
+            accessibilityRole="switch"
+            accessibilityState={{checked: remindMe, disabled: isReminderUpdating}}>
             {remindMe ? <RemindMe /> : <UnRemindMe />}
           </TouchableOpacity>
           <AppText className="text-white ml-1.5 font-MANROPE_400 text-[10px]">
@@ -309,7 +319,7 @@ const UpcomingView = ({
           {items.description}
         </AppText>
       </AppView>
-    </AnimatedView>
+    </Animated.View>
   );
 };
 

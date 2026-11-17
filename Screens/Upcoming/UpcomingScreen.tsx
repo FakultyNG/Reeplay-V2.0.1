@@ -197,6 +197,7 @@ const UpcomingScreen = ({
         <DownloadFullscreenModalPlayer
           isFullscreen={isFullscreen}
           content={isFullscreenContent}
+          minimalUi={false}
           setFullscreen={() =>
             isFullscreen
               ? [makePortrait(), setFullscreenContent(null)]

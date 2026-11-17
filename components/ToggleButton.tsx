@@ -1,6 +1,5 @@
 import {TouchableOpacity} from '@/components/';
-import useToggle from '@/Hooks/useToggle';
-import {useEffect, useState} from 'react';
+import {useEffect} from 'react';
 import {StyleSheet} from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -11,10 +10,12 @@ import Animated, {
 interface Props {
   isBiometrics?: boolean;
   isOn: boolean;
-  setIsOn: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsOn?: React.Dispatch<React.SetStateAction<boolean>>;
+  onToggle?: (next: boolean) => void;
+  disabled?: boolean;
 }
 
-const ToggleButton = ({isOn, setIsOn, isBiometrics}: Props) => {
+const ToggleButton = ({isOn, setIsOn, onToggle, disabled}: Props) => {
   const animation = useSharedValue(0);
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -22,25 +23,19 @@ const ToggleButton = ({isOn, setIsOn, isBiometrics}: Props) => {
     };
   });
 
-  function handleAnimation() {
-    if (animation.value === 0) {
-      animation.value = withTiming(11.5, {duration: 400});
-    } else {
-      animation.value = withTiming(0, {duration: 400});
-    }
-  }
-
   useEffect(() => {
-    if (isOn) animation.value = withTiming(11.5, {duration: 400});
-  }, []);
+    animation.value = withTiming(isOn ? 11.5 : 0, {duration: 250});
+  }, [animation, isOn]);
 
   return (
     <TouchableOpacity
       className={`w-8 h-[19px] rounded-2xl pt-[1.5px] px-[2px] pb-[2.2px]  items-center flex-row ${
         isOn ? 'bg-red' : 'bg-[#bbbbbb]'
       }`}
+      disabled={disabled}
       activeOpacity={1}
-      onPress={() => [setIsOn(!isOn), handleAnimation()]}>
+      style={{opacity: disabled ? 0.55 : 1}}
+      onPress={() => onToggle ? onToggle(!isOn) : setIsOn?.(!isOn)}>
       <Animated.View style={[animatedStyle, styles.circle]} />
     </TouchableOpacity>
   );

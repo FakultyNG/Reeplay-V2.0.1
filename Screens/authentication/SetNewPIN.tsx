@@ -1,4 +1,3 @@
-import {Platform, StyleSheet, Text, View} from 'react-native';
 import React, {useState} from 'react';
 import {
   AppButton,
@@ -26,7 +25,7 @@ import { RootNav } from '@/navigation/AppNavigator';
 const HAS_SET_NEWPIN = AUTH_MMKV_KEYS.HAS_SET_NEWPIN;
 
 const SetNewPIN = () => {
-  const {replace, reset} = useNavigation<RootNav>();
+  const {replace} = useNavigation<RootNav>();
   const user = useAppSelector(selectUser);
   const [code, setCode] = useState<string>('');
   const [error, setError] = useState<boolean>(false);
@@ -58,15 +57,7 @@ const SetNewPIN = () => {
           setIsShowModal(true);
           setTimeout(() => {
             setIsShowModal(false);
-            // replace(routes.INTEREST_SCREEN, {isSettings: false});
-             reset({
-                          index: 0,
-                          routes: [
-                            {
-                              name: routes.TAB_MAIN,
-                            },
-                          ],
-                        });
+            replace(routes.INTEREST_SCREEN, {isSettings: false});
             setLoading(false);
           }, 3000);
         } else {
@@ -76,7 +67,7 @@ const SetNewPIN = () => {
             setError(false);
           }, 5000);
         }
-      } catch (error) {
+      } catch {
         setError(true);
         setMsg('Failed to set PIN. Please try again');
         setTimeout(() => {
@@ -137,5 +128,3 @@ const SetNewPIN = () => {
 };
 
 export default SetNewPIN;
-
-const styles = StyleSheet.create({});

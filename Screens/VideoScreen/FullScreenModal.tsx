@@ -12,10 +12,11 @@ import {
 } from 'react-native';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AppImage, AppScreen, AppText, AppVideo, AppView } from '@/components';
-import VideoRef, {
+import {
   OnLoadData,
   OnProgressData,
   OnSeekData,
+  type VideoRef,
 } from 'react-native-video';
 import useToggle from '@/Hooks/useToggle';
 import Orientation from 'react-native-orientation-locker';
@@ -53,11 +54,9 @@ import LottieView from 'lottie-react-native';
 import routes from '@/navigation/routes';
 import BlurView from 'react-native-blur-effect';
 import { BlurView as Blur } from '@react-native-community/blur';
-import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
+import {useAppDispatch} from '@/Hooks/reduxHook';
 import {
   resetFullVideo,
-  selectFullVideoProps,
-  setFullVideoProps,
 } from '@/store/slices/fullScreenVideo.slice';
 import FastImage from 'react-native-fast-image';
 import { resolvePlaybackSource } from '@/components/video/playbackConfig';
@@ -67,6 +66,7 @@ import {
   useCastSession,
   useRemoteMediaClient,
 } from 'react-native-google-cast';
+import DynamicVideoComponent from '@/components/video/DynamicVideoComponent';
 
 
 const AnimatedLinear = Animated.createAnimatedComponent(LinearGradient);
@@ -75,7 +75,6 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const FullScreenModal = () => {
   const dispatch = useAppDispatch();
-  const fullVideo = useAppSelector(selectFullVideoProps);
   const route = useRoute<FullScreenVideoRoute>();
   const {
     type,
@@ -85,7 +84,12 @@ const FullScreenModal = () => {
     vote,
     _id,
     title,
-  } = fullVideo.videoURL !== '' ? fullVideo : route.params;
+    upcoming,
+    coverImg,
+    isTime,
+  } = route.params;
+  const useApprovedPlayer =
+    !upcoming && (type !== fullVideoType.live || Boolean(isTime));
   const navigation = useNavigation<FullScreenVideo>();
   const videoRef = useRef<VideoRef>(null);
   const videoRef2 = useRef<VideoRef>(null);
@@ -111,7 +115,6 @@ const FullScreenModal = () => {
   const [orientation, setOrientation] = useState<string | null>(null);
   const [show, setShow] = useState(false);
   const [cover, setCover] = useState<boolean>(true);
-  const { upcoming, coverImg, isTime } = route.params;
   const [key, setKey] = useState(0);
 
   useEffect(() => {
@@ -119,6 +122,7 @@ const FullScreenModal = () => {
   }, [currentTime]);
 
   useEffect(() => {
+    if (useApprovedPlayer) return;
     if (!castSession || !remoteMediaClient || !videoURL) {
       if (!castSession) {
         lastCastUrlRef.current = '';
@@ -154,7 +158,7 @@ const FullScreenModal = () => {
         lastCastUrlRef.current = '';
         console.error('Failed to load media on Cast device:', error);
       });
-  }, [castSession, remoteMediaClient, videoURL, title, coverImg]);
+  }, [castSession, remoteMediaClient, videoURL, title, coverImg, useApprovedPlayer]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -162,20 +166,6 @@ const FullScreenModal = () => {
       setKey(prevKey => prevKey + 1);
     }, []),
   );
-
-  function setVideoProps() {
-    dispatch(
-      setFullVideoProps({
-        type,
-        videoURL,
-        channelImage: channelImg,
-        donate,
-        vote,
-        title,
-        _id,
-      }),
-    );
-  }
 
   const measureView = () => {
     if (myViewRef.current) {
@@ -204,11 +194,15 @@ const FullScreenModal = () => {
       // Orientation.lockToPortrait();
       navigation.navigate(routes.MAIN, {
         screen: routes.SUBSCRIPTION_SCREEN,
-        params: { tab: 'donate' },
+        params: {
+          tab: 'donate',
+          currency: 'NGN',
+          metadata: {liveId: _id},
+        },
       });
     }
 
-    if (vote) {
+    if (vote && route.params.voteInfo) {
       // Orientation.lockToPortrait();
       setIsPlaying(true);
 
@@ -216,12 +210,11 @@ const FullScreenModal = () => {
         screen: routes.VOTE_SCREEN,
         params: {
           _id,
+          voteInfo: route.params.voteInfo,
         },
       });
     }
   }
-
-  console.log(_id, fullVideo, 'her...............');
 
   const animatedTransform = (
     toValue: number,
@@ -321,10 +314,10 @@ const FullScreenModal = () => {
     if (isFocused) Orientation.lockToLandscapeLeft();
     checkOrientation();
 
-    setVideoProps();
-  }, []);
+  }, [isFocused]);
 
   useEffect(() => {
+    if (useApprovedPlayer) return;
     let loadingTimeout: any;
 
     const startLoadingTimeout = () => {
@@ -351,7 +344,7 @@ const FullScreenModal = () => {
     return () => {
       clearLoadingTimeout();
     };
-  }, [isLoading]);
+  }, [isLoading, useApprovedPlayer]);
 
   useEffect(() => {
     videoRef2.current?.seek(currentTime);
@@ -419,6 +412,45 @@ const FullScreenModal = () => {
     }, 1500);
   }, []);
 
+  if (useApprovedPlayer) {
+    return (
+      <View style={styles.approvedPlayer}>
+        <StatusBar hidden />
+        <DynamicVideoComponent
+          autoplay
+          source={resolvePlaybackSource(
+            videoURL,
+            type === fullVideoType.live && isTime ? 'live' : 'vod',
+          )}
+          thumbnail={coverImg ? {uri: coverImg} : undefined}
+          showDuration
+          isFullscreen
+          minimalUi
+          isTime={Boolean(isTime)}
+          type={
+            type === fullVideoType.live
+              ? 'live'
+              : type === fullVideoType.series
+                ? 'series'
+                : 'vod'
+          }
+          onToggleFullScreen={existFullscreen}
+          handleGoBackFunc={existFullscreen}
+          ctaType={vote ? 'vote' : donate ? 'donate' : undefined}
+          handleCTAFunc={vote || donate ? handle_VOTE_DONATE : undefined}
+          contentData={{
+            _id,
+            title: title || 'Reeplay',
+            desc: '',
+            logo: channelImg || null,
+            viewsCount: route.params.viewsCount ?? 0,
+            vidClass: 'free',
+          }}
+        />
+      </View>
+    );
+  }
+
   return (
     <>
       <StatusBar hidden />
@@ -468,7 +500,6 @@ const FullScreenModal = () => {
             resizeMode="stretch"
             fullscreen
             fullscreenOrientation="landscape"
-            pictureInPicture
             muted={true}
             paused={true}
           />
@@ -867,6 +898,10 @@ const FullScreenModal = () => {
 export default FullScreenModal;
 
 const styles = StyleSheet.create({
+  approvedPlayer: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
   overlay: {
     position: 'absolute',
     right: 0,

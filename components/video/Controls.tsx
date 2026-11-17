@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {useEffect, useState} from 'react';
 import { PlayButton } from './controls/PlayButton';
 import { VideoPlayerProps } from 'react-native-video-player';
 import { AnimatedWrapper } from './controls/AnimatedWrapper';
@@ -11,7 +11,6 @@ import { Seekbar, SeekbarProps } from './controls/Seekbar';
 import Animated, { Easing } from 'react-native-reanimated';
 import Casting from './controls/Casting';
 import CTAButton from './controls/ctaButton';
-import { fullVideoType } from '@/navigation/AppNavigator';
 import EpisodeNext from './controls/EpisodeNext';
 import Subtitle from './controls/Subtitle';
 import LinearGradient from 'react-native-linear-gradient';
@@ -23,16 +22,24 @@ import { IContentData } from './DynamicVideoComponent';
 import EyesIcon from '@/assets/icons/eyes.svg'
 import { useSocket } from '../../Hooks/useSocket';
 import { formatLikesNumber } from '@/Utils/formatAmount';
+import MinimalPlayerControls from './MinimalPlayerControls';
 
 const AnimatedLinear = Animated.createAnimatedComponent(LinearGradient);
 
 interface ControlsProps
-  extends Omit<SeekbarProps, 'customStyles' | 'onSeeking'> { 
-  customStyles: VideoPlayerProps['customStyles'];
-  showDuration: VideoPlayerProps['showDuration'];
-  disableFullscreen: VideoPlayerProps['disableFullscreen'];
-  animationDuration: number;
+  extends Partial<
+    Omit<
+      SeekbarProps,
+      'customStyles' | 'onSeeking' | 'onSeek' | 'progress' | 'duration' | 'isPlaying' | 'isFullscreeen'
+    >
+  > {
+  customStyles?: VideoPlayerProps['customStyles'];
+  showDuration?: VideoPlayerProps['showDuration'];
+  disableFullscreen?: VideoPlayerProps['disableFullscreen'];
+  animationDuration?: number;
   duration: number;
+  progress: number;
+  onSeek: (seconds: number) => void;
   isPlaying: boolean;
   isMuted: boolean;
   onPlayPress: () => void;
@@ -56,6 +63,8 @@ interface ControlsProps
   onSubtitlePickerOpenChange?: (open: boolean) => void
   onBrightnessGestureStart?: () => void
   onBrightnessGestureEnd?: () => void
+  minimalUi?: boolean
+  showQualityControl?: boolean
 }
 
 export interface ProgressRef {
@@ -78,7 +87,6 @@ export const Controls = ({
   ctaType,
   handleCTAFunc,
   handleNEXT,
-  handleSUBTITLE,
   handleVideoCastingFunc,
   isFullscreeen,
   onSeek,
@@ -93,9 +101,11 @@ export const Controls = ({
   onSubtitlePickerOpenChange,
   onBrightnessGestureStart,
   onBrightnessGestureEnd,
+  minimalUi = false,
+  showQualityControl = true,
   ...seekbarProps
 }: ControlsProps) => {
-  const { _id, logo, title } = contentData;
+  const {logo, title} = contentData;
   const { goBack } = useNavigation();
   const [seekingProgress, setSeekingProgress] =
     useState<number | null>(null);
@@ -117,15 +127,13 @@ const [pendingSeekProgress, setPendingSeekProgress] =
 
   const { socket } = useSocket();
 
-  function handleSocket() {
-    socket.on('joinedRoom', () => {
-      setViewsCount(prev => prev + 1);
-    });
-  }
-
   useEffect(() => {
-    handleSocket();
-  }, []);
+    const onViewerJoined = () => setViewsCount(prev => prev + 1);
+    socket.on('joinedRoom', onViewerJoined);
+    return () => {
+      socket.off('joinedRoom', onViewerJoined);
+    };
+  }, [socket]);
 
    const handleSeekForward = () => {
     onSeek(
@@ -161,6 +169,59 @@ const [pendingSeekProgress, setPendingSeekProgress] =
   // Hide chrome when auto-hide fires (preview + fullscreen). Live stays always-on.
   if (!isControlsVisible && !isLoading && type !== 'live') {
     return null;
+  }
+
+  if (minimalUi && isFullscreeen) {
+    const exitPlayer = () => {
+      if (isPlaying) onPlayPress();
+      if (handleGoBackFunc) {
+        handleGoBackFunc();
+      } else {
+        onToggleFullScreen();
+      }
+    };
+
+    return (
+      <AnimatedWrapper
+        visible={isControlsVisible}
+        animationDuration={animationDuration}>
+        <MinimalPlayerControls
+          {...seekbarProps}
+          title={title || 'Reeplay'}
+          type={type}
+          duration={duration}
+          displayedProgress={displayedProgress}
+          actualProgress={progress}
+          isPlaying={isPlaying}
+          isMuted={isMuted}
+          isLoading={isLoading}
+          isLiveNow={type === 'live' && isTime}
+          viewsCount={viewsCount}
+          showDuration={showDuration}
+          customStyles={customStyles}
+          onPlayPress={onPlayPress}
+          onMutePress={onMutePress}
+          onExit={exitPlayer}
+          onSeek={onSeek}
+          onSeeking={setSeekingProgress}
+          onSeekCommitted={seconds => {
+            const nextProgress = duration > 0 ? seconds / duration : 0;
+            setSeekingProgress(null);
+            setPendingSeekProgress(nextProgress);
+            onSeek(seconds);
+          }}
+          handleNEXT={handleNEXT}
+          handleCTAFunc={handleCTAFunc}
+          ctaType={ctaType}
+          handleVideoCastingFunc={handleVideoCastingFunc}
+          subtitleTracks={subtitleTracks}
+          selectedSubtitleIndex={selectedSubtitleIndex}
+          onSelectSubtitle={onSelectSubtitle}
+          onPickerOpenChange={onSubtitlePickerOpenChange}
+          showQualityControl={showQualityControl}
+        />
+      </AnimatedWrapper>
+    );
   }
 
   /* ----------------------- */
@@ -375,6 +436,10 @@ const [pendingSeekProgress, setPendingSeekProgress] =
                   <Seekbar
                     fullWidth={!isControlsVisible}
                     {...seekbarProps}
+                    autoplay={seekbarProps.autoplay}
+                    disableSeek={seekbarProps.disableSeek}
+                    setIsPlaying={seekbarProps.setIsPlaying ?? (() => undefined)}
+                    showControls={seekbarProps.showControls ?? (() => undefined)}
                   progress={displayedProgress}
               onSeeking={setSeekingProgress}
             onSeek={(seconds) => {

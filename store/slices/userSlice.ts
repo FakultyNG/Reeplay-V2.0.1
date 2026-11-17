@@ -38,6 +38,8 @@ const initialState: IProfileSlice = {
       _id: '',
       user_id: '',
       interest: [],
+      interest_genres: [],
+      interest_categories: [],
     },
   },
   photo_url: '',
@@ -60,7 +62,7 @@ const userSlice = createSlice({
       }
       // Normalize older/alternate API shapes that put name fields at the root.
       if (!payload.profile || typeof payload.profile !== 'object') {
-        const root = payload as Record<string, unknown>;
+        const root = payload as unknown as Record<string, unknown>;
         state.userInfo = {
           photo_url:
             typeof root.photo_url === 'string' ? root.photo_url : state.userInfo.photo_url,
@@ -96,7 +98,7 @@ const userSlice = createSlice({
     const idToDelete = action.payload;
     state.watchList = state.watchList.filter(item => item._id !== idToDelete);
 },
-    clearWatchlist: (state, action:PayloadAction<null>) => {
+    clearWatchlist: state => {
     state.watchList = []
 },
     setNoticationsList: (state, action: PayloadAction<INotification[]>) => {
@@ -111,7 +113,7 @@ const userSlice = createSlice({
         state.notifications[index] = {...state.notifications[index], ...action.payload.data};
       }
     },
-    logout: (state, action) => {
+    logout: () => {
       return initialState;
     },
     setHideTabBar: (state, action) => {

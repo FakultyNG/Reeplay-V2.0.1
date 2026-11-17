@@ -1,4 +1,4 @@
-import {View, Text, StyleSheet, Linking, Alert, Platform, PermissionsAndroid} from 'react-native';
+import {StyleSheet, Alert} from 'react-native';
 import React, {useEffect, useState} from 'react';
 import {
   AppButton,
@@ -10,7 +10,6 @@ import {
 } from '@/components';
 import {
   AboutUsIcon,
-  ArrowRight,
   ClearWatchlist,
   FingerPrint,
   HelpCenterIcon,
@@ -21,9 +20,7 @@ import {
   PrivacyPolicyIcon,
   RightArrow,
   VideoQualityIcon,
-  WifiIcon,
 } from '@/assets/icons';
-import ToggleButton from '@/components/ToggleButton';
 import {SettingTab} from '@/configs/data';
 import Size from '@/Utils/useResponsiveSize';
 import AppModal from '@/components/AppModal';
@@ -32,13 +29,8 @@ import fonts from '@/configs/fonts';
 import VideoQualityOption from './components/VideoQualityOption';
 import {useNavigation} from '@react-navigation/native';
 import routes from '@/navigation/routes';
-import {
-  AppStackNavigation,
-  LanguageScreenNav,
-  SettingScreenNav,
-} from '@/types/typings';
-import {RootStackParamList} from '@/navigation/AppNavigator';
-import {authGet, authRemove, authSet, AUTH_MMKV_KEYS} from '@/Utils/authMmkv';
+import {SettingScreenNav} from '@/types/typings';
+import {authGet, authSet, AUTH_MMKV_KEYS} from '@/Utils/authMmkv';
 import ReactNativeBiometrics, {BiometryTypes} from 'react-native-biometrics';
 import Animated, {
   useAnimatedStyle,
@@ -48,14 +40,14 @@ import Animated, {
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
 import { clearWatchlist, selectUser, setCredentials } from '@/store/slices/userSlice';
-import { getProfileDetails, setNotifications as notificationApi } from '@/api/profile.api';
+import {getProfileDetails, setNotificationPreferences} from '@/api/profile.api';
 import ToastNotification from '@/components/ToastNotifications';
 import { useAppPersistStore } from '@/store/zustand.store';
 import { clearWatchList } from '@/api/watchlist.api';
-import { getDeviceId } from 'react-native-device-info';
-import messaging from '@react-native-firebase/messaging';
-import { registerNotificationDevice } from '@/api/notification.api';
-import {unregisterNotificationDevice} from '@/Utils/notificationDevice';
+import {
+  registerCurrentNotificationDevice,
+  unregisterNotificationDevice,
+} from '@/Utils/notificationDevice';
 
 export const HAS_LOCK_APP = AUTH_MMKV_KEYS.HAS_LOCK_APP;
 
@@ -69,6 +61,7 @@ const SettingScreen = () => {
   const [biometrics, setBiometrics] = useState<boolean>(false);
   const [biometricsIsSupport, setBiometricsIsSupport] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [notificationSaving, setNotificationSaving] = useState(false);
   const rnBiometrics = new ReactNativeBiometrics();
    const dispatch = useAppDispatch();
     const {
@@ -77,16 +70,8 @@ const SettingScreen = () => {
       live_channels,
       new_arrivals,
       new_services,
-      video_quality,
     } = useAppSelector(selectUser).settings_info;
     const {biometrics:isBiometrics, setIsBiometrics} = useAppPersistStore();
-      const deviceType =
-    Platform.OS === 'ios'
-      ? 'ios'
-      : Platform.OS === 'android'
-      ? 'android'
-      : 'other';
-  const deviceId = getDeviceId();
 
     async function handleClearWatchlist(){
       try {
@@ -136,14 +121,6 @@ const SettingScreen = () => {
       animation2.value = withTiming(0, {duration: 400});
     }
   }
-  function handleAnimation3() {
-    if (animation3.value === 0) {
-      animation3.value = withTiming(11.5, {duration: 400});
-    } else {
-      animation3.value = withTiming(0, {duration: 400});
-    }
-  }
-
   const handleLink = async () => {
     await InAppBrowser.open(url);
   };
@@ -185,60 +162,6 @@ const SettingScreen = () => {
   }
 
 
-  const requestUserPermission = async () => {
-  if (Platform.OS === 'android' && Platform.Version >= 33) {
-    const check = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
-    if (!check) {
-      const status = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
-      if (status !== PermissionsAndroid.RESULTS.GRANTED) return false;
-    }
-  }
-
-  const authStatus = await messaging().requestPermission();
-  const enabled =
-    authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-    authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
-  return enabled;
-};
-
-const getToken = async () => {
-  try {
-    if (!messaging().isDeviceRegisteredForRemoteMessages) {
-      await messaging().registerDeviceForRemoteMessages();
-    }
-
-    const token = await messaging().getToken();
-    
-    if (token) {
-      console.log("FCM Token Generated:", token);
-      await authSet(AUTH_MMKV_KEYS.FCM_TOKEN, token);
-      
-      const t = await registerNotificationDevice({
-        device_id: deviceId,
-        device_type: deviceType,
-        device_token: token,
-      });
-      return t;
-    }
-  } catch (error) {
-    console.error("Token Generation Error:", error);
-  }
-};
-
-   async function handleInitializations() {
-    if (await requestUserPermission()) {
-      getToken();
-      messaging()
-        .getInitialNotification()
-        .then(async rm => {
-          // if (rm) {
-          //   console.log('Notification: ', rm.notification);
-          // }
-        });
-    }
-  }
-
   function handleClicked(query: string) {
     if (query.includes('clear')) {
       setShowModal(true);
@@ -258,39 +181,36 @@ const getToken = async () => {
       navigation.navigate(routes.INTEREST_SCREEN, {isSettings: true});
   }
 
-   async function handleSettings(nextNotifications?: boolean) {
-  try {
-    const allow =
-      typeof nextNotifications === 'boolean'
-        ? nextNotifications
-        : notifications !== null
-          ? notifications
-          : allow_notifications;
-
-    if (allow) {
-      await handleInitializations();
-    } else {
-      await unregisterNotificationDevice();
-    }
-
-    const res = await notificationApi({
-      allow_notifications: allow,
-      upcoming_events,
-      new_arrivals,
-      live_channels,
-      new_services,
-      video_quality,
-    });
-
-    if (res.ok && res.data?.message.includes('Successful')) {
-      ToastNotification('info', res.data.message);
+  async function handleSettings(allow: boolean) {
+    if (notificationSaving) return;
+    const previous = Boolean(notifications);
+    setNotifications(allow);
+    animation3.value = withTiming(allow ? 11.5 : 0, {duration: 250});
+    setNotificationSaving(true);
+    try {
+      if (allow && !(await registerCurrentNotificationDevice())) {
+        throw new Error('Please allow notifications in your device settings.');
+      }
+      const res = await setNotificationPreferences({
+        allow_notifications: allow,
+        upcoming_events,
+        new_arrivals,
+        live_channels,
+        new_services,
+      });
+      if (!res.ok) throw new Error(res.data?.message || 'Unable to save notification settings.');
+      if (!allow) await unregisterNotificationDevice();
       const user = await getProfileDetails();
       if (user.ok && user.data) dispatch(setCredentials(user.data.data));
+      ToastNotification('info', allow ? 'Notifications enabled' : 'Notifications disabled');
+    } catch (error) {
+      setNotifications(previous);
+      animation3.value = withTiming(previous ? 11.5 : 0, {duration: 250});
+      Alert.alert('Notifications not updated', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setNotificationSaving(false);
     }
-  } catch (error) {
-    // Alert.alert('Error', 'Unable to update settings');
   }
-}
 
   useEffect(() => {
    if(notifications === null){
@@ -308,8 +228,6 @@ const getToken = async () => {
   useEffect(() => {
     handleLock();
   }, [lock]);
-
-  console.log('check..', allow_notifications)
 
   return (
     <>
@@ -367,15 +285,17 @@ const getToken = async () => {
           const odd = i % 2 === 0;
           const isInterest = tabs.toLowerCase().includes('interest');
           const isNotification = tabs.toLowerCase().includes('notifications');
+          const isHelpCenter = tabs.toLowerCase().includes('help');
           return (
             <TouchableOpacity
               key={i}
               onPress={() => handleClicked(tabs.toLowerCase())}
+              disabled={isHelpCenter}
               activeOpacity={1}
-              disabled={isNotification}
               style={{
                 backgroundColor: !odd ? 'transparent' : '#3E3D3D59',
                 paddingHorizontal: Size.calcHeight(25),
+                opacity: isHelpCenter ? 0.42 : 1,
               }}
               className="py-4 pb-[18px] flex-row items-center justify-between">
               <AppView className="flex-row items-center gap-x-4">
@@ -412,12 +332,9 @@ const getToken = async () => {
                     notifications ? 'bg-red' : 'bg-[#bbbbbb]'
                   }`}
                   activeOpacity={1}
-                  onPress={() => {
-                    const next = !notifications;
-                    setNotifications(next);
-                    handleAnimation3();
-                    handleSettings(next);
-                  }}>
+                  disabled={notificationSaving}
+                  style={{opacity: notificationSaving ? 0.55 : 1}}
+                  onPress={() => handleSettings(!notifications)}>
                   <Animated.View style={[animatedStyle3, styles.circle]} />
                 </TouchableOpacity>
               : (tabs.toLowerCase().includes('clear') || isInterest) ? (

@@ -1,10 +1,12 @@
 export type NotificationOpenData = Record<string, string | undefined>;
 
 type Handler = (data: NotificationOpenData) => void | Promise<void>;
+type ReceivedHandler = () => void | Promise<void>;
 
 let handler: Handler | null = null;
 let pending: NotificationOpenData | null = null;
 let lastMessageId: string | undefined;
+const receivedHandlers = new Set<ReceivedHandler>();
 
 export function queueNotificationOpen(data?: NotificationOpenData | null) {
   if (!data) return;
@@ -17,6 +19,17 @@ export function queueNotificationOpen(data?: NotificationOpenData | null) {
   } else {
     pending = data;
   }
+}
+
+export function notifyNotificationReceived() {
+  receivedHandlers.forEach(receivedHandler => receivedHandler());
+}
+
+export function registerNotificationReceivedHandler(nextHandler: ReceivedHandler) {
+  receivedHandlers.add(nextHandler);
+  return () => {
+    receivedHandlers.delete(nextHandler);
+  };
 }
 
 export function registerNotificationOpenHandler(nextHandler: Handler) {

@@ -154,6 +154,7 @@ const DownoadScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInj
       </AppScreen>}
 
        {(isFullscreenContent && isFullscreen) && <DownloadFullscreenModalPlayer 
+          minimalUi
           isFullscreen={isFullscreen}
           content={isFullscreenContent}
           setFullscreen={() => isFullscreen ? [makePortrait(), setFullscreenContent(null)] : makeFullscreen()} 

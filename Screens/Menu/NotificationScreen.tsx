@@ -1,5 +1,5 @@
-import {ActivityIndicator, Pressable, SectionList, View} from 'react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {ActivityIndicator, Pressable, RefreshControl, SectionList, View} from 'react-native';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {AppHeader, AppImage, AppScreen, AppText, AppView} from '@/components';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
 import { selectGroupedNotifications, selectNotificationList, setNoticationsList, updateNotificationById } from '@/store/slices/userSlice';
@@ -8,6 +8,8 @@ import ToastNotification from '@/components/ToastNotifications';
 import { getAllNotifications, markNotificationSeen } from '@/api/notification.api';
 import { getNotificationTime } from '@/Utils/formatTime';
 import {queueNotificationOpen} from '@/Utils/notificationNavigation';
+import {useFocusEffect} from '@react-navigation/native';
+import notifee from '@notifee/react-native';
 
 const NotificationScreen = () => {
   const dispatch = useAppDispatch();
@@ -57,9 +59,10 @@ const NotificationScreen = () => {
 
   const sections = Object.entries(notificationsList).map(([date, data]) => ({title: date, data}));
 
-  useEffect(() => {
-    handleNotifications();
-  }, [handleNotifications]);
+  useFocusEffect(useCallback(() => {
+    handleNotifications(1);
+    notifee.setBadgeCount(0).catch(() => {});
+  }, [handleNotifications]));
 
   return (
     <AppScreen containerStyle={{paddingTop: 30, position: 'relative'}}>
@@ -77,6 +80,14 @@ const NotificationScreen = () => {
         showsVerticalScrollIndicator={false}
         onEndReachedThreshold={1}
         onEndReached={loadMore}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading && page === 1}
+            onRefresh={() => handleNotifications(1)}
+            tintColor="#F54343"
+            colors={['#F54343']}
+          />
+        }
         renderSectionHeader={() => null}
         renderItem={({item}) => <NotificationItem item={item} onRead={async () => {
           if (!item.hasSeen) {
@@ -100,6 +111,14 @@ const NotificationScreen = () => {
             )}
           </>
         }
+        ListEmptyComponent={!loading ? (
+          <AppView className="items-center justify-center pt-24 px-8">
+            <AppText className="font-MANROPE_600 text-white text-base">No notifications yet</AppText>
+            <AppText className="font-MANROPE_400 text-grey_200 text-sm text-center mt-2">
+              Updates you choose to receive will appear here.
+            </AppText>
+          </AppView>
+        ) : null}
       />
       </AppView>
     </AppScreen>

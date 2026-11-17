@@ -638,6 +638,10 @@ export const ChannelComp = ({
                   _id: item._id,
                   isTime: isLiveNow,
                   coverImg: item.coverPhoto ?? '',
+                  viewsCount: item.viewsCount,
+                  vote: Boolean(item.voteInfo),
+                  donate: !item.voteInfo,
+                  voteInfo: item.voteInfo,
                 })
               }>
               <FullscreenIcon />

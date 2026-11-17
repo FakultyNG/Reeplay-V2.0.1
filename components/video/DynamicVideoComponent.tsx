@@ -118,6 +118,9 @@ export interface VideoPlayerProps extends ReactVideoProps {
   isSaveProgress?: boolean;
   seekTo?: number;
   castSourceUrl?: string;
+  /** Opt-in approved controls. Keep false for trailers and Upcoming playback. */
+  minimalUi?: boolean;
+  showQualityControl?: boolean;
 }
 
 /** Pre–quarter-flash-fix layout: onLayout width → 16:9 sizeStyles. */

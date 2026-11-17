@@ -26,6 +26,7 @@ import HomeContinueRow from './components/HomeContinueRow';
 import {useHomeBootstrap} from './hooks/useHomeBootstrap';
 import {useTabBarCompactOnScroll} from '@/navigation/useTabBarCompactOnScroll';
 import ContentWrapper from '@/components/ContentWrapper';
+import PersonalizedRow from './components/PersonalizedRow';
 
 const HomeScreen = ({
   isFullscreen,
@@ -96,6 +97,8 @@ const HomeScreen = ({
               </AppView>
             )}
 
+            <PersonalizedRow />
+
             <AppView className="mt-8">
               <AppView className="pl-5">
                 <SectionHeader
@@ -130,6 +133,7 @@ const HomeScreen = ({
         <DownloadFullscreenModalPlayer
           isFullscreen={isFullscreen}
           content={isFullscreenContent}
+          minimalUi
           onChangeContent={setFullscreenContent}
           setFullscreen={() =>
             isFullscreen

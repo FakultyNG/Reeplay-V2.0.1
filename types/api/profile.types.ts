@@ -19,6 +19,8 @@ export interface IProfile {
       _id: string;
       user_id: string;
       interest: string[];
+      interest_genres: string[];
+      interest_categories: string[];
       watchlist: [];
       video_quality: string;
       allow_notifications: boolean;

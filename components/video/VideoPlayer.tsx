@@ -120,6 +120,8 @@ type RenderVideoProps = Pick<
   contentData: IContentData;
   isSaveProgress?: boolean;
   castSourceUrl?: string;
+  minimalUi?: boolean;
+  showQualityControl?: boolean;
   // videoRef: React.RefObject<VideoRef | null>
 };
 

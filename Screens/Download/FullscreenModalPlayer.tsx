@@ -12,6 +12,7 @@ interface Props {
   content: IDownloadData;
   isDownloadScreen?: boolean;
   onChangeContent?: (next: IDownloadData) => void;
+  minimalUi?: boolean;
 }
 
 const DownloadFullscreenModalPlayer = ({
@@ -20,6 +21,7 @@ const DownloadFullscreenModalPlayer = ({
   isDownloadScreen,
   setFullscreen,
   onChangeContent,
+  minimalUi = false,
 }: Props) => {
   const playerRef = useRef<VideoPlayerRef>(null);
   const playlist = content.playlist;
@@ -33,7 +35,7 @@ const DownloadFullscreenModalPlayer = ({
     if (content.seekTo) {
       playerRef.current?.seek(content.seekTo);
     }
-  }, [content._id]);
+  }, [content._id, content.seekTo]);
 
   const playNextEpisode = () => {
     if (!nextEpisode || !onChangeContent) {
@@ -70,6 +72,8 @@ const DownloadFullscreenModalPlayer = ({
           isSaveProgress={!isDownloadScreen}
           seekTo={content.seekTo}
           handleNEXT={nextEpisode && onChangeContent ? playNextEpisode : undefined}
+          minimalUi={minimalUi}
+          showQualityControl={!isDownloadScreen}
           contentData={{
             _id: content._id,
             desc: content.desc,

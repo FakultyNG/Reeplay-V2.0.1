@@ -41,6 +41,9 @@ import {resetFullVideo} from '@/store/slices/fullScreenVideo.slice';
 import {getAllNotifications} from '@/api/notification.api';
 import {setOrientations} from '@/store/slices/orientationSlize';
 import {useFocusEffect} from '@react-navigation/native';
+import {registerCurrentNotificationDevice} from '@/Utils/notificationDevice';
+
+let notificationDeviceSynced = false;
 
 export function useHomeBootstrap(isFullscreen: boolean) {
   const dispatch = useAppDispatch();
@@ -157,6 +160,12 @@ export function useHomeBootstrap(isFullscreen: boolean) {
       if (res.ok && res.data) {
         dispatch(setCredentials(res.data.data));
         await authSet(hasUserDetails, JSON.stringify(res.data.data));
+        if (
+          res.data.data.profile.settings_info.allow_notifications &&
+          !notificationDeviceSynced
+        ) {
+          notificationDeviceSynced = await registerCurrentNotificationDevice();
+        }
       }
 
       const prev = getHomeSnapshot();

@@ -231,6 +231,7 @@ const PreviewScreen = ({
         <DownloadFullscreenModalPlayer
           isFullscreen={isFullscreen}
           content={isFullscreenContent}
+          minimalUi
           setFullscreen={() =>
             isFullscreen
               ? [makePortrait(), setFullscreenContent(null)]

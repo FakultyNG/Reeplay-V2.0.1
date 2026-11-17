@@ -11,7 +11,7 @@ import notifee, {
   AndroidImportance,
   AndroidStyle,
 } from '@notifee/react-native';
-import { queueNotificationOpen } from './Utils/notificationNavigation';
+import {notifyNotificationReceived, queueNotificationOpen} from './Utils/notificationNavigation';
 
 const onMessageReceived = async message => {
   const data = message.data || {};
@@ -57,6 +57,10 @@ const onMessageReceived = async message => {
       },
     },
   });
+  if (AppState.currentState === 'active') {
+    await notifee.incrementBadgeCount();
+    notifyNotificationReceived();
+  }
 };
 
 messaging().setBackgroundMessageHandler(onMessageReceived);

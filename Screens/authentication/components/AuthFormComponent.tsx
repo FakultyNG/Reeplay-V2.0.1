@@ -1,6 +1,6 @@
 import {
   Modal,
-  PermissionsAndroid,
+  Alert,
   Platform,
   Pressable,
   StyleSheet,
@@ -18,13 +18,13 @@ import { useNavigation } from '@react-navigation/native';
 import routes from '@/navigation/routes';
 import { handleLoginAPI, handleSignUpAPI, resendToken } from '@/api/auth.api';
 import { WEB_CLIENT_ID } from '@env';
-import { getProfileDetails, armAuthGrace } from '@/api/profile.api';
+import { getProfileDetails, armAuthGrace, replaceInterests } from '@/api/profile.api';
 import { useAppDispatch } from '@/Hooks/reduxHook';
 import { setCredentials } from '@/store/slices/userSlice';
 import { hasUserDetails } from '@/Screens/Splashscreen/Splashscreen';
 import { HAS_SET_NEWPIN } from '../GetStartedScreen';
 import { saveTokens } from '@/Utils/secureTokenStorage';
-import { authGet, authRemove, authSet, AUTH_MMKV_KEYS } from '@/Utils/authMmkv';
+import {authRemove, authSet} from '@/Utils/authMmkv';
 import { bannerApi, fetchEnums } from '@/api/content.api';
 import { setBannerContent, setCategories, setGenres } from '@/store/slices/bannerSlice.slice';
 import GoogleIcon from '@/assets/icons/LOGO.svg'
@@ -36,9 +36,9 @@ import { RootNav } from '@/navigation/AppNavigator';
 import { useAppPersistStore } from '@/store/zustand.store';
 import PrivacyScreen from '@/Screens/support/PrivacyScreen';
 import TermScreen from '@/Screens/support/TermScreen';
-import { getDeviceId } from 'react-native-device-info';
-import { registerNotificationDevice } from '@/api/notification.api';
-import messaging from '@react-native-firebase/messaging';
+import {clearGuestInterestPreferences, getGuestInterestPreferences} from '@/Utils/interestPreferences';
+import {useGuestAccessStore} from '@/store/guestAccess.store';
+import {registerCurrentNotificationDevice} from '@/Utils/notificationDevice';
 
 
 const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -57,6 +57,18 @@ interface Props {
   isSession?: boolean
 }
 
+const confirmInterestMerge = () => new Promise<boolean>(resolve => {
+  Alert.alert(
+    'Keep your interests?',
+    'Use the interests you chose as a guest to personalise this account.',
+    [
+      {text: 'Not now', style: 'cancel', onPress: () => resolve(false)},
+      {text: 'Use interests', onPress: () => resolve(true)},
+    ],
+    {cancelable: false},
+  );
+});
+
 const AuthFormComponent = ({
   screen,
   trigger,
@@ -74,13 +86,6 @@ const AuthFormComponent = ({
   const [error, setError] = useState<string>('');
   const { setIsSessionExpired } = useAppPersistStore()
   const [modal, setModal] = useState<'privacy' | 'terms' | null>(null)
-  const deviceId = getDeviceId();
-  const deviceType =
-    Platform.OS === 'ios'
-      ? 'ios'
-      : Platform.OS === 'android'
-        ? 'android'
-        : 'other';
 
   async function resetState() {
     setEmail('');
@@ -89,58 +94,6 @@ const AuthFormComponent = ({
     setError('');
     await authRemove(HAS_SKIPPED);
     useGuestAccessStore.getState().setGuest(false);
-  }
-
-  const requestUserPermission = async () => {
-    if (Platform.OS === 'android' && Platform.Version >= 33) {
-      const check = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
-      if (!check) {
-        const status = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
-        if (status !== PermissionsAndroid.RESULTS.GRANTED) return false;
-      }
-    }
-
-    const authStatus = await messaging().requestPermission();
-    const enabled =
-      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
-    return enabled;
-  };
-  const getToken = async () => {
-    try {
-      if (!messaging().isDeviceRegisteredForRemoteMessages) {
-        await messaging().registerDeviceForRemoteMessages();
-      }
-
-      const token = await messaging().getToken();
-
-      if (token) {
-        console.log("FCM Token Generated:", token);
-        await authSet(AUTH_MMKV_KEYS.FCM_TOKEN, token);
-        const t = await registerNotificationDevice({
-          device_id: deviceId,
-          device_type: deviceType,
-          device_token: token,
-        });
-        return t;
-      }
-    } catch (error) {
-      console.error("Token Generation Error:", error);
-    }
-  };
-
-  async function handleInitializations() {
-    if (await requestUserPermission()) {
-      getToken();
-      messaging()
-        .getInitialNotification()
-        .then(async rm => {
-          // if (rm) {
-          //   console.log('Notification: ', rm.notification);
-          // }
-        });
-    }
   }
 
   async function handleLogin() {
@@ -158,7 +111,7 @@ const AuthFormComponent = ({
             password,
           });
           if (res.ok && res.data) {
-            const raw = res.data as Record<string, unknown>;
+            const raw = res.data as unknown as Record<string, unknown>;
             const loginData = (raw.data ?? raw) as {
               accessToken?: string;
               refreshToken?: string;
@@ -192,7 +145,7 @@ const AuthFormComponent = ({
             armAuthGrace(60_000);
             setIsSessionExpired(false);
 
-            const profileRes = await getProfileDetails();
+            let profileRes = await getProfileDetails();
             console.log('[auth] post-login profile', {
               ok: profileRes.ok,
               status: profileRes.status,
@@ -201,26 +154,35 @@ const AuthFormComponent = ({
             const banner = await bannerApi();
             const categories = await fetchEnums('categories');
             const genres = await fetchEnums('genres');
-            const fcmToken = await authGet(AUTH_MMKV_KEYS.FCM_TOKEN);
-
-
             if (banner.ok && banner.data) dispatch(setBannerContent(banner.data.data))
-            if (categories.ok && Array.isArray(categories.data?.data)) {
-              dispatch(setCategories(categories.data.data))
+            const categoryItems = categories.data?.data;
+            const genreItems = genres.data?.data;
+            if (categories.ok && Array.isArray(categoryItems)) {
+              dispatch(setCategories(categoryItems))
             }
-            if (genres.ok && Array.isArray(genres.data?.data)) {
-              dispatch(setGenres(genres.data.data))
+            if (genres.ok && Array.isArray(genreItems)) {
+              dispatch(setGenres(genreItems))
             }
 
             if (profileRes.ok && profileRes.data) {
-              if (fcmToken) {
-                await registerNotificationDevice({
-                  device_id: deviceId,
-                  device_type: deviceType,
-                  device_token: fcmToken,
-                });
-              } else if (profileRes.data.data.profile.settings_info.allow_notifications && !fcmToken) {
-                handleInitializations();
+              const guestPreferences = await getGuestInterestPreferences();
+              const hasGuestPreferences =
+                guestPreferences.genreIds.length > 0 ||
+                guestPreferences.categoryIds.length > 0;
+              if (hasGuestPreferences && await confirmInterestMerge()) {
+                const merged = await replaceInterests(guestPreferences);
+                if (merged.ok) {
+                  await clearGuestInterestPreferences();
+                  profileRes = await getProfileDetails();
+                }
+              }
+              if (!profileRes.ok || !profileRes.data) {
+                setError('Logged in but could not refresh your profile. Try again.');
+                setTimeout(() => setError(''), 5000);
+                return;
+              }
+              if (profileRes.data.data.profile.settings_info.allow_notifications) {
+                await registerCurrentNotificationDevice();
               }
               await authSet(
                 hasUserDetails,
@@ -283,7 +245,7 @@ const AuthFormComponent = ({
             setError('');
           }, 2000);
         }
-      } catch (error) {
+      } catch {
         setError('Opps! Something went wrong');
         setTimeout(() => {
           setError('');

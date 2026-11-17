@@ -12,7 +12,7 @@ import {IVODContent} from '@/types/api/content.types';
 import {getGuestInterestPreferences} from '@/Utils/interestPreferences';
 import Size from '@/Utils/useResponsiveSize';
 
-const PersonalizedRow = () => {
+const PersonalizedRow = ({title}: {title?: string}) => {
   const navigation = useNavigation<RootNav>();
   const user = useAppSelector(selectUser);
   const isGuest = useGuestAccessStore(state => state.isGuest);
@@ -52,7 +52,7 @@ const PersonalizedRow = () => {
   return (
     <AppView className="mt-8 pl-5">
       <AppCategories
-        title={hasPreferences ? 'Because of your interests' : 'Recommended for you'}
+        title={hasPreferences ? (title || 'Because of your interests') : 'Recommended for you'}
         btnText="EDIT"
         onPress={() => navigation.navigate(routes.INTEREST_SCREEN, {isSettings: true})}
         movieCategories={content}

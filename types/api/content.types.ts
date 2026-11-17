@@ -145,7 +145,8 @@ export interface ICategoryData {
     name: string,
     createdAt: string,
     updatedAt: string,
-    position: number
+    position: number,
+    feedType?: 'standard' | 'personalized'
 }
 
 

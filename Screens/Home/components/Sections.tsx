@@ -9,6 +9,7 @@ import LiveEmptyState from '@/Screens/Live/components/LiveEmptyState';
 import {FHomeIcon} from '@/assets/icons';
 import PremiumAdsCarousel from './PremiumAdsCarousel';
 import {ICategoryData} from '@/types/api/content.types';
+import PersonalizedRow from './PersonalizedRow';
 
 interface Props {
   isSkipped: boolean;
@@ -89,6 +90,10 @@ const Sections = ({isSkipped, deferHeavy = false}: Props) => {
         const isLive = x.name.toLowerCase().includes('live');
         const isMusic = x.name.toLowerCase().includes('music');
         const isPremiumAds = x.name.trim().toLowerCase() === 'premium ads';
+        const isPersonalized = x.feedType === 'personalized';
+        if (isPersonalized) {
+          return <PersonalizedRow key={x._id} title={x.name} />;
+        }
         return (
           <AppView
             key={x._id ?? i}

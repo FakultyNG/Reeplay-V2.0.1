@@ -6,11 +6,10 @@ import {
   StatusBar,
   StyleSheet,
 } from 'react-native';
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import {
   AppButton,
   AppText,
-  AppVideo,
   AppView,
   TouchableOpacity,
 } from '@/components';
@@ -20,14 +19,12 @@ import colors from '@/configs/colors';
 import Size from '@/Utils/useResponsiveSize';
 import fonts from '@/configs/fonts';
 import LinearGradient from 'react-native-linear-gradient';
-import LottieView from 'lottie-react-native';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
 import { selectUser } from '@/store/slices/userSlice';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import routes from '@/navigation/routes';
 import { authGet, AUTH_MMKV_KEYS } from '@/Utils/authMmkv';
 import ReactNativeBiometrics, { BiometryTypes } from 'react-native-biometrics';
-import { VideoRef } from 'react-native-video';
 import { randomAds } from '@/api/content.api';
 import { selectAdsContent, setAdsContent } from '@/store/slices/adsSlice.slice';
 import { RootNav } from '@/navigation/AppNavigator';
@@ -36,9 +33,10 @@ import { useAppPersistStore } from '@/store/zustand.store';
 import PrivacyScreen from '../support/PrivacyScreen';
 import TermScreen from '../support/TermScreen';
 import { setCategories } from '@/store/slices/bannerSlice.slice';
-import { contentGetJson, CONTENT_MMKV_KEYS } from '@/Utils/contentMmkv';
+import {contentGetJson, contentSetJson, CONTENT_MMKV_KEYS} from '@/Utils/contentMmkv';
 import {useGuestAccessStore} from '@/store/guestAccess.store';
 import {startGuestSession} from '@/Utils/guestAccess';
+import WelcomeAdPlayer from './components/WelcomeAdPlayer';
 
 export const HAS_SET_NEWPIN = AUTH_MMKV_KEYS.HAS_SET_NEWPIN;
 const HAS_LOCK_APP = AUTH_MMKV_KEYS.HAS_LOCK_APP;
@@ -46,7 +44,6 @@ const HAS_LOCK_APP = AUTH_MMKV_KEYS.HAS_LOCK_APP;
 const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, screen?: "getStarted" | "pin" }) => {
   const { replace, navigate, getParent } = useNavigation<AuthParamsNavigator>();
   const navigation = useNavigation<RootNav>();
-  const videoRef = useRef<VideoRef>(null);
   const [toogle, setToogle] = useToggle(false);
   const user = useAppSelector(selectUser);
   const [lock, setLock] = useState(false);
@@ -57,20 +54,7 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
   const ads = useAppSelector(selectAdsContent).ads
   const { isLock, setIsLock, isSessionExpired, biometrics } = useAppPersistStore()
   const [modal, setModal] = useState<'privacy' | 'terms' | null>(null)
-  const [adsReady, setAdsReady] = useState(ads.length > 0);
-  const [videoReady, setVideoReady] = useState(false);
-  const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const guestAccessEnabled = useGuestAccessStore(state => state.enabled);
-  const adVideoUrl = ads[currentAdIndex]?.videoUrl;
-  const videoSource = adVideoUrl
-    ? { uri: adVideoUrl }
-    : require('@/assets/videos/getStartedVideo.mp4');
-
-  const handleAdEnd = () => {
-    if (ads.length <= 1) return;
-    setVideoReady(false);
-    setCurrentAdIndex(index => (index + 1) % ads.length);
-  };
 
   async function handleLogin() {
     if (lock) {
@@ -111,11 +95,12 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
 
     try {
       const res = await randomAds();
-      if (res.ok && res.data) dispatch(setAdsContent(res.data.data))
+      if (res.ok && res.data) {
+        dispatch(setAdsContent(res.data.data));
+        contentSetJson(CONTENT_MMKV_KEYS.WELCOME_ADS, res.data.data);
+      }
     } catch (error) {
       console.log(error);
-    } finally {
-      setAdsReady(true);
     }
   }
 
@@ -176,14 +161,20 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
     const dataC = contentGetJson<unknown[]>(CONTENT_MMKV_KEYS.CATEGORY);
     const dataG = contentGetJson<unknown[]>(CONTENT_MMKV_KEYS.GENRE);
     const dataB = contentGetJson<unknown>(CONTENT_MMKV_KEYS.BANNER);
+    const cachedAds = contentGetJson<
+      ReturnType<typeof selectAdsContent>['ads']
+    >(CONTENT_MMKV_KEYS.WELCOME_ADS);
 
     if (dataC) dispatch(setCategories(dataC as any))
     if (dataG) dispatch(setCategories(dataG as any))
     if (dataB) dispatch(setCategories(dataB as any))
+    if (cachedAds?.length) dispatch(setAdsContent(cachedAds));
   }
 
   useEffect(() => {
     handleFetchCache();
+    // Startup cache hydration intentionally runs once per screen mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useLayoutEffect(() => {
@@ -191,53 +182,25 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
     // backgroundLogin();
     getLockState();
     checkBiometrics();
+    // Lock, biometrics and ad bootstrap intentionally run once per screen mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   console.log(user)
 
-  useEffect(() => {
-    if (!isFocused) {
-      setVideoReady(false);
-    }
-  }, [isFocused]);
-
-  useEffect(() => {
-    // A newly fetched list is already randomized by the API. Starting at zero
-    // keeps the existing restart behaviour while playback rotates thereafter.
-    setCurrentAdIndex(0);
-  }, [ads]);
-
   return (
     <AppView className="relative" style={{ backgroundColor: colors.DEEP_BLACK }}>
       <StatusBar hidden />
-      {isFocused && adsReady && (
-        <AppVideo
-          key={ads[currentAdIndex]?._id ?? 'welcome-fallback'}
-          source={videoSource}
-          videoRef={videoRef}
-          style={{ width: '100%', height: '100%' }}
-          resizeMode="cover"
-          muted={toogle}
-          paused={modal !== null || isSessionExpired || (isLock && !screen)}
-          controls={false}
-          repeat={ads.length <= 1}
-          onEnd={handleAdEnd}
-          onReadyForDisplay={() => setVideoReady(true)}
-          onLoad={() => setVideoReady(true)}
-          onError={() => setVideoReady(true)}
-        />
-      )}
-
-      {(!adsReady || !videoReady) && (
-        <AppView style={styles.loadingOverlay} pointerEvents="none">
-          <LottieView
-            source={require('@/assets/icons/RPlay.json')}
-            autoPlay
-            loop
-            style={styles.loadingLogo}
-          />
-        </AppView>
-      )}
+      <WelcomeAdPlayer
+        ads={ads}
+        muted={toogle}
+        paused={
+          !isFocused ||
+          modal !== null ||
+          Boolean(isSessionExpired) ||
+          Boolean(isLock && !screen)
+        }
+      />
 
       <LinearGradient
         colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.1)', 'rgba(0,0,0,1)']}
@@ -373,18 +336,6 @@ const styles = StyleSheet.create({
     height: '100%',
     zIndex: 1,
     position: 'absolute',
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: colors.DEEP_BLACK,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-    height: Size.hp(100)
-  },
-  loadingLogo: {
-    width: 340,
-    height: 340,
   },
   labelStyle: {
     fontSize: 13,

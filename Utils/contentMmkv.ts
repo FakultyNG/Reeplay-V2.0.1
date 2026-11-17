@@ -8,6 +8,7 @@ export const CONTENT_MMKV_KEYS = {
   CATEGORY: 'category',
   GENRE: 'genre',
   IMAGE_CACHE_MAP: 'IMAGE_CACHE_MAP',
+  WELCOME_ADS: 'welcome.ads',
 } as const;
 
 export type HomeSnapshot = {

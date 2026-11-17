@@ -1,11 +1,15 @@
 import { IGeneric, IPagination } from "@/types/api/auth.types";
 import { apiCall } from "./profile.api";
-import { INotificationResponse, IRegisterDevice } from "@/types/api/notification.types";
+import { INotificationResponse, IRegisterDevice, IUnreadNotificationCountResponse } from "@/types/api/notification.types";
 
 
 
 export const getAllNotifications = async ({page, limit}:IPagination) =>
     await apiCall<INotificationResponse>(baseApi => baseApi.get<INotificationResponse>(`/customers/notifications?page=${page}&limit=${limit}`))
+
+export const getUnreadNotificationCount = async () =>
+    await apiCall<IUnreadNotificationCountResponse>(baseApi =>
+        baseApi.get<IUnreadNotificationCountResponse>('/customers/notifications/unread-count'))
 
 
 export const registerNotificationDevice = async (data:IRegisterDevice) =>

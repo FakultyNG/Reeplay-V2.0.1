@@ -1,6 +1,7 @@
 import {
   cueTextAtTime,
   ensureWebVtt,
+  normalizeSubtitleUrl,
   parseVttCues,
 } from '../Utils/contentUtils';
 
@@ -29,5 +30,17 @@ describe('mobile subtitle parsing', () => {
     expect(cues).toEqual([
       expect.objectContaining({start: 1, end: 2, text: 'Caption'}),
     ]);
+  });
+
+  test('uses the absolute subtitle URL returned by the backend', () => {
+    expect(
+      normalizeSubtitleUrl(
+        'https://reeplay-media.example/subtitles/movie-english.vtt',
+        'legacy-bucket',
+        'legacy-key.vtt',
+      ),
+    ).toBe(
+      'https://reeplay-media.example/subtitles/movie-english.vtt',
+    );
   });
 });

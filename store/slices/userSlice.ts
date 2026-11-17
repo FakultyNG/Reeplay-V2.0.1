@@ -11,6 +11,7 @@ interface IProfileSlice{
   walletInfo:WalletDetails|null
   watchList: IVODContent[]
   notifications:INotification[]
+  unreadNotificationCount:number
   hideTabBar:boolean
 }
 
@@ -47,6 +48,7 @@ const initialState: IProfileSlice = {
 walletInfo:null,
 watchList:[],
 notifications:[],
+unreadNotificationCount:0,
 hideTabBar:false
 };
 
@@ -104,12 +106,23 @@ const userSlice = createSlice({
     setNoticationsList: (state, action: PayloadAction<INotification[]>) => {
       state.notifications = action.payload;
     },
+    setUnreadNotificationCount: (state, action: PayloadAction<number>) => {
+      state.unreadNotificationCount = Math.max(0, action.payload);
+    },
     updateNotificationById: (
       state,
       action: PayloadAction<{id: string; data: Partial<INotification>}>,
     ) => {
       const index = state.notifications.findIndex(n => n._id === action.payload.id);
       if (index !== -1) {
+        const wasSeen = state.notifications[index].hasSeen;
+        const willBeSeen = action.payload.data.hasSeen;
+        if (typeof willBeSeen === 'boolean' && wasSeen !== willBeSeen) {
+          state.unreadNotificationCount = Math.max(
+            0,
+            state.unreadNotificationCount + (willBeSeen ? -1 : 1),
+          );
+        }
         state.notifications[index] = {...state.notifications[index], ...action.payload.data};
       }
     },
@@ -122,7 +135,7 @@ const userSlice = createSlice({
   },
 });
 
-export const {setCredentials, setHideTabBar, deleteWatchlistById, clearWatchlist, setNoticationsList, updateNotificationById, setWatchListContents, setWalletInfo, setCredentialsEmail, logout} = userSlice.actions;
+export const {setCredentials, setHideTabBar, deleteWatchlistById, clearWatchlist, setNoticationsList, setUnreadNotificationCount, updateNotificationById, setWatchListContents, setWalletInfo, setCredentialsEmail, logout} = userSlice.actions;
 // Other code such as selectors can use the imported `RootState` type
 export const selectUser = (state: RootState) =>
   state.user?.userInfo?.profile ?? initialState.userInfo.profile;
@@ -133,6 +146,8 @@ export const selectWatchListContents = (state: RootState) =>
   Array.isArray(state.user.watchList) ? state.user.watchList : [];
 export const selectNotificationList = (state: RootState) =>
   Array.isArray(state.user.notifications) ? state.user.notifications : [];
+export const selectUnreadNotificationCount = (state: RootState) =>
+  state.user.unreadNotificationCount ?? 0;
 export const selectHideTabBar = (state: RootState) => state.user.hideTabBar;
 
 export const selectHasUnviewedNotifications = createSelector(

@@ -4,6 +4,10 @@ export interface INotificationResponse extends IGeneric{
     data:INotification[]
 }
 
+export interface IUnreadNotificationCountResponse extends IGeneric {
+  data: {count: number};
+}
+
 export interface INotification {
   _id: string;
   adminNotification: AdminNotification;

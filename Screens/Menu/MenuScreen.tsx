@@ -42,6 +42,8 @@ import {
   logout,
   selectUser,
   selectUserProfilePic,
+  selectUnreadNotificationCount,
+  setUnreadNotificationCount,
   setWalletInfo,
   setWatchListContents,
 } from '@/store/slices/userSlice';
@@ -54,6 +56,7 @@ import {clearTokens} from '@/Utils/secureTokenStorage';
 import {unregisterNotificationDevice} from '@/Utils/notificationDevice';
 import {useAppPersistStore} from '@/store/zustand.store';
 import {fetchBackendVersion} from '@/api/version.api';
+import {getUnreadNotificationCount} from '@/api/notification.api';
 
 const tabs = [
   'Account',
@@ -78,6 +81,7 @@ const MenuScreen = () => {
   const [ads, setAds] = useState<boolean>(false);
   const dispatch = useAppDispatch();
   const profilePic = useAppSelector(selectUserProfilePic);
+  const unreadNotificationCount = useAppSelector(selectUnreadNotificationCount);
   const [isValidImg, setVallid] = useState<boolean>(false)
   const [backendVersion, setBackendVersion] = useState(
     appVersion.backendVersion,
@@ -101,6 +105,27 @@ const MenuScreen = () => {
         isActive = false;
       };
     }, []),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?._id) return;
+      let active = true;
+      const refreshUnreadCount = async () => {
+        const response = await getUnreadNotificationCount();
+        if (active && response.ok && response.data) {
+          dispatch(setUnreadNotificationCount(response.data.data.count));
+        }
+      };
+      refreshUnreadCount().catch(() => {});
+      const interval = setInterval(() => {
+        refreshUnreadCount().catch(() => {});
+      }, 30000);
+      return () => {
+        active = false;
+        clearInterval(interval);
+      };
+    }, [dispatch, user?._id]),
   );
 
   const getSkippedState = useCallback(async () => {
@@ -171,8 +196,9 @@ const MenuScreen = () => {
    const getWatchList = useCallback(async () => {
       try {
         const res = await fetchWatchList({page:1, limit:20});
-        if (res.ok && Array.isArray(res.data?.data)) {
-          dispatch(setWatchListContents(res.data.data));
+        const watchlist = res.data?.data;
+        if (res.ok && Array.isArray(watchlist)) {
+          dispatch(setWatchListContents(watchlist));
         }
       } catch {
         // non-fatal on menu open
@@ -233,7 +259,18 @@ const MenuScreen = () => {
                 {tab === 'Downloads' && <DownloadIcon />}
                 {tab === 'Watchlist' && <Watchlists />}
                 {tab === 'Create AD' && <CreateADIcon />}
-                {tab === 'Notifications' && <NotificationIcon />}
+                {tab === 'Notifications' && (
+                  <View style={styles.notificationIconWrapper}>
+                    <NotificationIcon />
+                    {unreadNotificationCount > 0 && (
+                      <View style={styles.notificationBadge}>
+                        <AppText style={styles.notificationBadgeText}>
+                          {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                        </AppText>
+                      </View>
+                    )}
+                  </View>
+                )}
                 {tab === 'Suggestions' && <SuggestionIcon />}
                 {tab === 'Gift cards' && <GiftCardIcon />}
                 {tab === 'Settings' && <SettingsIcon />}
@@ -319,6 +356,29 @@ const MenuScreen = () => {
 export default MenuScreen;
 
 const styles = StyleSheet.create({
+  notificationIconWrapper: {
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -7,
+    right: -10,
+    minWidth: 17,
+    height: 17,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.RED,
+    borderWidth: 1.5,
+    borderColor: colors.DEEP_BLACK,
+  },
+  notificationBadgeText: {
+    color: colors.WHITE,
+    fontFamily: fonts.MANROPE_700,
+    fontSize: 9,
+    lineHeight: 12,
+  },
   image:{
                     width: 40,
                     height: 40,

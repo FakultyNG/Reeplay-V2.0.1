@@ -2,10 +2,10 @@ import {ActivityIndicator, Pressable, RefreshControl, SectionList, View} from 'r
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {AppHeader, AppImage, AppScreen, AppText, AppView} from '@/components';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
-import { selectGroupedNotifications, selectNotificationList, setNoticationsList, updateNotificationById } from '@/store/slices/userSlice';
+import { selectGroupedNotifications, selectNotificationList, setNoticationsList, setUnreadNotificationCount, updateNotificationById } from '@/store/slices/userSlice';
 import { INotification } from '@/types/api/notification.types';
 import ToastNotification from '@/components/ToastNotifications';
-import { getAllNotifications, markNotificationSeen } from '@/api/notification.api';
+import { getAllNotifications, getUnreadNotificationCount, markNotificationSeen } from '@/api/notification.api';
 import { getNotificationTime } from '@/Utils/formatTime';
 import {queueNotificationOpen} from '@/Utils/notificationNavigation';
 import {useFocusEffect} from '@react-navigation/native';
@@ -39,6 +39,12 @@ const NotificationScreen = () => {
         ];
         setHasMore(incoming.length === 20);
         dispatch(setNoticationsList(merged));
+        if (requestedPage === 1) {
+          const unreadResponse = await getUnreadNotificationCount();
+          if (unreadResponse.ok && unreadResponse.data) {
+            dispatch(setUnreadNotificationCount(unreadResponse.data.data.count));
+          }
+        }
         setPage(requestedPage);
       } else {
         ToastNotification('error', `${res.data?.message}`);

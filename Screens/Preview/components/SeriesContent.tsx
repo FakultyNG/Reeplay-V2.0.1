@@ -226,7 +226,7 @@ const SeriesView = ({
           }
           const keys = await getAESKeys();
             if (!keys) {
-              ToastNotification('error', 'Encryption keys missing');
+              ToastNotification('error', 'This download isn’t available right now.');
               return;
             }
             const { key, iv } = keys;

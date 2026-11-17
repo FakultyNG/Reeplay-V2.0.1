@@ -1,4 +1,4 @@
-import {Dispatch, SetStateAction} from 'react';
+import {Dispatch, Fragment, SetStateAction} from 'react';
 import RelatedContent from './RelatedContent';
 import FilmContent from './FilmContent';
 import SeriesContent from './SeriesContent';
@@ -6,7 +6,7 @@ import {previewContentType} from '@/navigation/AppNavigator';
 import {IDownloadData, IVODContent} from '@/types/api/content.types';
 
 type Props = {
-  content: string;
+  content: previewContentType;
   previewContent: IVODContent;
   accessStatus: boolean;
   makeFullscreen: () => void;
@@ -20,39 +20,43 @@ const PreviewDynamicContent = ({
   makeFullscreen,
   setFullscreenContent,
 }: Props) => {
-  const genreId = previewContent.genre.length
-    ? previewContent.genre[
-        Math.floor(Math.random() * previewContent.genre.length)
-      ]?._id ?? ''
-    : '';
+  const relatedTitle =
+    previewContent.type === 'music-video'
+      ? 'Related Music Videos'
+      : previewContent.type === 'series'
+        ? 'Related Series'
+        : previewContent.type === 'skit'
+          ? 'Related Skits'
+          : 'Related Movies';
 
   if (content === previewContentType['music video']) {
     return (
       <RelatedContent
-        title="Related Videos"
+        title={relatedTitle}
         vodId={previewContent._id}
-        genreId={genreId}
       />
     );
   }
 
   if (content === previewContentType['tv series']) {
     return (
-      <SeriesContent
-        vod={previewContent}
-        accessStatus={accessStatus}
-        setFullscreenContent={setFullscreenContent}
-        makeFullscreen={makeFullscreen}
-      />
+      <Fragment>
+        <SeriesContent
+          vod={previewContent}
+          accessStatus={accessStatus}
+          setFullscreenContent={setFullscreenContent}
+          makeFullscreen={makeFullscreen}
+        />
+        <RelatedContent title={relatedTitle} vodId={previewContent._id} />
+      </Fragment>
     );
   }
 
   return (
-    <FilmContent
-      vodId={previewContent._id}
-      casts={previewContent.cast}
-      genreId={genreId}
-    />
+    <Fragment>
+      <FilmContent vodId={previewContent._id} />
+      <RelatedContent title={relatedTitle} vodId={previewContent._id} />
+    </Fragment>
   );
 };
 

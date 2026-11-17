@@ -66,12 +66,14 @@ const VerificationModal = ({
           </Text>
           <Text style={styles.paymentText_SM}>
             {tab === 'topup'
-              ? 'Top up successful'
+              ? 'Wallet topped up'
               : tab === 'donate'
-              ? 'Donation successful'
+              ? 'Donation sent'
               : tab === 'vote'
-              ? 'Vote is successful'
-              : tab?.includes('watch') ? 'Content Payment successful' : '6 Month subscription is successful'}
+              ? 'Vote submitted'
+              : tab?.includes('watch')
+                ? 'Payment complete'
+                : 'Subscription activated'}
           </Text>
         </View>
       )}
@@ -80,10 +82,10 @@ const VerificationModal = ({
       {!message && !isPayment && (
         <>
           <Text style={styles.text}>
-            {reset ? 'Password reset link' : 'Verification'}
+            {reset ? 'Password reset link' : 'Verified'}
           </Text>
           <Text style={styles.text}>
-            {reset ? 'was sent to your email' : 'Successfull'}
+            {reset ? 'sent to your email' : 'You’re all set'}
           </Text>
         </>
       )}

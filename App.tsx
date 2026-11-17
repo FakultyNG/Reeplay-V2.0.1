@@ -17,6 +17,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
   AppState,
   BackHandler,
+  Linking,
   Platform,
   StatusBar,
 } from 'react-native';
@@ -59,12 +60,15 @@ import {
   registerNotificationOpenHandler,
   registerNotificationReceivedHandler,
 } from '@/Utils/notificationNavigation';
-import {fetchVODNotificationDetails} from '@/api/content.api';
+import {fetchCastDetails, fetchVODNotificationDetails} from '@/api/content.api';
 import {setPreviewContent} from '@/store/slices/previewContentSlice';
 import {previewContentType} from '@/navigation/AppNavigator';
 import {syncRefreshedNotificationToken} from '@/Utils/notificationDevice';
 import {getAllNotifications} from '@/api/notification.api';
 import {setNoticationsList} from '@/store/slices/userSlice';
+import {parseShareDeepLink} from '@/Utils/shareLinks';
+import {getAllLiveEvents} from '@/api/live.api';
+import {setLiveModalContent} from '@/store/slices/fullScreenVideo.slice';
 
 const LEFT_APP_TIME = AUTH_MMKV_KEYS.LEFT_APP_TIME;
 const API_ENVIRONMENT_KEY = 'API_BASE_URL';
@@ -202,6 +206,59 @@ function App(): React.JSX.Element {
       openedSubscription();
     };
   }, []);
+
+  const openSharedUrl = useCallback(async (url: string) => {
+    const shared = parseShareDeepLink(url);
+    if (!shared || !navigationRef.current) return;
+
+    if (shared.type === 'cast') {
+      const response = await fetchCastDetails(shared.id);
+      if (response.ok && response.data?.data) {
+        navigationRef.current.navigate(routes.CAST_SCREEN, {
+          cast: response.data.data,
+          vodId: shared.params.vodId || '',
+        });
+      }
+      return;
+    }
+
+    if (shared.type === 'live') {
+      const response = await getAllLiveEvents();
+      const live = response.ok && response.data
+        ? response.data.data.find(item => item._id === shared.id)
+        : undefined;
+      if (live) store.dispatch(setLiveModalContent(live));
+      navigationRef.current.navigate(routes.TAB_MAIN, {
+        screen: routes.LIVE_SCREEN,
+      });
+      return;
+    }
+
+    const response = await fetchVODNotificationDetails({_id: shared.id});
+    if (!response.ok || !response.data?.data) return;
+    const vod = response.data.data;
+    store.dispatch(setPreviewContent(vod));
+    const content = vod.type?.includes('series')
+      ? previewContentType['tv series']
+      : vod.type?.includes('music')
+        ? previewContentType['music video']
+        : previewContentType.film;
+    navigationRef.current.navigate(routes.PREVIEW_SCREEN, {
+      content,
+      videoURL: vod.video ?? '',
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!navigationReady) return;
+    const subscription = Linking.addEventListener('url', event => {
+      openSharedUrl(event.url).catch(() => {});
+    });
+    Linking.getInitialURL().then(url => {
+      if (url) openSharedUrl(url).catch(() => {});
+    });
+    return () => subscription.remove();
+  }, [navigationReady, openSharedUrl]);
 
   useEffect(() => registerNotificationReceivedHandler(async () => {
     const response = await getAllNotifications({page: 1, limit: 20});

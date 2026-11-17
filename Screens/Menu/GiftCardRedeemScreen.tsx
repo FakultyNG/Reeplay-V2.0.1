@@ -32,7 +32,7 @@ const GiftCardRedeemScreen = () => {
       const res = await giftCardRedeem(giftCard.trim());
       if(res.ok && res.data){
         getWallet();
-        ToastNotification('success', res.data.message);
+        ToastNotification('success', 'Gift card redeemed');
          setIsSuccess(true);
       setTimeout(() => {
         setIsSuccess(false);
@@ -53,12 +53,12 @@ const GiftCardRedeemScreen = () => {
     <AppScreen containerStyle={{paddingTop: 10, position: 'relative'}}>
       <AppHeader />
       <AppText className="font-LEXEND_700 text-2xl text-white mt-[70%]">
-        Redeem Giftcard
+        Redeem gift card
       </AppText>
       <TextInput
         value={giftCard}
         onChangeText={setGiftCard}
-        placeholder="Enter Giftcard Code"
+        placeholder="Enter gift card code"
         placeholderTextColor="#171A1F"
         style={styles.input}
       />
@@ -80,7 +80,7 @@ const GiftCardRedeemScreen = () => {
         hideCloseBtn
         replaceDefaultContent={
           <VerificationModal
-            message={`Giftcard redeemed ${'\n'}successfully`}
+            message="Gift card redeemed"
           />
         }
         handleClose={() => setIsSuccess(false)}

@@ -146,7 +146,7 @@ const InterestScreen = () => {
       } else {
         const response = await replaceInterests(preferences);
         if (!response.ok) {
-          setError(response.data?.message ?? 'Interests could not be saved.');
+          setError(response.data?.message ?? 'Couldn’t save your interests.');
           return;
         }
         const profileResponse = await getProfileDetails();
@@ -156,13 +156,16 @@ const InterestScreen = () => {
       }
 
       if (route.params?.isSettings) {
-        Alert.alert('Settings', 'Interests have been updated.');
+        Alert.alert(
+          'Interests updated',
+          'We’ll use them to improve your recommendations.',
+        );
         navigation.goBack();
       } else {
         navigation.reset({index: 0, routes: [{name: routes.TAB_MAIN}]});
       }
     } catch {
-      setError('Interests could not be saved. Please try again.');
+      setError('Couldn’t save your interests. Please try again.');
     } finally {
       setSaving(false);
     }

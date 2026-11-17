@@ -1,6 +1,12 @@
-import {Dispatch, SetStateAction, ReactNode} from 'react';
+import {Dispatch, SetStateAction} from 'react';
 import {Platform, Text, View} from 'react-native';
-import {AppButton, AppText, AppView, TouchableOpacity} from '@/components';
+import {
+  AppButton,
+  AppText,
+  AppView,
+  ContentAccessBadge,
+  TouchableOpacity,
+} from '@/components';
 import colors from '@/configs/colors';
 import {PreviewDownloadIcon, PreviewPlayIcon} from '@/assets/icons';
 import DownloadedCompleteIcon from '@/assets/icons/Download.svg';
@@ -11,7 +17,7 @@ import {IDownloadData, IVODContent} from '@/types/api/content.types';
 import PreviewDynamicContent from './PreviewDynamicContent';
 
 type Props = {
-  content: string;
+  content: previewContentType;
   previewContent: IVODContent;
   contentType: string;
   contentPrice: string;
@@ -26,28 +32,6 @@ type Props = {
   makeFullscreen: () => void;
   setFullscreenContent: Dispatch<SetStateAction<IDownloadData | null>>;
 };
-
-const classBadge = (contentType: string) => (
-  <AppView
-    className={`mx-auto ${
-      contentType === 'premium'
-        ? 'border-green px-1.5'
-        : contentType === 'free'
-          ? 'border-yellow px-3'
-          : 'border-red px-1.5'
-    } pt-1.5 pb-1.5 border rounded-[3px]`}>
-    <AppText
-      className={`text-[9px] uppercase font-ROBOTO_400 ${
-        contentType === 'premium'
-          ? 'text-green'
-          : contentType === 'free'
-            ? 'text-yellow'
-            : 'text-red'
-      }`}>
-      {contentType}
-    </AppText>
-  </AppView>
-);
 
 const PreviewDetailsBody = ({
   content,
@@ -136,7 +120,11 @@ const PreviewDetailsBody = ({
               </TouchableOpacity>
             </View>
           )}
-          {classBadge(contentType)}
+          <ContentAccessBadge
+            contentType={contentType}
+            size="regular"
+            style={styles.accessBadge}
+          />
         </AppView>
 
         <AppButton
@@ -176,5 +164,8 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     marginTop: 1,
     textTransform: 'uppercase',
+  },
+  accessBadge: {
+    alignSelf: 'center',
   },
 });

@@ -1,142 +1,126 @@
-import {StyleSheet, Text, View} from 'react-native';
-import React, {useEffect, useState} from 'react';
+import React from 'react';
+import {StyleSheet} from 'react-native';
+import StarRating, {StarIconProps} from 'react-native-star-rating-widget';
 import {AppText, AppView} from '@/components';
 import {BigRateStart_F, BigRateStart_W, RateStar_F} from '@/assets/icons';
+import HalfStar from '@/assets/icons/half_star.svg';
 import colors from '@/configs/colors';
-import Size from '@/Utils/useResponsiveSize';
-import StarRating from 'react-native-star-rating-widget';
-import { IVODContent, IVODRatings } from '@/types/api/content.types';
-import { formatRatingStats } from '@/Utils/contentUtils';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import HalfStar from '@/assets/icons/half_star.svg'
+import {IVODContent, IVODRatings} from '@/types/api/content.types';
 
+type Props = {
+  rating: number;
+  setRating: (rating: number) => void;
+  vodRatings: IVODRatings | null;
+  vod: IVODContent;
+};
 
-interface Props{
-  rating:number;
-  setRating: React.Dispatch<React.SetStateAction<number>>
-  vodRatings:IVODRatings|null
-  vod: IVODContent
-}
-const RatingView = ({vod,rating,setRating, vodRatings}:Props) => {
-  const starRatings = formatRatingStats(vodRatings);
+const ratingLabels = [
+  'Select a rating',
+  'Not for me',
+  'Fair',
+  'Good',
+  'Great',
+  'Excellent',
+];
 
-  // console.log(JSON.stringify(starRatings,null,2), vodRatings)
+const RatingStarIcon = ({type}: StarIconProps) =>
+  type === 'full' ? (
+    <BigRateStart_F />
+  ) : type === 'empty' ? (
+    <BigRateStart_W />
+  ) : (
+    <HalfStar />
+  );
 
-  if(!starRatings) return<></>;
+const RatingView = ({vod, rating, setRating, vodRatings}: Props) => {
+  const total = vodRatings?.totalStats[0]?.totalRatingsDocuments ?? 0;
+  const average =
+    vodRatings?.totalStats[0]?.averageRating ?? vod.averageRating ?? 0;
+  const counts = new Map(
+    (vodRatings?.groupStats ?? []).map(item => [item.rate, item.count]),
+  );
+
   return (
-    <AppView className="mt-6 border-t border-grey_200/10">
-      <AppView className="flex-row items-center justify-between gap-x-10">
-        <AppView>
-          <AppText className="font-MANROPE_600 text-white text-[40px]">
-            {vod?.averageRating ?? 0}
+    <AppView className="rounded-[20px] bg-[#171717] border border-white/10 px-4 py-5">
+      <AppView className="flex-row items-center">
+        <AppView className="w-[92px] items-center pr-4 border-r border-white/10">
+          <AppText className="font-MANROPE_700 text-white text-[38px] leading-[44px]">
+            {Number(average).toFixed(1)}
           </AppText>
-          <AppText className="font-MANROPE_400 text-base text-white -mt-1.5">
-            out of 5
+          <AppView className="flex-row items-center mt-1">
+            <RateStar_F />
+            <AppText className="font-MANROPE_500 text-grey_200 text-[11px] ml-1">
+              out of 5
+            </AppText>
+          </AppView>
+          <AppText className="font-MANROPE_400 text-grey_200 text-[10px] mt-2">
+            {total.toLocaleString()} {total === 1 ? 'rating' : 'ratings'}
           </AppText>
         </AppView>
 
-        {/* Rating */}
-        <AppView className="flex-1">
-          <AppView className="space-y-1 mt-[18px]">
-            <AppView className="flex-row items-center justify-between gap-x-3">
-              <StarIcon count={5} />
-              <Bar progress={starRatings['5']} />
-            </AppView>
-            <AppView className="flex-row items-center justify-between gap-x-3">
-              <StarIcon count={4} />
-              <Bar progress={starRatings['4']} />
-            </AppView>
-            <AppView className="flex-row items-center justify-between gap-x-3">
-              <StarIcon count={3} />
-              <Bar progress={starRatings['3']} />
-            </AppView>
-            <AppView className="flex-row items-center justify-between gap-x-3">
-              <StarIcon count={2} />
-              <Bar progress={starRatings['2']} />
-            </AppView>
-            <AppView className="flex-row items-center justify-between gap-x-3">
-              <StarIcon count={1} />
-              <Bar progress={starRatings['1']} />
-            </AppView>
-          </AppView>
-          <AppText className="text-right mt-[1px] font-MANROPE_400 text-base text-white">
-            {starRatings['total'] > 1000 ? starRatings['total']+'+' : starRatings['total']} Ratings
-          </AppText>
+        <AppView className="flex-1 pl-4 gap-y-[7px]">
+          {[5, 4, 3, 2, 1].map(star => (
+            <DistributionRow
+              key={star}
+              star={star}
+              progress={total > 0 ? (counts.get(star) ?? 0) / total : 0}
+            />
+          ))}
         </AppView>
       </AppView>
 
-      <AppView className="mt-10 items-center">
+      <AppView className="h-[1px] bg-white/10 my-5" />
+
+      <AppView className="items-center">
+        <AppText className="font-MANROPE_600 text-white text-[15px] mb-3">
+          {vodRatings?.myRating ? 'Your rating' : 'How was it?'}
+        </AppText>
         <StarRating
           rating={rating}
           onChange={setRating}
-          style={{}}
-          StarIconComponent={({type}) =>
-            type === 'full' ? <BigRateStart_F /> : type=== 'half' ? <HalfStar /> : <BigRateStart_W />
-          }
+          step="full"
+          StarIconComponent={RatingStarIcon}
         />
-        <AppText className="font-MANROPE_400 text-base text-white mt-[10px]">
-          Tap stars to rate
+        <AppText
+          className={`font-MANROPE_600 text-[13px] mt-3 ${
+            rating > 0 ? 'text-yellow' : 'text-grey_200'
+          }`}>
+          {ratingLabels[rating] ?? ratingLabels[0]}
         </AppText>
       </AppView>
     </AppView>
   );
 };
 
-export default RatingView;
-
-const StarIcon = ({count}: {count: number}) => {
-  return (
-    <AppView className="flex-row items-center flex-1 mr-[15px] justify-end gap-x-[1px]">
-      {[...Array(count)].map((_, i) => {
-        return (
-          <AppView key={i}>
-            <RateStar_F />
-          </AppView>
-        );
-      })}
+const DistributionRow = ({star, progress}: {star: number; progress: number}) => (
+  <AppView className="flex-row items-center">
+    <AppText className="w-3 text-right font-MANROPE_500 text-grey_200 text-[10px]">
+      {star}
+    </AppText>
+    <AppView className="mx-1.5 scale-75">
+      <RateStar_F />
     </AppView>
-  );
-};
+    <RatingBar progress={progress} />
+  </AppView>
+);
 
-
-const BAR_WIDTH = Size.calcWidth(164);
-
-const Bar = ({progress}: {progress: number}) => {
-  const animatedProgress = useSharedValue(0);
-
-  useEffect(() => {
-    // Clamp progress between 0 and 1
-    animatedProgress.value = withTiming(Math.min(Math.max(progress, 0), 1), {
-      duration: 500,
-    });
-  }, [progress]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        {
-          translateX: (-1 + animatedProgress.value) * BAR_WIDTH,
-        },
-      ],
-    };
-  });
+const RatingBar = ({progress}: {progress: number}) => {
+  const percentage = Math.round(Math.min(Math.max(progress, 0), 1) * 100);
+  const width = `${percentage}%` as `${number}%`;
 
   return (
-    <AppView
-      style={{width: BAR_WIDTH}}
-      className="h-1 rounded bg-dark_gold overflow-hidden"
-    >
-      <Animated.View
-        style={[styles.progressBar, animatedStyle, {width: BAR_WIDTH}]}
-      />
+    <AppView className="flex-1 h-[5px] rounded-full bg-[#333333] overflow-hidden">
+      <AppView style={[styles.progressBar, {width}]} />
     </AppView>
   );
 };
 
 const styles = StyleSheet.create({
   progressBar: {
-    height: 4,
-    backgroundColor: colors.YELLOW_500,
+    height: '100%',
+    borderRadius: 99,
+    backgroundColor: colors.RED,
   },
 });
 
+export default RatingView;

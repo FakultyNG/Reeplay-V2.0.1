@@ -26,7 +26,7 @@ const CreatePIN = () => {
         Create your new
       </AppText>
       <AppText className="text-2xl text-white font-LEXEND_700 mb-2">
-        App pin
+        app PIN
       </AppText>
 
       <AppView className="mt-8">

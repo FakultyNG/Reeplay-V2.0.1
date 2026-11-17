@@ -7,7 +7,7 @@ import routes from '@/navigation/routes';
 import {useNavigation} from '@react-navigation/native';
 import { IVODContent } from '@/types/api/content.types';
 import ToastNotification from '@/components/ToastNotifications';
-import { getVODbyGenreID } from '@/api/content.api';
+import {getRelatedVODs} from '@/api/content.api';
 import Placeholder from '@/components/SkeletonLoader';
 import FastImage from 'react-native-fast-image';
 import { setPreviewContent } from '@/store/slices/previewContentSlice';
@@ -16,37 +16,35 @@ import { useAppDispatch } from '@/Hooks/reduxHook';
 interface props {
   title: string;
   vodId:string
-  genreId:string
 }
 
-const RelatedContent = ({title, vodId, genreId}: props) => {
+const RelatedContent = ({title, vodId}: props) => {
   const {replace} = useNavigation<RootNav>();
   const [loading, setLoading] = useState<boolean>(false)
   const [content, setContent] = useState<IVODContent[]>([]);
   const dispatch = useAppDispatch();
 
   const handleFetchContent = useCallback(async () => {
-    if (!genreId) {
-      setContent([]);
-      return;
-    }
-
     try {
       setLoading(true);
-      const res = await getVODbyGenreID({vodId, pagination:{page:1, limit:6}, enumId:genreId})
+      const res = await getRelatedVODs({vodId, pagination:{page:1, limit:6}})
       if(res.ok && res.data){
         setContent(res.data.data)
+      } else {
+        setContent([])
       }
     } catch (error) {
       ToastNotification('error', `${error}`);
     }finally{
       setLoading(false)
     }
-  }, [genreId, vodId]);
+  }, [vodId]);
 
   useEffect(() =>{
     handleFetchContent();
   }, [handleFetchContent])
+
+  if (!loading && content.length === 0) return null;
 
   return (
     <AppView className="mt-5">
@@ -60,7 +58,7 @@ const RelatedContent = ({title, vodId, genreId}: props) => {
           return (
             <TouchableOpacity
               activeOpacity={0.6}
-              key={index}
+              key={lib._id}
               onPress={() =>
                  [dispatch(setPreviewContent(item)), replace(routes.PREVIEW_SCREEN, {
                           content: item.type.includes('series') ? previewContentType['tv series'] : item.type.includes('video') ? previewContentType['music video'] : previewContentType.film,

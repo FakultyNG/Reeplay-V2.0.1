@@ -25,18 +25,18 @@ const PreviewStatsRow = ({
 }: Props) => (
   <AppView className="px-5">
     <AppView className="border-y border-grey_200/10 py-[7px] mt-4 flex-row items-center justify-between">
-      <TouchableOpacity disabled={!accessStatus} onPress={onRate}>
+      <TouchableOpacity onPress={onRate}>
         <AppText className="text-center font-ROBOTO_400 text-grey_200 text-[11px]">
           {formatLikesNumber(previewContent.viewsCount)} VIEWS
         </AppText>
         <View className="flex-row items-center justify-center gap-x-1 my-1">
           <AppText className="text-center font-ROBOTO_700 text-grey_200 text-[15px]">
-            {previewContent.averageRating}
+            {Number(previewContent.averageRating ?? 0).toFixed(1)}
           </AppText>
           <SM_Rate_F />
         </View>
         <Text className="text-center font-ROBOTO_400 text-grey_200 text-[10px]">
-          Tap to Rate
+          {accessStatus ? 'Tap to Rate' : 'Watch to Rate'}
         </Text>
       </TouchableOpacity>
       <Divider />

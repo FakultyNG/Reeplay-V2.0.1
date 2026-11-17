@@ -8,6 +8,7 @@ import {selectCategories} from '@/store/slices/bannerSlice.slice';
 import LiveEmptyState from '@/Screens/Live/components/LiveEmptyState';
 import {FHomeIcon} from '@/assets/icons';
 import PremiumAdsCarousel from './PremiumAdsCarousel';
+import {ICategoryData} from '@/types/api/content.types';
 
 interface Props {
   isSkipped: boolean;
@@ -17,6 +18,13 @@ interface Props {
 
 const IMMEDIATE_ROW_COUNT = 3;
 const ROW_STAGGER_MS = 450;
+const TOP_TEN_ROW: ICategoryData = {
+  _id: 'home-top-ten',
+  name: 'Top 10',
+  createdAt: '',
+  updatedAt: '',
+  position: 0,
+};
 
 const Sections = ({isSkipped, deferHeavy = false}: Props) => {
   const cat = useAppSelector(selectCategories);
@@ -55,7 +63,18 @@ const Sections = ({isSkipped, deferHeavy = false}: Props) => {
   const visibleCount = deferHeavy
     ? IMMEDIATE_ROW_COUNT
     : Math.max(enabledCount, IMMEDIATE_ROW_COUNT);
-  const rows = cat.slice(1, visibleCount);
+  const categoryRows = cat.slice(1, visibleCount);
+  const legacyTopTenIndex = categoryRows.findIndex(row =>
+    row.name.toLowerCase().includes('top 10'),
+  );
+  const rows = categoryRows.filter(
+    row => !row.name.toLowerCase().includes('top 10'),
+  );
+  rows.splice(
+    legacyTopTenIndex >= 0 ? legacyTopTenIndex : Math.min(1, rows.length),
+    0,
+    TOP_TEN_ROW,
+  );
 
   return (
     <>
@@ -65,7 +84,7 @@ const Sections = ({isSkipped, deferHeavy = false}: Props) => {
         </AppView>
       )}
       {rows.map((x, i) => {
-        const isTop10 = x.name.toLowerCase().includes('top 10');
+        const isTop10 = x._id === TOP_TEN_ROW._id;
         const isComingSoon = x.name.toLowerCase().includes('comming soon');
         const isLive = x.name.toLowerCase().includes('live');
         const isMusic = x.name.toLowerCase().includes('music');
@@ -88,7 +107,7 @@ const Sections = ({isSkipped, deferHeavy = false}: Props) => {
                 imageStyle={
                   isComingSoon || isTop10 ? {} : isMusic ? styles.videoBackdrop : {}
                 }
-                tag={isTop10}
+                topTen={isTop10}
                 live={isLive}
                 isMusic={isMusic}
                 enabled

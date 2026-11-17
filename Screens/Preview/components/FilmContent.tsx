@@ -1,7 +1,6 @@
 import {FlatList, StyleSheet} from 'react-native';
 import React, {useCallback, useEffect, useState} from 'react';
 import {AppImage, AppText, AppView, TouchableOpacity} from '@/components';
-import RelatedContent from './RelatedContent';
 import {useNavigation} from '@react-navigation/native';
 import routes from '@/navigation/routes';
 import {ICast} from '@/types/api/content.types';
@@ -11,12 +10,10 @@ import {fetchCastsByVOID} from '@/api/content.api';
 import Placeholder from '@/components/SkeletonLoader';
 
 interface Props {
-  casts: ICast[];
   vodId: string;
-  genreId: string;
 }
 
-const FilmContent = ({vodId, genreId}: Props) => {
+const FilmContent = ({vodId}: Props) => {
   const {navigate} = useNavigation<RootNav>();
   const [casts, setCasts] = useState<ICast[]>([]);
   const [page, setPage] = useState<number>(1);
@@ -114,11 +111,6 @@ const FilmContent = ({vodId, genreId}: Props) => {
         </>
       )}
 
-      <RelatedContent
-        title="Related Movies"
-        genreId={genreId}
-        vodId={vodId}
-      />
     </AppView>
   );
 };

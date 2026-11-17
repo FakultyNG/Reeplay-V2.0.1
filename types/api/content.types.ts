@@ -203,7 +203,8 @@ export interface IVODbyEnumIDResponse extends IGeneric{
 export interface ISearchResponse extends IGeneric{
     data: {
         vods: IVODContent[];
-        lives: ILiveContent[]
+        lives: ILiveContent[];
+        items?: (IVODContent | ILiveContent)[]
     }
 }
 
@@ -258,6 +259,10 @@ export interface IVODRatingResponse extends IGeneric{
 export interface IVODRatings{
         totalStats: ITotalStats[]
         groupStats:IGroupStats[]
+        myRating: {
+            _id: string;
+            rate: number;
+        } | null
     }
 
 interface ITotalStats{

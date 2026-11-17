@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useState} from 'react';
 import Share from 'react-native-share';
+import {buildShareUrl} from '@/Utils/shareLinks';
 import {useIsFocused} from '@react-navigation/native';
 import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
 import {
@@ -37,13 +38,14 @@ type Options = {
   isFullscreen: boolean;
   isComment: boolean;
   rating: number;
+  setRating: (rating: number) => void;
   setLoading_r: (v: boolean) => void;
 };
 
 export function usePreviewActions({
   isFullscreen,
-  isComment,
   rating,
+  setRating,
   setLoading_r,
 }: Options) {
   const dispatch = useAppDispatch();
@@ -98,13 +100,15 @@ export function usePreviewActions({
 
   const handleVODRating = useCallback(async () => {
     const res = await getVODRatings(previewContent._id);
-    if (res.ok && res.data && res.data.data.totalStats.length > 0) {
+    if (res.ok && res.data) {
       setVODRating(res.data.data);
+      setRating(res.data.data.myRating?.rate ?? 0);
     }
-  }, [previewContent._id]);
+  }, [previewContent._id, setRating]);
 
   const handleAddRating = useCallback(async () => {
     if (!requireRegisteredUser()) return;
+    let saved = false;
     try {
       setLoading_r(true);
       const res = await addVODRating({
@@ -113,7 +117,8 @@ export function usePreviewActions({
         parentType: 'vod',
       });
       if (res.ok && res.data) {
-        ToastNotification('success', res.data.message);
+        ToastNotification('success', 'Rating saved');
+        saved = true;
       } else {
         ToastNotification('error', `${res.data?.message}`);
       }
@@ -124,6 +129,7 @@ export function usePreviewActions({
       await handleVODRating();
       await handleFetchVodMeta();
     }
+    return saved;
   }, [
     handleFetchVodMeta,
     handleVODRating,
@@ -152,7 +158,12 @@ export function usePreviewActions({
         ? await removeWatchList(previewContent._id)
         : await addWatchList(previewContent._id);
       if (res.ok && res.data) {
-        ToastNotification('info', res.data.message);
+        ToastNotification(
+          'success',
+          addWatchList_boolean
+            ? 'Removed from your watchlist'
+            : 'Added to your watchlist',
+        );
         if (addWatchList_boolean) {
           dispatch(deleteWatchlistById(previewContent._id));
         }
@@ -194,7 +205,15 @@ export function usePreviewActions({
   }, [contentType, isGuest, previewContent._id]);
 
   const handleShare = useCallback(() => {
-    Share.open({message: `Watch ${previewContent.title} on Reeplay.`})
+    const shareUrl = buildShareUrl(
+      previewContent.type || 'vod',
+      previewContent._id,
+    );
+    Share.open({
+      title: previewContent.title,
+      subject: `Watch ${previewContent.title} on Reeplay`,
+      message: `Watch “${previewContent.title}” on Reeplay.\n${shareUrl}`,
+    })
       .then(res => {
         queueAnalyticsEvent({
           sessionId: analyticsId('share'),
@@ -209,7 +228,7 @@ export function usePreviewActions({
         void flushAnalyticsEvents();
       })
       .catch(err => err && console.log(err));
-  }, [previewContent._id, previewContent.title]);
+  }, [previewContent._id, previewContent.title, previewContent.type]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -221,13 +240,21 @@ export function usePreviewActions({
     if (!isGuest) getWatchListStatus();
     getCommentCount();
     handleFetchVodMeta();
-  }, [isFocused, isGuest]);
+  }, [
+    getCommentCount,
+    getWatchListStatus,
+    handleContentStatusUpdate,
+    handleFetchVodMeta,
+    handleVODRating,
+    isFocused,
+    isGuest,
+  ]);
 
   useEffect(() => {
     if (!isFullscreen) {
       handleFetchVodMeta();
     }
-  }, [isFullscreen]);
+  }, [handleFetchVodMeta, isFullscreen]);
 
   return {
     previewContent,

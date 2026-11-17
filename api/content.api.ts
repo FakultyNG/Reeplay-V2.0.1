@@ -107,11 +107,19 @@ export const deleteContinueWatchingById = async (_id:string) =>
 export const getVODbyEnumID = async ({pagination, enumId}:{pagination?: IPagination, enumId:string}) =>
     await getMergedVodList(`/customers/shared/vods/category/${enumId}${pagination ? `?page=${pagination.page}&limit=${pagination.limit}`:''}`)
 
+export const getTopTenVODs = async () =>
+    await apiCall<IVODbyEnumIDResponse>(baseApi =>
+        baseApi.get<IVODbyEnumIDResponse>('/customers/shared/vods/top-10'),
+    )
+
 export const getVODbyGenreID = async ({pagination, enumId, vodId}:{pagination: IPagination, enumId:string, vodId?:string}) =>
     await getMergedVodList(`/customers/shared/vods/similar-by-genre/${enumId}?page=${pagination.page}&limit=${pagination.limit}${vodId ?`&vodId=${vodId}`:''}`)
 
 export const getVODbyCastID = async ({pagination, enumId, vodId}:{pagination: IPagination, enumId:string, vodId?:string}) =>
     await getMergedVodList(`/customers/shared/vods/similar-by-cast/${enumId}?page=${pagination.page}&limit=${pagination.limit}${vodId ?`&vodId=${vodId}`:''}`)
+
+export const getRelatedVODs = async ({pagination, vodId}:{pagination: IPagination, vodId:string}) =>
+    await getMergedVodList(`/customers/shared/vods/related/${vodId}?page=${pagination.page}&limit=${pagination.limit}`)
 
 export const recentSearches = async () =>
     await apiCall<ISearchResponse>(baseApi => baseApi.get<ISearchResponse>(`/customers/recent-search/fetch`))
@@ -189,6 +197,11 @@ export const fetchSeasonsForSeries = async ({pagination,_id}:{pagination:IPagina
 
 export const fetchCastsByVOID = async ({pagination,_id}:{pagination:IPagination, _id:string}) =>
     await apiCall<ICastsResponse>(baseApi => baseApi.get<ICastsResponse>(`/customers/shared/get-casts?vodId=${_id}&page=${pagination.page}&limit=${pagination.limit}`))
+
+export const fetchCastDetails = async (castId: string) =>
+    await apiCall<IGeneric & {data: import('@/types/api/content.types').ICast}>(baseApi =>
+        baseApi.get(`/customers/shared/casts/${castId}`),
+    )
 
 export const fetchVODDetails = async ({_id}:{_id:string}) =>
     await apiCall<IVodMetaResponse>(baseApi => baseApi.get<IVodMetaResponse>(`/customers/shared/vods/vod-meta/${_id}`))

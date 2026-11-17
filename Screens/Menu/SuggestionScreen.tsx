@@ -51,8 +51,13 @@ const SuggestionScreen = () => {
 
       const res = await suggestionApi({ message: msg });
       if (res.ok && res.data) {
-        ToastNotification('info', res.data.message)
+        ToastNotification('success', 'Thanks — your suggestion was sent');
         setMsg('');
+      } else {
+        ToastNotification(
+          'error',
+          res.data?.message ?? 'Couldn’t send your suggestion.',
+        );
       }
     } catch (error) {
       ToastNotification('error', `${error}`)

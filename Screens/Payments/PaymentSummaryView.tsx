@@ -242,7 +242,7 @@ const PaymentSummaryView = () => {
                   />
                 )}
                 {paySuccessful && (
-                  <VerificationModal message="Payment was successful" />
+                  <VerificationModal message="Payment complete" />
                 )}
               </>
             }

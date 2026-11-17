@@ -55,7 +55,7 @@ const ProfilePicUpdate = () => {
         }, 2000); 
             }
         } catch (error) {
-             setError('Opps! Something went wrong');
+             setError('Couldn’t update your profile photo. Please try again.');
         setTimeout(() => {
           setError('');
         }, 2000);

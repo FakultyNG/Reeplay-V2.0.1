@@ -25,6 +25,7 @@ import fonts from '@/configs/fonts';
 import {LibraryData} from '@/configs/data';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import Share from 'react-native-share';
+import {buildShareUrl} from '@/Utils/shareLinks';
 import {previewContentType, RootNav} from '@/navigation/AppNavigator';
 import routes from '@/navigation/routes';
 import BlurView from 'react-native-blur-effect';
@@ -57,7 +58,12 @@ const CastScreeen = () => {
   };
 
   const handleShare = () => {
-    Share.open({message: cast.link})
+    const shareUrl = buildShareUrl('cast', cast._id, {vodId});
+    Share.open({
+      title: cast.name,
+      subject: `Discover ${cast.name} on Reeplay`,
+      message: `Discover ${cast.name} on Reeplay.\n${shareUrl}`,
+    })
       .then(res => {
         console.log(res);
       })

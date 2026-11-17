@@ -58,7 +58,7 @@ const VoteScreen = () => {
         ToastNotification('error', `${resContestants.data?.message}`)
       }
     } catch (error) {
-      ToastNotification('error')
+      ToastNotification('error', 'Couldn’t load the contestants. Try again.')
     }finally{
       setLoading(false)
     }

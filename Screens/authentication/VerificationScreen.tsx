@@ -62,7 +62,9 @@ const VerificationScreen = () => {
         setExpiryTime(5 * 60);
         setIsExpired(false);
       } else {
-        setErrorMsg(res.data?.message!);
+        setErrorMsg(
+          res.data?.message || 'That verification code didn’t work. Try again.',
+        );
       }
     } catch (error) {
       console.log(error);
@@ -111,7 +113,10 @@ const VerificationScreen = () => {
           }
         } else {
           setError(true);
-          res.data && setErrorMsg(res.data.message.split(':')[1]);
+          setErrorMsg(
+            res.data?.message?.split(':').pop()?.trim() ||
+              'That PIN didn’t work. Try again.',
+          );
           setTimeout(() => {
             setError(false);
           }, 3000);
@@ -125,7 +130,7 @@ const VerificationScreen = () => {
       }
     } catch (error) {
       setError(true);
-      setErrorMsg('Opps! Something went wrong');
+      setErrorMsg('Couldn’t verify your PIN. Please try again.');
       setTimeout(() => {
         setError(false);
       }, 3000);

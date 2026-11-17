@@ -51,7 +51,7 @@ const WatchlistScreen = () => {
         setLoading_d(true);
         const res = await removeWatchList(selectedContent._id);
         if(res.ok && res.data){
-                  ToastNotification('info', res.data.message);
+                  ToastNotification('success', 'Removed from your watchlist');
                   dispatch(deleteWatchlistById(selectedContent._id));
                   setSelectContent(null);
                 }else{

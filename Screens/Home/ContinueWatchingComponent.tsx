@@ -5,6 +5,7 @@ import {
   AppImage,
   AppText,
   AppView,
+  ContentAccessBadge,
   TouchableOpacity,
 } from '@/components';
 import Size from '@/Utils/useResponsiveSize';
@@ -12,10 +13,7 @@ import colors from '@/configs/colors';
 import fonts from '@/configs/fonts';
 import {
   CloseIcon,
-  Exclusive,
-  FreeIcon,
   InfoLiveBtn,
-  PremiumIcon,
 } from '@/assets/icons';
 import { ImageStyle } from 'react-native-fast-image';
 import { ILiveContent } from '@/types/api/content.types';
@@ -103,14 +101,10 @@ const ContinueWatchingComponent = ({
 
         <AppView className="flex-row items-center">
             <AppView className="flex-row items-center">
-              {item.vidClass === 'premium' ? (
-                <PremiumIcon style={{marginRight: 4}} />
-              ) :
-                item.vidClass === 'exclusive' ? (
-                <Exclusive style={{marginRight: 4}} />
-              ) : (
-                <FreeIcon style={{marginRight: 4}} />
-              )}
+              <ContentAccessBadge
+                contentType={item.vidClass}
+                style={styles.accessBadge}
+              />
                 <AppText className="font-ROBOTO_500 text-[11px] text-white mr-1.5">
                   {item.pg}
                 </AppText>
@@ -143,5 +137,8 @@ const styles = StyleSheet.create({
     fontSize: Size.calcHeight(13.5),
     color: colors.WHITE,
     maxWidth: 130,
+  },
+  accessBadge: {
+    marginRight: 7,
   },
 });

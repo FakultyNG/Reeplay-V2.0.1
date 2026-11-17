@@ -13,6 +13,7 @@ import {
   AppText,
   AppVideo,
   AppView,
+  ContentAccessBadge,
   TouchableOpacity,
 } from '@/components';
 import SectionHeader, {
@@ -26,12 +27,9 @@ import { OnLoadData, VideoRef } from 'react-native-video';
 import useToggle from '@/Hooks/useToggle';
 import {
   BigPlayIcon,
-  Exclusive,
-  FreeIcon,
   FullscreenIcon,
   InfoLiveBtn,
   MutedIcon,
-  PremiumIcon,
   VolumeIcon,
 } from '@/assets/icons';
 import Dots from 'react-native-dots-pagination';
@@ -459,13 +457,7 @@ export const NonChannelComp = ({
 
           <AppView className="w-[303px] absolute top-0 z-30">
             <AppView className="mt-2 ml-3">
-              {item.vidClass === 'premium' ? (
-                <PremiumIcon width={20} height={20} />
-              ) : item.vidClass === 'exclusive' ? (
-                <Exclusive width={20} height={20} />
-              ) : (
-                <FreeIcon width={20} height={20} />
-              )}
+              <ContentAccessBadge contentType={item.vidClass} />
             </AppView>
           </AppView>
         </>

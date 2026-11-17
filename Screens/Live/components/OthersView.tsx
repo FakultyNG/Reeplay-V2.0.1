@@ -3,12 +3,17 @@ import React, { useEffect, useState } from 'react';
 import SectionHeader, {
   headerProps,
 } from '@/Screens/Home/components/SectionHeader';
-import { AppImage, AppText, AppView, TouchableOpacity } from '@/components';
+import {
+  AppImage,
+  AppText,
+  AppView,
+  ContentAccessBadge,
+  TouchableOpacity,
+} from '@/components';
 import LinearGradient from 'react-native-linear-gradient';
 import Size from '@/Utils/useResponsiveSize';
 import fonts from '@/configs/fonts';
 import colors from '@/configs/colors';
-import { Exclusive, FreeIcon, PremiumIcon } from '@/assets/icons';
 import { checkTimeStatus } from '@/Utils/timeStatus';
 import { useCountdownTimer } from '@/Hooks/useCountdown';
 import { MotiView } from 'moti';
@@ -134,13 +139,7 @@ const isTime = checkTimeStatus(item.start, item.expiry);
 
       <AppView className="w-[303px] absolute top-0 z-30">
         <AppView className="mt-1.5 ml-2">
-          {item.vidClass === 'premium' ? (
-            <PremiumIcon />
-          ) : item.vidClass === 'exclusive' ? (
-            <Exclusive />
-          ) : (
-            <FreeIcon />
-          )}
+          <ContentAccessBadge contentType={item.vidClass} />
         </AppView>
       </AppView>
 

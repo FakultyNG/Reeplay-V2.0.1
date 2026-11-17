@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity } from 'react-native'
 import React, { useEffect, useState } from 'react'
-import { AppButton } from '@/components'
+import {AppButton, ContentAccessBadge} from '@/components'
 import colors from '@/configs/colors'
 import Size from '@/Utils/useResponsiveSize'
 import FastImage from 'react-native-fast-image'
@@ -8,12 +8,7 @@ import { FadeIn, FadeOut } from 'react-native-reanimated'
 import { AnimatedLin } from '@/Screens/Home/homeShared'
 import { ILiveContent, IVODContent } from '@/types/api/content.types'
 import CloseIcon from '@/assets/icons/close_sm.svg';
-import {
-  Exclusive_B,
-  FreeIcon_B,
-  PremiumIcon_B,
-  SmPlayIcon,
-} from '@/assets/icons';
+import {SmPlayIcon} from '@/assets/icons';
 import getSymbolFromCurrency from 'currency-symbol-map'
 import { formatAmount } from '@/Utils/formatAmount'
 import { useNavigation } from '@react-navigation/native'
@@ -25,6 +20,9 @@ import ToastNotification from '@/components/ToastNotifications'
 import { useAppDispatch } from '@/Hooks/reduxHook'
 import { setFullVideoProps } from '@/store/slices/fullScreenVideo.slice'
 import {requireRegisteredUser} from '@/Utils/guestAccess'
+import Share from 'react-native-share'
+import {ShareIcon} from '@/assets/icons'
+import {buildShareUrl} from '@/Utils/shareLinks'
 
 interface Props{
     item: IVODContent | ILiveContent
@@ -75,6 +73,15 @@ const LiveInfoModal = ({item, isBanner, makeFullscreen, handleClose}:Props) => {
             handleClose();
           }
 
+          function handleShare(){
+            const shareUrl = buildShareUrl('live', item._id)
+            Share.open({
+              title: item.title,
+              subject: `Watch ${item.title} on Reeplay`,
+              message: `Watch “${item.title}” on Reeplay.\n${shareUrl}`,
+            }).catch(error => error && console.log(error))
+          }
+
           useEffect(() =>{
             handleContentStatusUpdate();
           }, [])
@@ -114,14 +121,7 @@ const LiveInfoModal = ({item, isBanner, makeFullscreen, handleClose}:Props) => {
               <Text className='font-ROBOTO_700 text-[15px] text-white'>{item.title}</Text>
             </View>
 
-             { item.vidClass === 'premium' ? (
-                  <PremiumIcon_B />
-                ) :
-                  item.vidClass === 'exclusive' ? (
-                    <Exclusive_B />
-                  ) : (
-                    <FreeIcon_B />
-                  )}
+             <ContentAccessBadge contentType={item.vidClass} size="regular" />
           </View>
         </View>
                <FastImage
@@ -140,6 +140,7 @@ const LiveInfoModal = ({item, isBanner, makeFullscreen, handleClose}:Props) => {
             <View className='p-5 items-center'>
               <Text className='font-ROBOTO_400 tex-xs text-black mb-5 text-center'>{item.description}</Text>
 
+              <View className="flex-row items-center justify-center gap-x-5">
               <AppButton 
                 bgColor={colors.RED}
                 onPress={handleWatchPress}
@@ -161,6 +162,13 @@ const LiveInfoModal = ({item, isBanner, makeFullscreen, handleClose}:Props) => {
                   </View>
                 }              
               />
+              <TouchableOpacity
+                onPress={handleShare}
+                accessibilityLabel="Share live content"
+                className="h-12 w-12 items-center justify-center rounded-full border border-grey_300">
+                <ShareIcon />
+              </TouchableOpacity>
+              </View>
             </View>
         </View>
   )

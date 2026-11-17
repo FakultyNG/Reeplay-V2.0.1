@@ -74,14 +74,14 @@ const ChangePhone = () => {
           }
         } else {
           setError(true);
-          setErrorMessage('Opps! something went wrong');
+          setErrorMessage('Couldn’t update your phone number. Please try again.');
           setTimeout(() => {
             setError(false);
           }, 2000);
         }
       } catch (error) {
         setError(true);
-        setErrorMessage('Opps! something went wrong');
+        setErrorMessage('Couldn’t update your phone number. Please try again.');
         setTimeout(() => {
           setError(false);
         }, 2000);
@@ -173,7 +173,7 @@ const ChangePhone = () => {
               hideCloseBtn
               replaceDefaultContent={
                 <VerificationModal
-                  message={`Phone number changed ${'\n'}successfully`}
+                  message="Phone number updated"
                 />
               }
               handleClose={() => [setIsSuccess(false), goBack()]}

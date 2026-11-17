@@ -62,7 +62,7 @@ const tabs = [
   'Create AD',
   'Notifications',
   'Suggestions',
-  'Giftcards',
+  'Gift cards',
   'Settings',
 ];
 
@@ -134,7 +134,7 @@ const MenuScreen = () => {
     if (selectedTab === 'Create AD') setAds(true);
     if (selectedTab === 'Notifications') navigate(routes.NOTIFICATION_SCREEN);
     if (selectedTab === 'Suggestions') navigate(routes.SUGGESTION_SCREEN);
-    if (selectedTab === 'Giftcards') navigate(routes.GIFT_CARD_SCREEN);
+    if (selectedTab === 'Gift cards') navigate(routes.GIFT_CARD_SCREEN);
     if (selectedTab === 'Settings') navigation.navigate(routes.SETTINGS_SCREEN);
     if (selectedTab === 'Downloads')
       navigation.navigate(routes.DOWNLOAD_SCREEN);
@@ -235,7 +235,7 @@ const MenuScreen = () => {
                 {tab === 'Create AD' && <CreateADIcon />}
                 {tab === 'Notifications' && <NotificationIcon />}
                 {tab === 'Suggestions' && <SuggestionIcon />}
-                {tab === 'Giftcards' && <GiftCardIcon />}
+                {tab === 'Gift cards' && <GiftCardIcon />}
                 {tab === 'Settings' && <SettingsIcon />}
                 <AppText className="font-MANROPE_400 text-[14.5px] text-white">
                   {tab}

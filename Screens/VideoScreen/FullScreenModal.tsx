@@ -324,8 +324,11 @@ const FullScreenModal = () => {
       // Set a timeout for 5 seconds (you can adjust the duration)
       loadingTimeout = setTimeout(() => {
         existFullscreen();
-        Alert.alert('Info', 'Opps! Something went wrong, service timeout'),
-          { text: 'OK' };
+        Alert.alert(
+          'Video unavailable',
+          'The video took too long to load. Check your connection and try again.',
+          [{text: 'OK'}],
+        );
         setIsLoading(false);
       }, 20000);
     };

@@ -10,16 +10,16 @@ import {
 } from 'react-native';
 import React, { Fragment, useEffect, useState } from 'react';
 import FastImage from 'react-native-fast-image';
-import { AppButton, AppImage, AppText, AppView } from '@/components';
+import {
+  AppButton,
+  AppImage,
+  AppText,
+  AppView,
+  ContentAccessBadge,
+} from '@/components';
 import Size from '@/Utils/useResponsiveSize';
 import colors from '@/configs/colors';
-import {
-  Exclusive_B,
-  FreeIcon_B,
-  InfoIcon,
-  PremiumIcon_B,
-  SmPlayIcon,
-} from '@/assets/icons';
+import {InfoIcon, SmPlayIcon} from '@/assets/icons';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import routes from '@/navigation/routes';
 import { previewContentType, RootNav } from '@/navigation/AppNavigator';
@@ -255,14 +255,7 @@ handleVODTrailer
         activeOpacity={.7}
         // onPress={() => } TODO: ADD DESCRIPTION MODAL
         >
-        {item.vidClass === 'premium' ? (
-                  <PremiumIcon_B />
-                ) :
-                  item.vidClass === 'exclusive' ? (
-                    <Exclusive_B />
-                  ) : (
-                    <FreeIcon_B />
-                  )}
+        <ContentAccessBadge contentType={item.vidClass} />
         </TouchableOpacity>}
         <AppText className="text-white text-sm uppercase font-MANROPE_400 mt-[2px]">
           {contentType}

@@ -67,7 +67,7 @@ const ChangePin = () => {
         }
       } else {
         setError(true);
-        setErrorMsg('Opps! something went wrong. Please try again');
+        setErrorMsg('Couldn’t update your PIN. Please try again.');
         setTimeout(() => {
           setError(false);
         }, 5000);
@@ -120,7 +120,7 @@ const ChangePin = () => {
             hideCloseBtn
             replaceDefaultContent={
               <VerificationModal
-                message="App pin changed successfully"
+                message="PIN updated"
                 messageStyle={{maxWidth: 200, lineHeight: 18, marginTop: -9}}
               />
             }

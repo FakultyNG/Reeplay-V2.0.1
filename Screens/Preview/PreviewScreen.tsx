@@ -26,6 +26,7 @@ import {usePreviewActions} from './hooks/usePreviewActions';
 import {usePreviewDownload} from './hooks/usePreviewDownload';
 import {usePreviewExitCover} from './hooks/usePreviewExitCover';
 import {requireRegisteredUser} from '@/Utils/guestAccess';
+import ToastNotification from '@/components/ToastNotifications';
 
 const PreviewScreen = ({
   isFullscreen,
@@ -67,6 +68,7 @@ const PreviewScreen = ({
     isFullscreen,
     isComment,
     rating,
+    setRating,
     setLoading_r,
   });
 
@@ -164,6 +166,13 @@ const PreviewScreen = ({
                     accessStatus={accessStatus}
                     onRate={() => {
                       if (!requireRegisteredUser()) return;
+                      if (!accessStatus) {
+                        ToastNotification(
+                          'info',
+                          'Watch access is required before rating this title.',
+                        );
+                        return;
+                      }
                       setIsComment(false);
                       setAddRating();
                     }}
@@ -197,7 +206,10 @@ const PreviewScreen = ({
                       previewContent={previewContent}
                       vodRating={vodRating}
                       loading={loading_r}
-                      onSubmit={handleAddRating}
+                      onSubmit={async () => {
+                        const saved = await handleAddRating();
+                        if (saved) setAddRating();
+                      }}
                       onClose={setAddRating}
                     />
                   }

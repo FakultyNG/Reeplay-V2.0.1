@@ -112,7 +112,10 @@ const UpcomingView = ({
         ? await unsubscribeReminderStatus(items._id, contentType)
         : await subscribeReminderStatus(items._id, contentType);
       if (!res.ok) {
-        Alert.alert("Opps! couldn't subscribe for the event");
+        Alert.alert(
+          'Reminder not set',
+          'We couldn’t set a reminder for this event. Please try again.',
+        );
         setRemindMe(previousValue);
       }
     } catch (error) {

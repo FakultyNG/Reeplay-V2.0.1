@@ -102,7 +102,7 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
     const resSug = await fetchContentSuggestions();
     if(resSug.ok && resSug.data){
       const data = resSug.data.data
-      setSuggestions([...data.vods, ...data.lives]);
+      setSuggestions(data.items ?? [...data.vods, ...data.lives]);
     }
   }
   async function handleRecentSearches(){

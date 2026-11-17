@@ -63,7 +63,10 @@ const ChangeEmail = () => {
             }
           } else {
             setError(true);
-            setErrorMessage(res.data?.message.split(':')[1] ?? '');
+            setErrorMessage(
+              res.data?.message?.split(':').pop()?.trim() ||
+                'Couldn’t update your email address. Please try again.',
+            );
             setTimeout(() => {
               setError(false);
             }, 4000);
@@ -142,7 +145,7 @@ const ChangeEmail = () => {
             hideCloseBtn
             replaceDefaultContent={
               <VerificationModal
-                message={`User's email changed successfully`}
+                message="Email address updated"
                 messageStyle={{maxWidth: 200, lineHeight: 18, marginTop: 10}}
               />
             }

@@ -218,9 +218,10 @@ const AuthFormComponent = ({
               setTimeout(() => setError(''), 5000);
             }
           } else {
+            const loginMessage =
+              res.data?.message?.split(':').pop()?.trim() ?? '';
             if (
-              res.data &&
-              res.data.message.split(':')[1].trim() ===
+              loginMessage.toLowerCase() ===
               'user account not verified, check your email for verification code'
             ) {
               let userData = {
@@ -231,8 +232,8 @@ const AuthFormComponent = ({
               });
             } else {
               setError(
-                res.data?.message.split(':')[1] ||
-                'Opps, something weent wrong.',
+                loginMessage ||
+                'Couldn’t sign you in. Please try again.',
               );
               setTimeout(() => {
                 setError('');
@@ -240,13 +241,13 @@ const AuthFormComponent = ({
             }
           }
         } else {
-          setError('Invalid Email');
+          setError('Enter a valid email address.');
           setTimeout(() => {
             setError('');
           }, 2000);
         }
       } catch {
-        setError('Opps! Something went wrong');
+        setError('Couldn’t sign you in. Please try again.');
         setTimeout(() => {
           setError('');
         }, 2000);
@@ -258,7 +259,7 @@ const AuthFormComponent = ({
 
   async function handleRest() {
     if (email === '') {
-      setError('Invalid Credentials');
+      setError('Enter your email address.');
       setTimeout(() => {
         setError('');
       }, 2000);

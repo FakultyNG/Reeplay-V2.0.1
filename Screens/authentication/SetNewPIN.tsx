@@ -87,7 +87,7 @@ const SetNewPIN = () => {
         Confirm your new
       </AppText>
       <AppText className="text-2xl text-white font-LEXEND_700 mb-2">
-        App pin
+        app PIN
       </AppText>
 
       <AppView className="mt-8">
@@ -117,7 +117,7 @@ const SetNewPIN = () => {
         hideCloseBtn
         replaceDefaultContent={
           <VerificationModal
-            message="App pin created successfully"
+            message="PIN created"
             messageStyle={{maxWidth: 200, lineHeight: 18, marginTop: -9}}
           />
         }

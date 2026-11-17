@@ -1,10 +1,15 @@
-import { addComment, addReplyToComment, getCommentById } from "@/api/comment.api";
+import {addComment, addReplyToComment} from '@/api/comment.api';
 import ToastNotification from "@/components/ToastNotifications";
 import { useAppDispatch, useAppSelector } from "@/Hooks/reduxHook";
-import { addCommentReducers, addReplyByCommentId, selectPreviewVODComments, setContentComments } from "@/store/slices/previewContentSlice";
+import {
+  addCommentReducers,
+  addReplyByCommentId,
+  removeCommentById,
+  removeReplyById,
+} from '@/store/slices/previewContentSlice';
 import { selectUser, selectUserProfilePic } from "@/store/slices/userSlice";
-import { IComment, ICommentData, IReplyData } from "@/types/api/comment.types";
-import { useState } from "react";
+import {IComment, ICommentData, IReply, IReplyData} from '@/types/api/comment.types';
+import {useState} from 'react';
 import {requireRegisteredUser} from '@/Utils/guestAccess';
 
 interface Props{
@@ -20,57 +25,31 @@ interface Props{
 export const useCommentHook = ({reply, resetFunc, handleFinalFunc, text, vodId, parentReplyId, parentCommentId}:Props) =>{
     const user = useAppSelector(selectUser)
     const userProfilePic = useAppSelector(selectUserProfilePic)
-    const commentList = useAppSelector(selectPreviewVODComments)
     const dispatch = useAppDispatch();
     const [loading, setLoading] = useState<boolean>(false);
 
-
-    // TODO: REDO THIS FUNCTION FOR LESSER COST
-    // DON'T USE FOR PRODUCTION...
-     async function getCommentArray(_id: string) {
-    try {
-      handleFinalFunc()
-      const response = await getCommentById(
-       {commentId: _id,
-        type: reply ? 'REPLY'
-          : 'COMMENT'}
-      );
-      if (response.ok && response.data) {
-        const data = response.data.data;
-        const replyData = 'parentCommentId' in data && data;
-        dispatch(
-          (replyData && replyData.parentCommentId)
-            ? addReplyByCommentId({
-                commentId: replyData.parentCommentId,
-                reply: replyData,
-              })
-            : addCommentReducers({...data as IComment, loading: false}),
-        );
-      }
-    } catch (error) {
-      ToastNotification("Opps! Something went wrong, couldn't load comments");
-    }
-  }
-
-
     const addCommentFunc = async () => {
     if (!requireRegisteredUser()) return;
-    let comment: ICommentData = {
-      message: text,
+    const message = text.trim();
+    if (!message || loading) return;
+
+    const comment: ICommentData = {
+      message,
       parentType:'vod',
       parentId: vodId
     };
-    let replyComment: IReplyData = {
-      message: text,
+    const replyComment: IReplyData = {
+      message,
       parentType:'vod',
       parentId: vodId,
       parentCommentId:parentCommentId??'',
-      parentReplyId: parentReplyId ??'',
+      ...(parentReplyId ? {parentReplyId} : {}),
     };
 
+    const temporaryId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const data:IComment = {
-      _id: user._id,
-      content: text,
+      _id: temporaryId,
+      content: message,
       createdAt: `${new Date().toISOString()}`,
       updatedAt: `${new Date().toISOString()}`,
       totalReactions:0,
@@ -85,9 +64,7 @@ export const useCommentHook = ({reply, resetFunc, handleFinalFunc, text, vodId, 
       loading: true,
     };
 
-    if (!reply) {
-      dispatch(setContentComments([data,...commentList]));
-    }
+    if (!reply) dispatch(addCommentReducers(data));
 
     if (reply && parentCommentId) {
       dispatch(
@@ -101,7 +78,7 @@ export const useCommentHook = ({reply, resetFunc, handleFinalFunc, text, vodId, 
             userDocumentId:''
            },
            parentCommentId,
-          },
+          } as IReply,
         }),
       );
     }
@@ -112,19 +89,17 @@ export const useCommentHook = ({reply, resetFunc, handleFinalFunc, text, vodId, 
       const response = reply
           ? await addReplyToComment(replyComment)
           : await addComment(comment);
-      resetFunc();
-      if (response.ok && response.data) {
-        console.log(response.data)
-        // getCommentArray(
-        //    response.data.data._id,
-        // );
-           dispatch(
+      if (!response.ok || !response.data) {
+        throw new Error(response.data?.message || 'Unable to post comment');
+      }
+
+      dispatch(
           (reply && parentCommentId)
             ? addReplyByCommentId({
                 commentId: parentCommentId,
                 reply: {
                 ...data,
-                _id:response.data.data._id,
+                _id: response.data.data._id,
                 loading:false,
                 parentCommentAuthor:{
                   fullName:'',
@@ -132,12 +107,27 @@ export const useCommentHook = ({reply, resetFunc, handleFinalFunc, text, vodId, 
                   userDocumentId:''
                 },
                 parentCommentId,
-              },
+              } as IReply,
            })
-          : addCommentReducers({...data as IComment, _id:response.data.data._id, loading: false}),
+          : addCommentReducers({...data, _id: response.data.data._id, loading: false}),
         );
+      if (reply && parentCommentId) {
+        dispatch(removeReplyById({commentId: parentCommentId, replyId: temporaryId}));
+      } else {
+        dispatch(removeCommentById(temporaryId));
       }
+      resetFunc();
+      handleFinalFunc();
     } catch (error) {
+      if (reply && parentCommentId) {
+        dispatch(removeReplyById({commentId: parentCommentId, replyId: temporaryId}));
+      } else {
+        dispatch(removeCommentById(temporaryId));
+      }
+      ToastNotification(
+        'error',
+        error instanceof Error ? error.message : 'Unable to post comment. Please try again.',
+      );
     } finally {
       setLoading(false);
     }

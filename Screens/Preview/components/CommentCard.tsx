@@ -1,306 +1,270 @@
-import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
-import React, { useCallback, useEffect, useState } from 'react';
-import {AppImage, AppText, AppView, TouchableOpacity} from '@/components';
-import {LikeBtn, LikeBtn_F, ReplyIcon} from '@/assets/icons';
-import useToggle from '@/Hooks/useToggle';
-import { IComment, IReply, IReplyDetails } from '@/types/api/comment.types';
-import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
-import { selectRepliesByCommentId, setRepliesByCommentId, updateCommentById, updateRepliesByReplyId } from '@/store/slices/previewContentSlice';
-import { fetchRepliesbyCommentId, getCommentById } from '@/api/comment.api';
-import ToastNotification from '@/components/ToastNotifications';
-import Size from '@/Utils/useResponsiveSize';
-import fonts from '@/configs/fonts';
-import colors from '@/configs/colors';
-import { getTimeAgo } from '@/Utils/formatTime';
-import { formatLikesNumber } from '@/Utils/formatAmount';
-import { addReaction, deleteReaction } from '@/api/content.api';
-import { useAppPersistStore } from '@/store/zustand.store';
+import React, {useCallback, useEffect, useState} from 'react';
+import {ActivityIndicator, View} from 'react-native';
 import FastImage from 'react-native-fast-image';
+import {addReaction, deleteReaction} from '@/api/content.api';
+import {fetchRepliesbyCommentId} from '@/api/comment.api';
+import {LikeBtn, LikeBtn_F, ReplyIcon} from '@/assets/icons';
+import {AppImage, AppText, TouchableOpacity} from '@/components';
+import ToastNotification from '@/components/ToastNotifications';
+import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
+import {
+  selectRepliesByCommentId,
+  setRepliesByCommentId,
+} from '@/store/slices/previewContentSlice';
+import {IComment, IReply, IReplyDetails} from '@/types/api/comment.types';
+import {formatLikesNumber} from '@/Utils/formatAmount';
+import {getTimeAgo} from '@/Utils/formatTime';
 import {requireRegisteredUser} from '@/Utils/guestAccess';
 
-interface Props{
-  item: IComment
-  commentIndex:number
-  setRepliesDetails: React.Dispatch<React.SetStateAction<IReplyDetails | null>>
+interface Props {
+  item: IComment;
+  setRepliesDetails: React.Dispatch<React.SetStateAction<IReplyDetails | null>>;
 }
-const CommentCard = ({commentIndex, setRepliesDetails, item}:Props) => {
+
+const REPLY_PAGE_SIZE = 10;
+
+const CommentCard = ({setRepliesDetails, item}: Props) => {
   const dispatch = useAppDispatch();
-  const [viewAllReply, setViewAllReply] = useState<boolean>(false);
-  const sortedReplies: IReply[] =
-    item._id === item.author.userDocumentId
-      ? []
-      : useAppSelector(selectRepliesByCommentId(item._id));
-  const [loading, setLoading] = useState<boolean>(false);
-  const [hasMore, setHasMore] = useState<boolean>(true);
-  const [showReplies, setShowReplies] = useState<boolean>(false);
-  const [page, setPage] = useState<number>(1);
+  const replies = useAppSelector(selectRepliesByCommentId(item._id));
+  const [showReplies, setShowReplies] = useState(false);
+  const [loadingReplies, setLoadingReplies] = useState(false);
+  const [replyError, setReplyError] = useState('');
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(item.totalReplies > 0);
 
-   async function fetchReplies(page?: number) {
-    if (loading) return;
-    try {
-      setLoading(true);
+  const fetchReplies = useCallback(
+    async (nextPage: number, replace = false) => {
+      if (loadingReplies || (!replace && !hasMore)) return;
+      setLoadingReplies(true);
+      setReplyError('');
+      try {
+        const response = await fetchRepliesbyCommentId({
+          commentId: item._id,
+          pagination: {page: nextPage, limit: REPLY_PAGE_SIZE},
+        });
+        if (!response.ok || !response.data) {
+          throw new Error(response.data?.message || 'Unable to load replies');
+        }
 
-      const res = await fetchRepliesbyCommentId({commentId:item._id, pagination:{
-        page: page ?? 1,
-        limit: 10,
-      }});
-      if (res.ok && res.data) {
-        const data = res.data.data;
-        const sortedData = data.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
-
-        const existing = new Set(sortedReplies.map(x => x._id));
-        const uniqueReplies = sortedData.filter(
-          reply => !existing.has(reply._id),
-        );
-        const newReplies = [...sortedReplies, ...uniqueReplies];
-        if (newReplies.length === sortedReplies.length) setHasMore(false);
-        dispatch(
-          setRepliesByCommentId({commentId: item._id, replies: newReplies}),
-        );
-
-        if (page) setPage(page);
-      } else {
-        ToastNotification('error', `${res.data?.message}`);
-        setHasMore(false);
+        const incoming = response.data.data;
+        if (replace) {
+          dispatch(setRepliesByCommentId({commentId: item._id, replies: incoming}));
+        } else {
+          const existingIds = new Set(replies.map(reply => reply._id));
+          dispatch(
+            setRepliesByCommentId({
+              commentId: item._id,
+              replies: [
+                ...replies,
+                ...incoming.filter(reply => !existingIds.has(reply._id)),
+              ],
+            }),
+          );
+        }
+        setPage(nextPage);
+        setHasMore(incoming.length === REPLY_PAGE_SIZE);
+      } catch (caught) {
+        setReplyError(caught instanceof Error ? caught.message : 'Unable to load replies');
+      } finally {
+        setLoadingReplies(false);
       }
-    } catch (error) {
-      ToastNotification('error',`${error}`);
-      setHasMore(false);
-    } finally {
-      setLoading(false);
+    },
+    [dispatch, hasMore, item._id, loadingReplies, replies],
+  );
+
+  const toggleReplies = () => {
+    const nextVisible = !showReplies;
+    setShowReplies(nextVisible);
+    if (nextVisible && replies.length === 0 && item.totalReplies > 0) {
+      void fetchReplies(1, true);
     }
-  }
+  };
 
-    const loadMore = useCallback(() => {
-    if (!hasMore || sortedReplies.length < 10) return;
-    fetchReplies(sortedReplies.length >= page * 10 ? page + 1 : page);
-  }, [page, hasMore]);
-
-  useEffect(() => {
-    fetchReplies();
-  }, [item._id]);
-
-  useEffect(() => {
-    if (!viewAllReply) loadMore();
-  }, [viewAllReply]);
-
+  const replyCount = Math.max(item.totalReplies || 0, replies.length);
 
   return (
-    <AppView className="border-t border-grey_200/10 mt-4 pt-4 px-3">
-      <SingleCommentCard 
-        item={item}
-        showReplies={showReplies}
-        showButton={sortedReplies.length > 0}
-        setShowButton={setShowReplies}
-        setRepliesDetails={setRepliesDetails}
+    <View className="border-b border-[#29292E] py-4">
+      <SingleCommentCard item={item} setRepliesDetails={setRepliesDetails} />
 
-      />
+      {replyCount > 0 && (
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={toggleReplies}
+          className="ml-[47px] mt-3 self-start rounded-full bg-[#222226] px-3 py-2">
+          <AppText className="text-xs font-ROBOTO_500 text-grey_200">
+            {showReplies ? 'Hide replies' : `View ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`}
+          </AppText>
+        </TouchableOpacity>
+      )}
 
-       <View className="ml-[50px] mt-3">
-          {showReplies && sortedReplies.length > 0 &&
-            sortedReplies.map((singleReply, index) => {
-              return (
-                <SingleCommentCard 
-                  key={singleReply._id}
-                  item={singleReply}
-                  setRepliesDetails={setRepliesDetails}
-                  isReply
-                />
-              );
-            })}
-          {(showReplies && hasMore && sortedReplies.length > 9) && (
+      {showReplies && (
+        <View className="ml-[34px] mt-2 border-l border-[#34343A] pl-3">
+          {replies.map(reply => (
+            <View key={reply._id} className="py-3">
+              <SingleCommentCard
+                item={reply}
+                isReply
+                setRepliesDetails={setRepliesDetails}
+              />
+            </View>
+          ))}
+
+          {loadingReplies && (
+            <ActivityIndicator color="#FF1313" style={{marginVertical: 12}} />
+          )}
+
+          {!!replyError && !loadingReplies && (
             <TouchableOpacity
-              onPress={() => viewAllReply ? setShowReplies(!showReplies) : setViewAllReply(!viewAllReply)}
-              className='mt-5'>
-              <AppText
-                style={{
-                  fontFamily: fonts.ROBOTO_500,
-                  fontWeight: '500',
-                  fontSize: Size.calcAverage(14),
-                  color: colors.WHITE,
-                }}>
-                View {!viewAllReply ? 'more' : 'less'} replies
-              </AppText>
+              className="self-start py-2"
+              onPress={() => fetchReplies(replies.length ? page + 1 : 1, replies.length === 0)}>
+              <AppText className="text-xs text-red">Retry loading replies</AppText>
+            </TouchableOpacity>
+          )}
+
+          {hasMore && replies.length >= REPLY_PAGE_SIZE && !loadingReplies && (
+            <TouchableOpacity
+              className="self-start py-2"
+              onPress={() => fetchReplies(page + 1)}>
+              <AppText className="text-xs font-ROBOTO_500 text-white">Load more replies</AppText>
             </TouchableOpacity>
           )}
         </View>
-      
-    </AppView>
+      )}
+    </View>
   );
 };
 
 export default CommentCard;
 
+interface SingleCommentCardProps {
+  item: IComment | IReply;
+  isReply?: boolean;
+  setRepliesDetails: React.Dispatch<React.SetStateAction<IReplyDetails | null>>;
+}
 
-interface SingleCommentCardProps{
-  item: IComment | IReply
-  isReply?:boolean
-  setShowButton?: React.Dispatch<React.SetStateAction<boolean>>
-  showButton?:boolean
-  showReplies?:boolean
-  setRepliesDetails?: React.Dispatch<React.SetStateAction<IReplyDetails | null>>
-} 
+const SingleCommentCard = ({item, isReply, setRepliesDetails}: SingleCommentCardProps) => {
+  const [isLiked, setIsLiked] = useState(Boolean(item.reactionId));
+  const [reactionCount, setReactionCount] = useState(item.totalReactions || 0);
+  const [reactionId, setReactionId] = useState<string | null>(item.reactionId);
+  const [savingReaction, setSavingReaction] = useState(false);
+  const image = item.author.photoURL;
 
-const SingleCommentCard = ({item, isReply, showReplies, setRepliesDetails, showButton, setShowButton}:SingleCommentCardProps) => {
-  const [isLike, setIsLike] = useState<boolean>(false);
-  const [reactionCount, setReactionCount] = useState<number>(0);
-   const [clicked, setClicked] = useState<boolean>(false);
-  const [userReaction, setUserReaction] = useState<string | null>(null);
-  const img = item.author.photoURL || "parentCommentAuthor" in item && item.parentCommentAuthor?.photoURL
-  const dispatch = useAppDispatch();
-  const {setIsSessionExpired} = useAppPersistStore()
+  useEffect(() => {
+    setIsLiked(Boolean(item.reactionId));
+    setReactionId(item.reactionId);
+    setReactionCount(item.totalReactions || 0);
+  }, [item._id, item.reactionId, item.totalReactions]);
 
-  function handleReplyTo(){
-    if (!requireRegisteredUser()) return;
-    if(item.loading) return;
-    setRepliesDetails?.({
+  const reply = () => {
+    if (!requireRegisteredUser() || item.loading) return;
+    setRepliesDetails({
       name: item.author.fullName,
-      commentId: ('parentCommentId' in item && item.parentCommentId) ? item.parentCommentId : item._id,
-      ...('parentCommentId' in item && {replyId:item._id})
-    })
-  }
+      commentId:
+        'parentCommentId' in item && item.parentCommentId
+          ? item.parentCommentId
+          : item._id,
+      ...(isReply ? {replyId: item._id} : {}),
+    });
+  };
 
-  //  async function getCommentArray() {
-  //     const response = await getCommentById(
-  //      {commentId: item._id,
-  //       type: isReply ? 'REPLY' : 'COMMENT'
-  //     }
-  //     );
-  //     if (response.status === 401)
-  //       setIsToken(true);
-  //     if (response.ok && response.data) {
-  //       const data = response.data.data;
-  //       const reply = 'parentCommentId' in data && data;
-  //       dispatch(
-  //         (reply && isReply && reply.parentCommentId)
-  //           ? updateRepliesByReplyId({commentId: reply.parentCommentId, reply})
-  //           : updateCommentById({...data as IComment, loading: false}),
-  //       );
-  //     }
-  // }
+  const toggleReaction = async () => {
+    if (!requireRegisteredUser() || item.loading || savingReaction) return;
+    const previousLiked = isLiked;
+    const previousCount = reactionCount;
+    const previousReactionId = reactionId;
 
-  async function handleCommentReaction() {
-    if (!requireRegisteredUser()) return;
-    if (item.loading || clicked) return;
+    setSavingReaction(true);
+    setIsLiked(!previousLiked);
+    setReactionCount(Math.max(0, previousCount + (previousLiked ? -1 : 1)));
+
     try {
-      setClicked(true);
-
-      if (!isLike && !userReaction) {
-        setIsLike(true);
-        setReactionCount(reactionCount + 1);
-
-        const response = await addReaction(
-          {reaction:'love', commentId:item._id},
-        );
-        console.log(response.data)
-        if (!response.ok) {
-          setReactionCount(reactionCount);
-          setIsLike(false);
-          ToastNotification('error',
-            'Oops! Something went wrong, Please try liking this event again',
-          );
-        } else {
-          if (response.data) setUserReaction(response.data.data.reactionId);
-        }
+      if (!previousLiked) {
+        const response = await addReaction({reaction: 'love', commentId: item._id});
+        if (!response.ok || !response.data) throw new Error('Unable to like comment');
+        setReactionId(response.data.data.reactionId);
+      } else {
+        if (!previousReactionId) throw new Error('Reaction is unavailable');
+        const response = await deleteReaction({reactionId: previousReactionId});
+        if (!response.ok) throw new Error(response.data?.message || 'Unable to remove like');
+        setReactionId(null);
       }
-
-      if (isLike && userReaction) {
-        setIsLike(false);
-        setReactionCount(reactionCount - 1);
-
-        const response = await deleteReaction({reactionId:userReaction});
-        // console.log(response.data)
-
-        if (!(response.data?.message.toLowerCase().includes('successful')) || (response.data.status !== 200)) {
-          setReactionCount(reactionCount);
-          setIsLike(true);
-          ToastNotification('error',
-            'Oops! Something went wrong, Please try unliking this event again',
-          );
-        } else {
-          setUserReaction(null);
-        }
-      }
-    } catch (error) {
-      ToastNotification('error',`${error}`);
+    } catch (caught) {
+      setIsLiked(previousLiked);
+      setReactionCount(previousCount);
+      setReactionId(previousReactionId);
+      ToastNotification(
+        'error',
+        caught instanceof Error ? caught.message : 'Unable to update reaction',
+      );
     } finally {
-      // getCommentArray();
-      setClicked(false);
+      setSavingReaction(false);
     }
-  }
-
-  useEffect(() => {
-    if (item.reactionId) {
-      setIsLike(true);
-      setUserReaction(item.reactionId);
-    }
-  }, [item._id]);
-
-  useEffect(() => {
-    setReactionCount(item.totalReactions);
-  }, [item.totalReactions]);
+  };
 
   return (
-    <View className="flex-row relative">
-       {item.loading && (
-        <View className='absolute top-10 right-4 z-50'>
-        <Text className='text-xs text-white font-ROBOTO_400'>Loading...</Text>
-        </View>
-      )}
+    <View className="flex-row">
       <AppImage
-        style={{
-          width:39,
-          height:39,
-          borderRadius:99,
-          marginRight: 10
-        }}
-        source={(img && img !== '') ? {uri: img, priority:FastImage.priority.high} : require('@/assets/images/default-user-profile.webp')}
+        style={{width: 37, height: 37, borderRadius: 19, marginRight: 10}}
+        source={
+          image
+            ? {uri: image, priority: FastImage.priority.high}
+            : require('@/assets/images/default-user-profile.webp')
+        }
       />
-      <AppView>
-        {/* Content */}
-        <AppText className="font-ROBOTO_400 text-[11.8px] tracking-wide max-w-[93%] text-white">
-         {item.content}
-        </AppText>
 
-        {/* Name */}
-        <AppView className="flex-row items-center gap-x-1 mt-[3px]">
-          <AppText className="font-ROBOTO_700 text-[11.8px] text-yellow">
-            {item.author.fullName}
+      <View className="min-w-0 flex-1">
+        <View className="flex-row items-center">
+          <AppText numberOfLines={1} className="max-w-[65%] text-[13px] font-ROBOTO_700 text-white">
+            {item.author.fullName || 'Reeplay user'}
           </AppText>
-          <AppText className="font-ROBOTO_400 text-[11.8px] text-grey_200">
+          <View className="mx-2 h-1 w-1 rounded-full bg-[#67676D]" />
+          <AppText className="text-[11px] font-ROBOTO_400 text-grey_200">
             {getTimeAgo(item.updatedAt)}
           </AppText>
-        </AppView>
+        </View>
 
-        {/* Buttons */}
-        <AppView className="flex-row items-center gap-x-4 mt-[10px]">
-          <AppView className="flex-row items-center gap-x-1.5">
-            <TouchableOpacity onPress={handleCommentReaction} hitSlop={20}>
-              {isLike ? <LikeBtn_F /> : <LikeBtn />}
-            </TouchableOpacity>
-            <AppText className="font-ROBOTO_400 text-white text-[11.8px]">
-              {formatLikesNumber(reactionCount)}
-            </AppText>
-          </AppView>
-          <TouchableOpacity 
-          disabled={item.loading}
-          onPress={handleReplyTo}
-          className="flex-row items-center gap-x-1.5">
-            <ReplyIcon />
-            <AppText className="text-[11.8px] text-yellow font-ROBOTO_400">
-              Reply
-            </AppText>
+        {'parentCommentAuthor' in item && item.parentCommentAuthor?.fullName ? (
+          <AppText className="mt-1 text-[11px] text-grey_200">
+            Replying to @{item.parentCommentAuthor.fullName}
+          </AppText>
+        ) : null}
+
+        <AppText className="mt-1.5 text-[14px] leading-5 font-ROBOTO_400 text-[#E8E8EA]">
+          {item.content}
+        </AppText>
+
+        <View className="mt-2.5 flex-row items-center gap-x-5">
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={isLiked ? 'Unlike comment' : 'Like comment'}
+            disabled={item.loading || savingReaction}
+            hitSlop={10}
+            onPress={toggleReaction}
+            className="flex-row items-center gap-x-1.5">
+            {isLiked ? <LikeBtn_F /> : <LikeBtn />}
+            {reactionCount > 0 && (
+              <AppText className="text-xs text-grey_200">
+                {formatLikesNumber(reactionCount)}
+              </AppText>
+            )}
           </TouchableOpacity>
-         {showButton && <TouchableOpacity onPress={() => setShowButton?.(prev => !prev)} className="flex-row items-center gap-x-1.5">
-            <AppText className="text-[11.8px] text-white font-ROBOTO_400">
-              {showReplies ? 'Hide' : 'View'} replies
-            </AppText>
-          </TouchableOpacity>}
-        </AppView>
-      </AppView>
+
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Reply to comment"
+            disabled={item.loading}
+            hitSlop={10}
+            onPress={reply}
+            className="flex-row items-center gap-x-1.5">
+            <ReplyIcon />
+            <AppText className="text-xs font-ROBOTO_500 text-grey_200">Reply</AppText>
+          </TouchableOpacity>
+
+          {item.loading && (
+            <AppText className="text-[11px] text-grey_200">Sending…</AppText>
+          )}
+        </View>
+      </View>
     </View>
   );
 };

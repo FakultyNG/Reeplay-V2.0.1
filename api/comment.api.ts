@@ -14,10 +14,13 @@ export const addReplyToComment = async (data: IReplyData) =>
     await apiCall<IAddCommentOrReplyResponse>(baseApi => baseApi.post<IAddCommentOrReplyResponse>(`/customers/socials/create/reply`, data))
 
 export const fetchCommentbyVOD = async (data: {vodId:string, pagination:IPagination}) =>
-    await apiCall<ICommentResponse>(baseApi => baseApi.get<ICommentResponse>(`/customers/socials/fetch/comments/${data.vodId}?page=${data.pagination}&limit=${data.pagination.limit}`))
+    await apiCall<ICommentResponse>(baseApi => baseApi.get<ICommentResponse>(`/customers/socials/fetch/comments/${data.vodId}?page=${data.pagination.page}&limit=${data.pagination.limit}`))
 
 export const fetchRepliesbyCommentId = async (data: {commentId:string, pagination:IPagination}) =>
-    await apiCall<IReplyResponse>(baseApi => baseApi.get<IReplyResponse>(`/customers/socials/fetch/replies/${data.commentId}?page=${data.pagination}&limit=${data.pagination.limit}`))
+    await apiCall<IReplyResponse>(baseApi => baseApi.get<IReplyResponse>(`/customers/socials/fetch/replies/${data.commentId}?page=${data.pagination.page}&limit=${data.pagination.limit}`))
+
+export const deleteComment = async (commentId: string) =>
+    await apiCall<IGeneric>(baseApi => baseApi.delete<IGeneric>(`/customers/socials/comments/${commentId}`))
 
 export const getCommentById = async (data: {commentId:string, type:'REPLY'|'COMMENT'}) =>
     await apiCall<ICommentReplyResponse>(baseApi => baseApi.get<ICommentReplyResponse>(`/customers/socials/fetch/comments/${data.commentId}/${data.type}`))

@@ -1,110 +1,150 @@
-import {ActivityIndicator, FlatList, Platform, ScrollView, StyleSheet, Text, View} from 'react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
+import {ActivityIndicator, FlatList, RefreshControl, View} from 'react-native';
+import {fetchCommentbyVOD} from '@/api/comment.api';
+import {AppText, TouchableOpacity} from '@/components';
+import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
+import {
+  selectPreviewVODComments,
+  setContentComments,
+} from '@/store/slices/previewContentSlice';
+import {IReplyDetails} from '@/types/api/comment.types';
 import CommentCard from './components/CommentCard';
-import { selectPreviewVODComments, setContentComments } from '@/store/slices/previewContentSlice';
-import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
-import { IReplyDetails } from '@/types/api/comment.types';
-import { fetchCommentbyVOD } from '@/api/comment.api';
-import Size from '@/Utils/useResponsiveSize';
 
-interface Props{
-  setRepliesDetails: React.Dispatch<React.SetStateAction<IReplyDetails | null>>
-  vodId:string
-  loadComment:boolean
+const PAGE_SIZE = 20;
+
+interface Props {
+  setRepliesDetails: React.Dispatch<React.SetStateAction<IReplyDetails | null>>;
+  vodId: string;
+  loadComment: boolean;
 }
-const PreviewComments = ({setRepliesDetails, vodId, loadComment}:Props) => {
-    const flatListRef = useRef(null);
-    const dispatch = useAppDispatch();
-    const commentList = useAppSelector(selectPreviewVODComments);
-    const [page, setPage] = useState<number>(1)
-    const [hasMore, setHasMore] = useState<boolean>(true)
-    const [loading, setLoading] = useState<boolean>(false);
-    const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-     async function handleRefresh() {
-    setIsRefreshing(true);
-    setHasMore(true);
-    await Promise.all([handleFetchComments(1)]);
-    setIsRefreshing(false);
-  }
+const PreviewComments = ({setRepliesDetails, vodId, loadComment}: Props) => {
+  const dispatch = useAppDispatch();
+  const comments = useAppSelector(selectPreviewVODComments);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
 
-    async function handleFetchComments(page?:number){
-      if(!hasMore || loading) return
+  const fetchPage = useCallback(
+    async (nextPage: number, replace = false) => {
+      if ((!replace && !hasMore) || (loading && !replace)) return;
+      setError('');
+      if (!replace) setLoading(true);
+
       try {
-        setLoading(true);
-        const res = await fetchCommentbyVOD({vodId, pagination:{page:page??1, limit:20}});
-        if(res.ok && res.data){
-          const data = res.data.data
-          const exitingId = new Set<string>(commentList.map(x => x._id))
-          const merged = [
-            ...commentList,
-            ...data.filter(x => !exitingId.has(x._id))
-          ]
-          if(merged.length === commentList.length) setHasMore(false);
-          dispatch(setContentComments(merged));
-          if(page) setPage(page)
-        }else{
-          setHasMore(false)
+        const response = await fetchCommentbyVOD({
+          vodId,
+          pagination: {page: nextPage, limit: PAGE_SIZE},
+        });
+        if (!response.ok || !response.data) {
+          throw new Error(response.data?.message || 'Unable to load comments');
         }
-      } catch (error) {
-        setHasMore(false)
-      }finally{
-        setLoading(false)
+
+        const incoming = response.data.data;
+        if (replace) {
+          dispatch(setContentComments(incoming));
+        } else {
+          const existingIds = new Set(comments.map(comment => comment._id));
+          dispatch(
+            setContentComments([
+              ...comments,
+              ...incoming.filter(comment => !existingIds.has(comment._id)),
+            ]),
+          );
+        }
+        setPage(nextPage);
+        setHasMore(incoming.length === PAGE_SIZE);
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : 'Unable to load comments');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-    }
+    },
+    [comments, dispatch, hasMore, loading, vodId],
+  );
 
-  const loadMore = useCallback(() => {
-    if (!hasMore || commentList.length < 20) return;
-      handleFetchComments(commentList.length >= page * 20 ? page + 1 : page);
-  }, [page, hasMore]);
+  useEffect(() => {
+    dispatch(setContentComments([]));
+    setPage(1);
+    setHasMore(true);
+    setLoading(true);
+    void fetchPage(1, true);
+    // Optimistic list changes should not trigger another page-one request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, vodId]);
 
-  useEffect(() =>{
-    if(hasMore) return;
-    setTimeout(() =>{
-      setHasMore(true)
-    }, 5000)
-  }, [hasMore])
+  const refresh = () => {
+    setRefreshing(true);
+    setHasMore(true);
+    void fetchPage(1, true);
+  };
 
-  // console.log(commentList[0])
+  const emptyState = loading ? (
+    <View className="flex-1 items-center justify-center px-8 py-16">
+      <ActivityIndicator color="#FF1313" />
+      <AppText className="mt-3 text-sm text-grey_200">Loading comments…</AppText>
+    </View>
+  ) : error ? (
+    <View className="flex-1 items-center justify-center px-8 py-16">
+      <AppText className="text-center text-base font-ROBOTO_500 text-white">
+        Comments couldn’t load
+      </AppText>
+      <AppText className="mt-2 text-center text-sm text-grey_200">{error}</AppText>
+      <TouchableOpacity
+        className="mt-5 rounded-full bg-red px-6 py-3"
+        onPress={() => fetchPage(1, true)}>
+        <AppText className="font-ROBOTO_500 text-white">Try again</AppText>
+      </TouchableOpacity>
+    </View>
+  ) : (
+    <View className="flex-1 items-center justify-center px-8 py-16">
+      <AppText className="text-base font-ROBOTO_500 text-white">No comments yet</AppText>
+      <AppText className="mt-2 text-center text-sm text-grey_200">
+        Start the conversation and share what you think.
+      </AppText>
+    </View>
+  );
 
   return (
     <FlatList
-          ref={flatListRef}
-          keyboardShouldPersistTaps="always"
-          keyExtractor={item => item._id}
-          refreshing={isRefreshing}
-          onRefresh={handleRefresh}
-          bounces={false}
-          contentContainerStyle={{
-            paddingHorizontal: 12,
-            paddingBottom: Platform.OS === 'ios' ? Size.hp(10) : Size.hp(20),
-          }} 
-          onEndReachedThreshold={1}         
-          onEndReached={loadMore}
-          showsVerticalScrollIndicator={false}
-          data={commentList}
-          extraData={[loadComment]}
-          renderItem={({item, index}) => {
-            return (
-              <CommentCard 
-                item={item}
-                commentIndex={index}
-                setRepliesDetails={setRepliesDetails}
-              />
-            )}}
-           ListFooterComponent={
-          <>
-            {loading && !isRefreshing && (
-              <View className="h-20 items-center justify-center">
-                <ActivityIndicator size={'large'} />
-              </View>
-            )}
-          </>
+      keyboardShouldPersistTaps="handled"
+      data={comments}
+      keyExtractor={item => item._id}
+      renderItem={({item}) => (
+        <CommentCard item={item} setRepliesDetails={setRepliesDetails} />
+      )}
+      contentContainerStyle={{
+        flexGrow: 1,
+        paddingHorizontal: 16,
+        paddingBottom: 24,
+      }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={refresh}
+          tintColor="#FF1313"
+          colors={['#FF1313']}
+        />
+      }
+      onEndReached={() => {
+        if (!loading && hasMore && comments.length >= PAGE_SIZE) {
+          void fetchPage(page + 1);
         }
-          />
+      }}
+      onEndReachedThreshold={0.35}
+      ListEmptyComponent={emptyState}
+      ListFooterComponent={
+        loading && comments.length > 0 ? (
+          <ActivityIndicator color="#FF1313" style={{marginVertical: 20}} />
+        ) : null
+      }
+      extraData={loadComment}
+      showsVerticalScrollIndicator={false}
+    />
   );
 };
 
 export default PreviewComments;
-
-const styles = StyleSheet.create({});

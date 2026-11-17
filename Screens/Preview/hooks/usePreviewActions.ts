@@ -4,7 +4,6 @@ import {useIsFocused} from '@react-navigation/native';
 import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
 import {
   selectPreviewVODContent,
-  setContentComments,
   setPreviewContent,
 } from '@/store/slices/previewContentSlice';
 import ToastNotification from '@/components/ToastNotifications';
@@ -13,7 +12,7 @@ import {
   checkIsWatchList,
   removeWatchList,
 } from '@/api/watchlist.api';
-import {fetchCommentbyVOD, totalCommentCount} from '@/api/comment.api';
+import {totalCommentCount} from '@/api/comment.api';
 import {deleteWatchlistById} from '@/store/slices/userSlice';
 import {
   addVODRating,
@@ -92,7 +91,7 @@ export function usePreviewActions({
 
   const getCommentCount = useCallback(async () => {
     const res = await totalCommentCount(previewContent._id);
-    if (res.ok && res.data?.data.totalComments) {
+    if (res.ok && res.data) {
       setCommentCount(res.data.data.totalComments);
     }
   }, [previewContent._id]);
@@ -174,19 +173,6 @@ export function usePreviewActions({
     previewContent._id,
   ]);
 
-  const handleFetchComments = useCallback(
-    async (page?: number) => {
-      const res = await fetchCommentbyVOD({
-        vodId: previewContent._id,
-        pagination: {page: page ?? 1, limit: 20},
-      });
-      if (res.ok && res.data) {
-        dispatch(setContentComments(res.data.data));
-      }
-    },
-    [dispatch, previewContent._id],
-  );
-
   const handleContentStatusUpdate = useCallback(async () => {
     if (contentType === 'free') {
       setAccessStatus(true);
@@ -236,10 +222,6 @@ export function usePreviewActions({
     getCommentCount();
     handleFetchVodMeta();
   }, [isFocused, isGuest]);
-
-  useEffect(() => {
-    handleFetchComments();
-  }, [isComment]);
 
   useEffect(() => {
     if (!isFullscreen) {

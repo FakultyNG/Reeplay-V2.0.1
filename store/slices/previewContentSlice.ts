@@ -123,14 +123,19 @@ const previewVODSlice = createSlice({
         [commentId]: updated,
       };
     },
+    removeReplyById: (
+      state,
+      action: PayloadAction<{commentId: string; replyId: string}>,
+    ) => {
+      const {commentId, replyId} = action.payload;
+      state.replies[commentId] = (state.replies[commentId] ?? []).filter(
+        reply => reply._id !== replyId,
+      );
+    },
     addCommentReducers: (state, action: PayloadAction<IComment>) => {
       const newComment = action.payload;
 
-      const index = state.comments.findIndex(
-        comment =>
-          comment.author.userDocumentId === newComment.author.userDocumentId &&
-          comment.content === newComment.content,
-      );
+      const index = state.comments.findIndex(comment => comment._id === newComment._id);
 
       if (index !== -1) {
         state.comments = [
@@ -141,6 +146,10 @@ const previewVODSlice = createSlice({
       } else {
         state.comments = [newComment, ...state.comments];
       }
+    },
+    removeCommentById: (state, action: PayloadAction<string>) => {
+      state.comments = state.comments.filter(comment => comment._id !== action.payload);
+      delete state.replies[action.payload];
     },
      updateCommentById: (state, action: PayloadAction<IComment>) => {
       const index = state.comments.findIndex(c => c._id === action.payload._id);
@@ -172,7 +181,7 @@ const previewVODSlice = createSlice({
     },
 });
 
-export const { setPreviewContent, setContentComments, updateCommentById, updateRepliesByReplyId, setRepliesByCommentId, addCommentReducers, addReplyByCommentId } = previewVODSlice.actions;
+export const { setPreviewContent, setContentComments, updateCommentById, updateRepliesByReplyId, setRepliesByCommentId, addCommentReducers, addReplyByCommentId, removeCommentById, removeReplyById } = previewVODSlice.actions;
 
 
 export const selectPreviewVODContent = (state: RootState) =>

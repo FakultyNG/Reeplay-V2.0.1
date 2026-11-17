@@ -6,6 +6,7 @@ buildscript {
         targetSdkVersion = 36
         ndkVersion = "27.1.12297006"
         kotlinVersion = "2.1.20"
+        castFrameworkVersion = "23.0.0"
 
         useExoplayerIMA = true
     // useExoplayerRtsp = true
@@ -43,8 +44,8 @@ allprojects {
     }
     configurations.configureEach {
         resolutionStrategy {
-            force "com.google.android.gms:play-services-cast-framework:21.4.0"
-            force "com.google.android.gms:play-services-cast:21.4.0"
+            force "com.google.android.gms:play-services-cast-framework:${rootProject.ext.castFrameworkVersion}"
+            force "com.google.android.gms:play-services-cast:${rootProject.ext.castFrameworkVersion}"
             force "androidx.annotation:annotation:1.9.1"
             force "androidx.annotation:annotation-jvm:1.9.1"
             force "androidx.browser:browser:1.8.0"

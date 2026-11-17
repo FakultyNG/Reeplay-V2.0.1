@@ -81,7 +81,7 @@ export const bannerApi = async () => {
 };
 
 export const randomAds = async () =>
-    await apiCall<IAdsResponse>(baseApi => baseApi.get<IAdsResponse>('/customers/ads/random'))
+    await apiCall<IAdsResponse>(baseApi => baseApi.get<IAdsResponse>('/customers/ads/random?type=mobile'))
 
 export const fetchHomeAds = async () =>
     await apiCall<IHomeAdsResponse>(baseApi => baseApi.get<IHomeAdsResponse>('/customers/ads/home'))

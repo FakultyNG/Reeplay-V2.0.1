@@ -33,7 +33,7 @@ import { useAppPersistStore } from '@/store/zustand.store';
 import PrivacyScreen from '../support/PrivacyScreen';
 import TermScreen from '../support/TermScreen';
 import { setCategories } from '@/store/slices/bannerSlice.slice';
-import {contentGetJson, contentSetJson, CONTENT_MMKV_KEYS} from '@/Utils/contentMmkv';
+import {contentGetJson, CONTENT_MMKV_KEYS} from '@/Utils/contentMmkv';
 import {useGuestAccessStore} from '@/store/guestAccess.store';
 import {startGuestSession} from '@/Utils/guestAccess';
 import WelcomeAdPlayer from './components/WelcomeAdPlayer';
@@ -55,6 +55,7 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
   const { isLock, setIsLock, isSessionExpired, biometrics } = useAppPersistStore()
   const [modal, setModal] = useState<'privacy' | 'terms' | null>(null)
   const guestAccessEnabled = useGuestAccessStore(state => state.enabled);
+  const [adRequestComplete, setAdRequestComplete] = useState(false);
 
   async function handleLogin() {
     if (lock) {
@@ -93,14 +94,17 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
       console.log(lockState)
     }
 
+    dispatch(setAdsContent([]));
+    setAdRequestComplete(false);
     try {
       const res = await randomAds();
       if (res.ok && res.data) {
         dispatch(setAdsContent(res.data.data));
-        contentSetJson(CONTENT_MMKV_KEYS.WELCOME_ADS, res.data.data);
       }
     } catch (error) {
       console.log(error);
+    } finally {
+      setAdRequestComplete(true);
     }
   }
 
@@ -161,14 +165,9 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
     const dataC = contentGetJson<unknown[]>(CONTENT_MMKV_KEYS.CATEGORY);
     const dataG = contentGetJson<unknown[]>(CONTENT_MMKV_KEYS.GENRE);
     const dataB = contentGetJson<unknown>(CONTENT_MMKV_KEYS.BANNER);
-    const cachedAds = contentGetJson<
-      ReturnType<typeof selectAdsContent>['ads']
-    >(CONTENT_MMKV_KEYS.WELCOME_ADS);
-
     if (dataC) dispatch(setCategories(dataC as any))
     if (dataG) dispatch(setCategories(dataG as any))
     if (dataB) dispatch(setCategories(dataB as any))
-    if (cachedAds?.length) dispatch(setAdsContent(cachedAds));
   }
 
   useEffect(() => {
@@ -189,11 +188,12 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
   console.log(user)
 
   return (
-    <AppView className="relative" style={{ backgroundColor: colors.DEEP_BLACK }}>
+    <AppView style={styles.screen}>
       <StatusBar hidden />
       <WelcomeAdPlayer
         ads={ads}
         muted={toogle}
+        requestComplete={adRequestComplete}
         paused={
           !isFocused ||
           modal !== null ||
@@ -204,10 +204,11 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
 
       <LinearGradient
         colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.1)', 'rgba(0,0,0,1)']}
+        pointerEvents="none"
         style={styles.gradientStyles}
       />
 
-      <AppView className="absolute top-5 left-5 z-[99px]">
+      <AppView style={styles.topControls}>
         <TouchableOpacity onPress={setToogle}>
           {toogle ? (
             <MuteIcon
@@ -238,7 +239,7 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
         )}
       </AppView>
 
-      <AppView className="absolute bottom-8 z-[99px] items-center w-full">
+      <AppView style={styles.bottomControls}>
         {(user._id !== '' || isLock) ? (
           <AppView className="flex-row items-center justify-center gap-x-1">
             <AppButton
@@ -318,6 +319,26 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
 export default GetStartedScreen;
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    position: 'relative',
+    backgroundColor: colors.DEEP_BLACK,
+  },
+  topControls: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 10,
+    elevation: 10,
+  },
+  bottomControls: {
+    position: 'absolute',
+    bottom: 32,
+    width: '100%',
+    alignItems: 'center',
+    zIndex: 10,
+    elevation: 10,
+  },
   loginBtn: {
     borderColor: 'white',
     borderWidth: 2,

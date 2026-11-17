@@ -5,7 +5,7 @@ import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
-import com.google.android.gms.cast.framework.CastContext
+import com.reactnative.googlecast.api.RNGCCastContext
 
 class MainActivity : ReactActivity() {
 
@@ -18,8 +18,8 @@ class MainActivity : ReactActivity() {
     super.onCreate(savedInstanceState)
 
     try {
-      // Initialize CastContext (required for Google Cast to work)
-      CastContext.getSharedInstance(this)
+      // Initialize the React Native Cast bridge and its discovery manager.
+      RNGCCastContext.getSharedInstance(this)
     } catch (e: Exception) {
       // Safe fallback if Cast framework is not available
       e.printStackTrace()

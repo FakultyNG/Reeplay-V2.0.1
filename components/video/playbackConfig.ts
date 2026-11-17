@@ -100,6 +100,11 @@ function isLocalUri(uri: string): boolean {
   );
 }
 
+export function isHlsPlaybackUri(uri: string): boolean {
+  const normalized = uri.toLowerCase();
+  return normalized.includes('.m3u8') || normalized.includes('/media/hls/');
+}
+
 /**
  * Resolve stream URI + buffer policy.
  * Live HLS must never go through react-native-video-cache.
@@ -135,7 +140,7 @@ export function resolvePlaybackSource(
     };
   }
 
-  if (uri.toLowerCase().includes('.m3u8')) {
+  if (isHlsPlaybackUri(uri)) {
     return {
       uri,
       type: 'm3u8',

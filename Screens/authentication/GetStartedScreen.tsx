@@ -33,7 +33,12 @@ import { useAppPersistStore } from '@/store/zustand.store';
 import PrivacyScreen from '../support/PrivacyScreen';
 import TermScreen from '../support/TermScreen';
 import { setCategories } from '@/store/slices/bannerSlice.slice';
-import {contentGetJson, CONTENT_MMKV_KEYS} from '@/Utils/contentMmkv';
+import {
+  contentGetJson,
+  contentSetJson,
+  CONTENT_MMKV_KEYS,
+} from '@/Utils/contentMmkv';
+import type {IAdsData} from '@/types/api/content.types';
 import {useGuestAccessStore} from '@/store/guestAccess.store';
 import {startGuestSession} from '@/Utils/guestAccess';
 import WelcomeAdPlayer from './components/WelcomeAdPlayer';
@@ -94,12 +99,15 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
       console.log(lockState)
     }
 
-    dispatch(setAdsContent([]));
+    const cachedAds = contentGetJson<IAdsData[]>(CONTENT_MMKV_KEYS.WELCOME_ADS);
+    dispatch(setAdsContent(Array.isArray(cachedAds) ? cachedAds : []));
     setAdRequestComplete(false);
     try {
       const res = await randomAds();
       if (res.ok && res.data) {
-        dispatch(setAdsContent(res.data.data));
+        const freshAds = Array.isArray(res.data.data) ? res.data.data : [];
+        dispatch(setAdsContent(freshAds));
+        contentSetJson(CONTENT_MMKV_KEYS.WELCOME_ADS, freshAds);
       }
     } catch (error) {
       console.log(error);

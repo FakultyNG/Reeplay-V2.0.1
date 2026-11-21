@@ -48,16 +48,16 @@ export default function WelcomeAdPlayer({
     });
   }, [ads]);
   const [index, setIndex] = useState(0);
-  const [serverPlaybackFailed, setServerPlaybackFailed] = useState(false);
+  const [failedAdIds, setFailedAdIds] = useState<string[]>([]);
 
   useEffect(() => {
     setIndex(0);
-    setServerPlaybackFailed(false);
+    setFailedAdIds([]);
   }, [eligibleAds]);
 
-  const useFallback =
-    requestComplete && (eligibleAds.length === 0 || serverPlaybackFailed);
-  const serverAd = eligibleAds[index % Math.max(eligibleAds.length, 1)];
+  const playableAds = eligibleAds.filter(ad => !failedAdIds.includes(ad._id));
+  const useFallback = requestComplete && playableAds.length === 0;
+  const serverAd = playableAds[index % Math.max(playableAds.length, 1)];
   const item: VideoItem | null = useFallback
     ? fallbackItem
     : serverAd
@@ -81,16 +81,19 @@ export default function WelcomeAdPlayer({
       paused={paused}
       controls={false}
       viewType={ViewType.TEXTURE}
-      repeat={item.fallback || eligibleAds.length === 1}
+      repeat={item.fallback || playableAds.length === 1}
       hideShutterView
       shutterColor="transparent"
       onEnd={() => {
         if (!item.fallback) {
-          setIndex(current => (current + 1) % eligibleAds.length);
+          setIndex(current => (current + 1) % playableAds.length);
         }
       }}
       onError={() => {
-        if (!item.fallback) setServerPlaybackFailed(true);
+        if (!item.fallback) {
+          setFailedAdIds(ids => (ids.includes(item.id) ? ids : [...ids, item.id]));
+          setIndex(0);
+        }
       }}
     />
   );

@@ -3,6 +3,7 @@ jest.mock('react-native-video-cache', () => (url: string) => url);
 import {
   getYouTubeEmbedUrl,
   getYouTubeVideoId,
+  resolvePlaybackSource,
 } from '../components/video/playbackConfig';
 
 describe('YouTube playback URLs', () => {
@@ -23,5 +24,27 @@ describe('YouTube playback URLs', () => {
 
   test('does not classify direct media URLs as YouTube', () => {
     expect(getYouTubeEmbedUrl('https://cdn.example.com/movie.mp4')).toBeNull();
+  });
+});
+
+describe('stream source resolution', () => {
+  test('plays HLS directly instead of routing it through the MP4 cache proxy', () => {
+    expect(resolvePlaybackSource('https://api.example.com/media/hls/id/master.m3u8')).toEqual(
+      expect.objectContaining({
+        uri: 'https://api.example.com/media/hls/id/master.m3u8',
+        type: 'm3u8',
+        shouldCache: false,
+      }),
+    );
+  });
+
+  test('keeps live streams uncached even when their URL has no extension', () => {
+    expect(resolvePlaybackSource('https://stream.example.com/live/channel', 'live')).toEqual(
+      expect.objectContaining({
+        uri: 'https://stream.example.com/live/channel',
+        type: 'm3u8',
+        shouldCache: false,
+      }),
+    );
   });
 });

@@ -71,6 +71,8 @@ const ContinueWatchingComp = ({
         viewsCount: Number(episode ? episode.viewsCount : video.viewsCount),
         seekTo: item.duration,
         watchedDocumentId: item.watchedDocumentId,
+        playbackRole:
+          (episode ? episode.video : video.video) ? 'main' : 'trailer',
       }
     : null;
 

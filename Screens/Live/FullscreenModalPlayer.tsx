@@ -140,6 +140,7 @@ const FullscreenModalPlayer = ({
               onToggleFullScreen={setFullscreen}
               type={'live'}
               isTime={isLiveNow}
+              enableMainContentAds={isLiveNow}
               minimalUi={isLiveNow}
               ctaType={
                 isLive ? (content.voteInfo ? 'vote' : 'donate') : undefined

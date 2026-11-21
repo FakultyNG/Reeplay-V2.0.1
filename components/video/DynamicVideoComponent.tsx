@@ -118,6 +118,8 @@ export interface VideoPlayerProps extends ReactVideoProps {
   isSaveProgress?: boolean;
   seekTo?: number;
   castSourceUrl?: string;
+  /** Explicit opt-in for Google IMA on free main content. Trailers stay false. */
+  enableMainContentAds?: boolean;
   /** Opt-in approved controls. Keep false for trailers and Upcoming playback. */
   minimalUi?: boolean;
   showQualityControl?: boolean;

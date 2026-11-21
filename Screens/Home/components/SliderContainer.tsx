@@ -267,6 +267,7 @@ const HeroCarousel = memo(function HeroCarousel({
                     type: item.type,
                     viewsCount: item.viewsCount,
                     vidClass: item.vidClass,
+                    playbackRole: 'trailer',
                   })
                 : console.log('')
             }

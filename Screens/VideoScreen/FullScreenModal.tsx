@@ -429,6 +429,9 @@ const FullScreenModal = () => {
           showDuration
           isFullscreen
           minimalUi
+          enableMainContentAds={
+            type === fullVideoType.live && Boolean(isTime) && !upcoming
+          }
           isTime={Boolean(isTime)}
           type={
             type === fullVideoType.live

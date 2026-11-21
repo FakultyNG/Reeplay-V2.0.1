@@ -194,7 +194,8 @@ const SeriesView = ({
     type:vod.type,
     vidClass:vod.vidClass,
     video:videoURL,
-    viewsCount:item.viewsCount
+    viewsCount:item.viewsCount,
+    playbackRole: item.video ? 'main' : 'trailer',
   }
   
   function onProgress(e:OnLoadData){

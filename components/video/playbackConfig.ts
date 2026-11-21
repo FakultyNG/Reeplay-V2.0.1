@@ -4,6 +4,14 @@ import type {BufferConfig, ReactVideoSource} from 'react-native-video';
 
 export type PlaybackMode = 'vod' | 'live';
 
+/** Google IMA is reserved for free main-content playback, never previews/trailers. */
+export function shouldAttachGoogleAd(
+  vidClass: string | null | undefined,
+  isMainContent: boolean,
+): boolean {
+  return isMainContent && (vidClass ?? '').trim().toLowerCase() === 'free';
+}
+
 export function getYouTubeVideoId(uri: string): string | null {
   const match = uri.trim().match(
     /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/i,

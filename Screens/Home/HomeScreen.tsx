@@ -131,6 +131,7 @@ const HomeScreen = ({
           isFullscreen={isFullscreen}
           content={isFullscreenContent}
           minimalUi
+          enableMainContentAds={isFullscreenContent.playbackRole === 'main'}
           onChangeContent={setFullscreenContent}
           setFullscreen={() =>
             isFullscreen

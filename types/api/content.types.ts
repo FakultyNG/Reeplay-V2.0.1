@@ -251,6 +251,8 @@ export interface IDownloadData{
     watchedDocumentId?:string
     playlist?: IDownloadData[];
     playlistIndex?: number
+    /** Distinguishes monetized full playback from trailers/previews. */
+    playbackRole?: 'main' | 'trailer' | 'preview';
 }
 
 export interface IVODRatingResponse extends IGeneric{

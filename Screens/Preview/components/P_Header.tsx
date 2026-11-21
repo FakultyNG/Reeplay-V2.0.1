@@ -90,6 +90,9 @@ const P_Header = ({
         type={content.type}
         isTime={false}
         isSaveProgress={isFullscreen && content.type !== 'series' && Boolean(videoURL)}
+        enableMainContentAds={
+          isFullscreen && content.type !== 'series' && Boolean(videoURL)
+        }
         resizeMode={ResizeMode.COVER}
         style={fillStyle.fill}
         customStyles={{

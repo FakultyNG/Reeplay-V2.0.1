@@ -4,6 +4,7 @@ import {
   getYouTubeEmbedUrl,
   getYouTubeVideoId,
   resolvePlaybackSource,
+  shouldAttachGoogleAd,
 } from '../components/video/playbackConfig';
 
 describe('YouTube playback URLs', () => {
@@ -46,5 +47,20 @@ describe('stream source resolution', () => {
         shouldCache: false,
       }),
     );
+  });
+});
+
+describe('Google ad placement', () => {
+  it('allows ads for free main content', () => {
+    expect(shouldAttachGoogleAd('free', true)).toBe(true);
+  });
+
+  it('never attaches ads to a free trailer or preview', () => {
+    expect(shouldAttachGoogleAd('free', false)).toBe(false);
+  });
+
+  it('does not attach ads to paid main content', () => {
+    expect(shouldAttachGoogleAd('premium', true)).toBe(false);
+    expect(shouldAttachGoogleAd('exclusive', true)).toBe(false);
   });
 });

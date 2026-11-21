@@ -244,6 +244,7 @@ const PreviewScreen = ({
           isFullscreen={isFullscreen}
           content={isFullscreenContent}
           minimalUi
+          enableMainContentAds={isFullscreenContent.playbackRole === 'main'}
           setFullscreen={() =>
             isFullscreen
               ? [makePortrait(), setFullscreenContent(null)]

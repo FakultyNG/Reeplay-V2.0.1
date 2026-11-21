@@ -50,6 +50,7 @@ import {
   getPreferredForwardBufferDuration,
   isLiveNowPlayback,
   maxBitRateForQuality,
+  shouldAttachGoogleAd,
 } from './playbackConfig';
 import {buildSampleEnglishCues} from '@/assets/subtitles/sampleEnglish';
 import {
@@ -120,6 +121,7 @@ type RenderVideoProps = Pick<
   contentData: IContentData;
   isSaveProgress?: boolean;
   castSourceUrl?: string;
+  enableMainContentAds?: boolean;
   minimalUi?: boolean;
   showQualityControl?: boolean;
   // videoRef: React.RefObject<VideoRef | null>
@@ -373,9 +375,10 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
       saveProgress.flush?.();
     }
 
-  const hasPrerollAds =
-    props.contentData.vidClass.toLowerCase() === 'free' &&
-    !disableControlsAutoHide;
+  const hasPrerollAds = shouldAttachGoogleAd(
+    props.contentData.vidClass,
+    props.enableMainContentAds === true,
+  );
 
   /**
    * Content duration is sticky: never shrink it to an ad-length value, and never
@@ -949,11 +952,7 @@ useEffect(() =>{
                   }))
               : undefined,
           ad: {
-            adTagUrl:
-              props.contentData.vidClass.toLowerCase() === 'free' &&
-              !disableControlsAutoHide
-                ? SINGLE_AD_TAG
-                : undefined,
+            adTagUrl: hasPrerollAds ? SINGLE_AD_TAG : undefined,
           },
         }}
         style={[styles.video, sizeStyle, style]}

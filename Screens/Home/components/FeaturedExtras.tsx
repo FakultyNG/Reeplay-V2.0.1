@@ -476,6 +476,7 @@ const SeriesEpisodesExtras = ({
             vidClass: vod.vidClass,
             video: url,
             viewsCount: item.viewsCount,
+            playbackRole: item.video ? 'main' : 'trailer',
           } satisfies IDownloadData;
         })
         .filter((item): item is IDownloadData => item !== null);

@@ -25,7 +25,12 @@ export const buildShareUrl = (
 };
 
 export const parseShareDeepLink = (url: string) => {
-  const match = url.match(/^reeplay:\/\/share\/([^/?#]+)\/([^/?#]+)(?:\?([^#]+))?/i);
+  // Accept both the custom-scheme fallback and verified HTTPS App Links.
+  // HTTPS is what should be shared externally: it opens the installed app and
+  // still gives recipients a useful web/store page when Reeplay is absent.
+  const match = url.match(
+    /^(?:reeplay:\/\/share\/|https?:\/\/[^/]+\/share\/)([^/?#]+)\/([^/?#]+)(?:\?([^#]+))?/i,
+  );
   if (!match) return null;
   const params = Object.fromEntries(
     (match[3] ?? '')

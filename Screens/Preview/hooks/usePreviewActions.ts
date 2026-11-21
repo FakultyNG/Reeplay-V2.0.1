@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import Share from 'react-native-share';
 import {buildShareUrl} from '@/Utils/shareLinks';
 import {useIsFocused} from '@react-navigation/native';
@@ -43,7 +43,6 @@ type Options = {
 };
 
 export function usePreviewActions({
-  isFullscreen,
   rating,
   setRating,
   setLoading_r,
@@ -53,10 +52,12 @@ export function usePreviewActions({
   const premiumCost = useAppSelector(selectUserPremiumCost);
   const isFocused = useIsFocused();
   const isGuest = useGuestAccessStore(state => state.isGuest);
+  const previewContentRef = useRef(previewContent);
+  previewContentRef.current = previewContent;
 
   const [addWatchList_boolean, setAddWatchList] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [commentCount, setCommentCount] = useState(0);
+  const [commentCount, setCommentCount] = useState(previewContent.commentsCount ?? 0);
   const [vodRating, setVODRating] = useState<IVODRatings | null>(null);
   const [accessStatus, setAccessStatus] = useState(false);
 
@@ -83,13 +84,13 @@ export function usePreviewActions({
       const data = res.data.data;
       dispatch(
         setPreviewContent({
-          ...previewContent,
+          ...previewContentRef.current,
           viewsCount: data.viewsCount,
           averageRating: data.averageRating,
         }),
       );
     }
-  }, [dispatch, previewContent]);
+  }, [dispatch, previewContent._id]);
 
   const getCommentCount = useCallback(async () => {
     const res = await totalCommentCount(previewContent._id);
@@ -212,7 +213,9 @@ export function usePreviewActions({
     Share.open({
       title: previewContent.title,
       subject: `Watch ${previewContent.title} on Reeplay`,
-      message: `Watch “${previewContent.title}” on Reeplay.\n${shareUrl}`,
+      message: `Watch “${previewContent.title}” on Reeplay.`,
+      url: shareUrl,
+      failOnCancel: false,
     })
       .then(res => {
         queueAnalyticsEvent({
@@ -231,6 +234,10 @@ export function usePreviewActions({
   }, [previewContent._id, previewContent.title, previewContent.type]);
 
   useEffect(() => {
+    setCommentCount(previewContent.commentsCount ?? 0);
+  }, [previewContent._id, previewContent.commentsCount]);
+
+  useEffect(() => {
     if (!isFocused) {
       return;
     }
@@ -238,10 +245,8 @@ export function usePreviewActions({
     handleContentStatusUpdate();
     handleVODRating();
     if (!isGuest) getWatchListStatus();
-    getCommentCount();
     handleFetchVodMeta();
   }, [
-    getCommentCount,
     getWatchListStatus,
     handleContentStatusUpdate,
     handleFetchVodMeta,
@@ -249,12 +254,6 @@ export function usePreviewActions({
     isFocused,
     isGuest,
   ]);
-
-  useEffect(() => {
-    if (!isFullscreen) {
-      handleFetchVodMeta();
-    }
-  }, [handleFetchVodMeta, isFullscreen]);
 
   return {
     previewContent,

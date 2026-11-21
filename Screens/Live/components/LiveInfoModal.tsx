@@ -78,7 +78,9 @@ const LiveInfoModal = ({item, isBanner, makeFullscreen, handleClose}:Props) => {
             Share.open({
               title: item.title,
               subject: `Watch ${item.title} on Reeplay`,
-              message: `Watch “${item.title}” on Reeplay.\n${shareUrl}`,
+              message: `Watch “${item.title}” on Reeplay.`,
+              url: shareUrl,
+              failOnCancel: false,
             }).catch(error => error && console.log(error))
           }
 

@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useLayoutEffect, useState} from 'react';
+import {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {InteractionManager} from 'react-native';
 import Orientation, {PORTRAIT} from 'react-native-orientation-locker';
 import FastImage from 'react-native-fast-image';
@@ -44,12 +44,14 @@ import {useFocusEffect} from '@react-navigation/native';
 import {registerCurrentNotificationDevice} from '@/Utils/notificationDevice';
 
 let notificationDeviceSynced = false;
+const HOME_REFRESH_TTL_MS = 60_000;
 
 export function useHomeBootstrap(isFullscreen: boolean) {
   const dispatch = useAppDispatch();
   const [orientation, setOrientation] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [deferHeavyRows, setDeferHeavyRows] = useState(true);
+  const loadInFlight = useRef<Promise<void> | null>(null);
 
   const hydrateFromSnapshot = useCallback(() => {
     const snapshot = getHomeSnapshot() ?? hydrateLegacyFlatKeysIntoSnapshot();
@@ -99,9 +101,15 @@ export function useHomeBootstrap(isFullscreen: boolean) {
 
   const userProfile = useCallback(async () => {
     try {
+      const bannerRequest = bannerApi().then(banner => {
+        if (banner.ok && banner.data?.data?.vods) {
+          dispatch(setBannerContent(banner.data.data));
+        }
+        return banner;
+      });
       const [res, banner, categories, genres, cW, resAds, homeAds] = await Promise.all([
         getProfileDetails(),
-        bannerApi(),
+        bannerRequest,
         fetchEnums('categories'),
         fetchEnums('genres'),
         getContinueWatching({page: 1, limit: 10}),
@@ -221,17 +229,37 @@ export function useHomeBootstrap(isFullscreen: boolean) {
     });
   }, [dispatch]);
 
-  const loadFunc = useCallback(async () => {
-    Orientation.lockToPortrait();
-    checkOrientation();
-    dispatch(resetFullVideo());
-    await Promise.allSettled([
-      userProfile(),
-      getSponsoredEvents(),
-      getWallet(),
-      handlePremiumContentCost(),
-      handleNotifications(),
-    ]);
+  const loadFunc = useCallback(async (force = false) => {
+    const snapshot = getHomeSnapshot();
+    if (!force && snapshot?.fetchedAt && Date.now() - snapshot.fetchedAt < HOME_REFRESH_TTL_MS) {
+      return;
+    }
+    if (loadInFlight.current) {
+      await loadInFlight.current;
+      return;
+    }
+
+    const request = (async () => {
+      Orientation.lockToPortrait();
+      checkOrientation();
+      dispatch(resetFullVideo());
+      // Catalogue/profile data controls first paint. Secondary account data is
+      // fetched only after it so eleven simultaneous requests no longer fight
+      // over the mobile connection whenever Home regains focus.
+      await userProfile();
+      await Promise.allSettled([
+        getSponsoredEvents(),
+        getWallet(),
+        handlePremiumContentCost(),
+        handleNotifications(),
+      ]);
+    })();
+    loadInFlight.current = request;
+    try {
+      await request;
+    } finally {
+      loadInFlight.current = null;
+    }
   }, [
     checkOrientation,
     dispatch,
@@ -245,7 +273,7 @@ export function useHomeBootstrap(isFullscreen: boolean) {
   const handleRefresh = useCallback(async () => {
     try {
       setIsRefreshing(true);
-      await loadFunc();
+      await loadFunc(true);
     } finally {
       setIsRefreshing(false);
     }
@@ -258,7 +286,7 @@ export function useHomeBootstrap(isFullscreen: boolean) {
   useFocusEffect(
     useCallback(() => {
       if (!isFullscreen) {
-        loadFunc();
+        loadFunc(false);
       }
     }, [isFullscreen, loadFunc]),
   );

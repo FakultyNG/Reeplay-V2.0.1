@@ -62,7 +62,9 @@ const CastScreeen = () => {
     Share.open({
       title: cast.name,
       subject: `Discover ${cast.name} on Reeplay`,
-      message: `Discover ${cast.name} on Reeplay.\n${shareUrl}`,
+      message: `Discover ${cast.name} on Reeplay.`,
+      url: shareUrl,
+      failOnCancel: false,
     })
       .then(res => {
         console.log(res);

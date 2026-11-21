@@ -135,6 +135,11 @@ const PreviewComments = ({setRepliesDetails, vodId, loadComment}: Props) => {
         }
       }}
       onEndReachedThreshold={0.35}
+      initialNumToRender={8}
+      maxToRenderPerBatch={8}
+      updateCellsBatchingPeriod={40}
+      windowSize={7}
+      removeClippedSubviews
       ListEmptyComponent={emptyState}
       ListFooterComponent={
         loading && comments.length > 0 ? (

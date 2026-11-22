@@ -5,6 +5,7 @@ import {
   getYouTubeVideoId,
   resolvePlaybackSource,
   shouldAttachGoogleAd,
+  shouldTreatPlaybackEndAsContentEnd,
 } from '../components/video/playbackConfig';
 
 describe('YouTube playback URLs', () => {
@@ -62,5 +63,19 @@ describe('Google ad placement', () => {
   it('does not attach ads to paid main content', () => {
     expect(shouldAttachGoogleAd('premium', true)).toBe(false);
     expect(shouldAttachGoogleAd('exclusive', true)).toBe(false);
+  });
+});
+
+describe('main-content end detection', () => {
+  it('ignores an end event while a preroll owns the timeline', () => {
+    expect(shouldTreatPlaybackEndAsContentEnd(true, 30)).toBe(false);
+  });
+
+  it('ignores an end event before playable content metadata loads', () => {
+    expect(shouldTreatPlaybackEndAsContentEnd(false, 0)).toBe(false);
+  });
+
+  it('accepts an end event after main content duration is known', () => {
+    expect(shouldTreatPlaybackEndAsContentEnd(false, 3600)).toBe(true);
   });
 });

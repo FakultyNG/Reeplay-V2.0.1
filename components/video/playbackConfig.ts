@@ -12,6 +12,14 @@ export function shouldAttachGoogleAd(
   return isMainContent && (vidClass ?? '').trim().toLowerCase() === 'free';
 }
 
+/** Ignore native end callbacks emitted by IMA or before VOD metadata loads. */
+export function shouldTreatPlaybackEndAsContentEnd(
+  isAdPlaying: boolean,
+  contentDurationSeconds: number,
+): boolean {
+  return !isAdPlaying && contentDurationSeconds > 0;
+}
+
 export function getYouTubeVideoId(uri: string): string | null {
   const match = uri.trim().match(
     /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/i,

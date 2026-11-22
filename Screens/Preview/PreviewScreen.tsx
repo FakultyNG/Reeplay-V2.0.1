@@ -27,6 +27,7 @@ import {usePreviewDownload} from './hooks/usePreviewDownload';
 import {usePreviewExitCover} from './hooks/usePreviewExitCover';
 import {requireRegisteredUser} from '@/Utils/guestAccess';
 import ToastNotification from '@/components/ToastNotifications';
+import {fetchVODSource} from '@/api/content.api';
 
 const PreviewScreen = ({
   isFullscreen,
@@ -47,6 +48,7 @@ const PreviewScreen = ({
   const [seeMore, setSeeMore] = useState(false);
   const [isFullscreenContent, setFullscreenContent] =
     useState<IDownloadData | null>(null);
+  const [isResolvingPlayback, setIsResolvingPlayback] = useState(false);
 
   const {showExitCover, headerMountKey} = usePreviewExitCover(isFullscreen);
 
@@ -95,9 +97,55 @@ const PreviewScreen = ({
     }
   }, [isFullscreen]);
 
-  const handleWatchPress = () => {
+  const handleWatchPress = async () => {
     if (accessStatus) {
-      makeFullscreen();
+      if (isResolvingPlayback) return;
+
+      // Series main playback starts from an episode card, where the episode
+      // source and progress metadata are already available.
+      if (previewContent.type === 'series') {
+        ToastNotification('info', 'Select an episode to start watching.');
+        return;
+      }
+
+      try {
+        setIsResolvingPlayback(true);
+        const response = await fetchVODSource(previewContent._id, 'vod');
+        const source = response.ok ? response.data?.data?.source?.trim() : '';
+
+        if (!source) {
+          ToastNotification(
+            'error',
+            response.data?.message ||
+              'This video is not ready to play. Please try again shortly.',
+          );
+          return;
+        }
+
+        setFullscreenContent({
+          _id: previewContent._id,
+          title: previewContent.title,
+          pg: previewContent.pg,
+          landscapePhoto: previewContent.landscapePhoto,
+          portraitPhoto: previewContent.portraitPhoto,
+          video: source,
+          castVideo: source,
+          size: null,
+          desc: previewContent.description,
+          type: previewContent.type,
+          vidClass: previewContent.vidClass,
+          viewsCount: previewContent.viewsCount,
+          playbackRole: 'main',
+        });
+        makeFullscreen();
+      } catch {
+        ToastNotification(
+          'error',
+          'Unable to prepare this video. Check your connection and try again.',
+        );
+      } finally {
+        setIsResolvingPlayback(false);
+      }
       return;
     }
     if (!requireRegisteredUser()) return;

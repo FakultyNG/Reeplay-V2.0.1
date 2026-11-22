@@ -5,6 +5,7 @@ import DynamicVideoComponent, {
 } from '@/components/video/DynamicVideoComponent';
 import {IDownloadData} from '@/types/api/content.types';
 import {resolvePlaybackSource} from '@/components/video/playbackConfig';
+import ToastNotification from '@/components/ToastNotifications';
 
 interface Props {
   isFullscreen: boolean;
@@ -65,7 +66,12 @@ const DownloadFullscreenModalPlayer = ({
           source={resolvePlaybackSource(content.video, 'vod')}
           castSourceUrl={content.castVideo}
           autoplay
-          onError={e => console.log(e)}
+          onError={() =>
+            ToastNotification(
+              'error',
+              'This video could not be played. Please try again shortly.',
+            )
+          }
           showDuration={true}
           isFullscreen={isFullscreen}
           onToggleFullScreen={setFullscreen}

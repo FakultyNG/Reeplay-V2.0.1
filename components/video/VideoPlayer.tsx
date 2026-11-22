@@ -51,6 +51,7 @@ import {
   isLiveNowPlayback,
   maxBitRateForQuality,
   shouldAttachGoogleAd,
+  shouldTreatPlaybackEndAsContentEnd,
 } from './playbackConfig';
 import {buildSampleEnglishCues} from '@/assets/subtitles/sampleEnglish';
 import {
@@ -95,6 +96,7 @@ type RenderVideoProps = Pick<
   | 'onHideControls'
   | 'onLoad'
   | 'onMutePress'
+  | 'onError'
   | 'onPlayPress'
   | 'onPlaybackStateChanged'
   | 'onProgress'
@@ -794,6 +796,18 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
   );
 
   const handleEnd = useCallback(() => {
+    // IMA can emit a native end callback while handing the timeline back to
+    // the main video. Empty/failed sources can also report end before load.
+    // Neither event means the actual content has completed.
+    if (
+      !shouldTreatPlaybackEndAsContentEnd(
+        isAdPlayingRef.current,
+        contentDurationRef.current,
+      )
+    ) {
+      return;
+    }
+
     reportAnalyticsProgress.flush?.();
     queueAnalyticsEvent({
       sessionId: analyticsSessionRef.current,
@@ -818,6 +832,19 @@ if(isSaveProgress) {
     showControls();
     rest.onEnd?.();
   }, [analyticsContentType, props.contentData._id, repeat, reportAnalyticsProgress]);
+
+  const handlePlaybackError = useCallback(
+    (error: Parameters<NonNullable<VideoPlayerProps['onError']>>[0]) => {
+      setIsBuffering(false);
+      console.error('[VideoPlayer] playback failed', {
+        contentId: props.contentData._id,
+        source: typeof source?.uri === 'string' ? source.uri : '',
+        error,
+      });
+      props.onError?.(error);
+    },
+    [props, source?.uri],
+  );
 
   useEffect(() => () => {
     reportAnalyticsProgress.flush?.();
@@ -991,6 +1018,7 @@ useEffect(() =>{
         onLoad={handleLoad}
         onEnd={handleEnd}
         onBuffer={handleBuffer}
+        onError={handlePlaybackError}
         onReadyForDisplay={handleReadyForDisplay}
         onReceiveAdEvent={handleAdEvent}
       />

@@ -29,6 +29,7 @@ import LiveEmptyState from '../Live/components/LiveEmptyState';
 import {FUpcomingIcon} from '@/assets/icons';
 import Size from '@/Utils/useResponsiveSize';
 import {useTabBarCompactOnScroll} from '@/navigation/useTabBarCompactOnScroll';
+import {getUpcomingCache, setUpcomingCache} from '@/Utils/contentMmkv';
 
 const UpcomingScreen = ({
   isFullscreen,
@@ -41,16 +42,19 @@ const UpcomingScreen = ({
   const [orientation, setOrientation] = useState<string | null>(null);
   const [upcomingEvents, setUpcomingEvents] = useState<
     (IVODContent | ILiveContent)[]
-  >([]);
+  >(() => getUpcomingCache());
   const [pagination] = useState<IPagination>({page: 1, limit: 100});
   const [isFullscreenContent, setFullscreenContent] =
     useState<IDownloadData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(
+    () => getUpcomingCache().length === 0,
+  );
+  const hadUpcomingCacheOnMount = useRef(upcomingEvents.length > 0);
   const dispatch = useAppDispatch();
 
   const handleUpcomingEvents = useCallback(async () => {
     try {
-      setIsLoading(true);
+      if (!hadUpcomingCacheOnMount.current) setIsLoading(true);
       const response = await getUpcomingEvents(pagination);
 
       if (response.ok && response.data?.data) {
@@ -78,12 +82,16 @@ const UpcomingScreen = ({
           return dateA.getTime() - dateB.getTime();
         });
 
-        setUpcomingEvents(sortedData.slice(0, 100));
+        const nextUpcoming = sortedData.slice(0, 100);
+        setUpcomingEvents(nextUpcoming);
+        setUpcomingCache(nextUpcoming);
       } else {
-        Alert.alert(
-          'Unable to load upcoming titles',
-          'Please pull down to try again.',
-        );
+        if (!hadUpcomingCacheOnMount.current) {
+          Alert.alert(
+            'Unable to load upcoming titles',
+            'Please pull down to try again.',
+          );
+        }
       }
     } catch (error) {
       console.log(error);

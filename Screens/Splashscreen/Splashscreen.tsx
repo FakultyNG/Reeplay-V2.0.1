@@ -14,6 +14,7 @@ import {HAS_SET_NEWPIN} from '../authentication/GetStartedScreen';
 import LottieView from 'lottie-react-native';
 import {authGet, authSet, AUTH_MMKV_KEYS} from '@/Utils/authMmkv';
 import {useAppPersistStore} from '@/store/zustand.store';
+import {preloadStartupContent} from '@/Utils/startupContentBootstrap';
 
 export const HAS_ONBOARD = AUTH_MMKV_KEYS.HAS_ONBOARD;
 export const hasUserDetails = AUTH_MMKV_KEYS.USER;
@@ -58,6 +59,11 @@ const Splashscreen = () => {
 
     getUser();
     setDefaultLockState();
+    // Do not await this: public home data warms while the animation plays and
+    // navigation remains controlled only by the local splash asset.
+    preloadStartupContent().catch(() => {
+      // Startup remains cache-first when the network is unavailable.
+    });
   }, [dispatch, setIsSessionExpired]);
 
   return (

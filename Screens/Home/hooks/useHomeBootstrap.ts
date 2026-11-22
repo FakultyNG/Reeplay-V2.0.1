@@ -1,7 +1,6 @@
 import {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {InteractionManager} from 'react-native';
 import Orientation, {PORTRAIT} from 'react-native-orientation-locker';
-import FastImage from 'react-native-fast-image';
 import {useAppDispatch} from '@/Hooks/reduxHook';
 import {authSet} from '@/Utils/authMmkv';
 import {
@@ -20,10 +19,8 @@ import {hasUserDetails} from '../../Splashscreen/Splashscreen';
 import {getSponsoredLiveEvents} from '@/api/live.api';
 import {setSponsoredEventProps} from '@/store/slices/liveEvents/sponsoredSlice';
 import {
-  bannerApi,
   contentCostApi,
   deleteContinueWatchingById,
-  fetchEnums,
   fetchHomeAds,
   getContinueWatching,
   randomAds,
@@ -42,9 +39,11 @@ import {getAllNotifications} from '@/api/notification.api';
 import {setOrientations} from '@/store/slices/orientationSlize';
 import {useFocusEffect} from '@react-navigation/native';
 import {registerCurrentNotificationDevice} from '@/Utils/notificationDevice';
+import {preloadStartupContent} from '@/Utils/startupContentBootstrap';
 
 let notificationDeviceSynced = false;
 const HOME_REFRESH_TTL_MS = 60_000;
+let accountLastFetchedAt = 0;
 
 export function useHomeBootstrap(isFullscreen: boolean) {
   const dispatch = useAppDispatch();
@@ -71,18 +70,6 @@ export function useHomeBootstrap(isFullscreen: boolean) {
       dispatch(setContinueWatching(snapshot.continueWatching));
     }
 
-    const posterUris = (snapshot.banner?.vods ?? [])
-      .slice(0, 6)
-      .map(v => v.portraitPhoto)
-      .filter(Boolean)
-      .map(uri => ({
-        uri,
-        priority: FastImage.priority.high,
-        cache: FastImage.cacheControl.immutable,
-      }));
-    if (posterUris.length) {
-      FastImage.preload(posterUris);
-    }
   }, [dispatch]);
 
   const getWallet = useCallback(async () => {
@@ -101,20 +88,13 @@ export function useHomeBootstrap(isFullscreen: boolean) {
 
   const userProfile = useCallback(async () => {
     try {
-      const bannerRequest = bannerApi().then(banner => {
-        if (banner.ok && banner.data?.data?.vods) {
-          dispatch(setBannerContent(banner.data.data));
-        }
-        return banner;
-      });
-      const [res, banner, categories, genres, cW, resAds, homeAds] = await Promise.all([
+      const [res, cW, resAds, homeAds] = await Promise.all([
         getProfileDetails(),
-        bannerRequest,
-        fetchEnums('categories'),
-        fetchEnums('genres'),
         getContinueWatching({page: 1, limit: 10}),
         randomAds(),
         fetchHomeAds(),
+        // Shares the splash request (or resolves immediately from fresh cache).
+        preloadStartupContent(),
       ]);
 
       if (resAds.ok && resAds.data) {
@@ -142,29 +122,6 @@ export function useHomeBootstrap(isFullscreen: boolean) {
         dispatch(setContinueWatching(continueWatchingData));
       }
 
-      const categoryData = categories.data?.data;
-      const genreData = genres.data?.data;
-      if (categories.ok && Array.isArray(categoryData)) {
-        dispatch(setCategories(categoryData));
-      }
-      if (genres.ok && Array.isArray(genreData)) {
-        dispatch(setGenres(genreData));
-      }
-      if (banner.ok && banner.data?.data?.vods) {
-        dispatch(setBannerContent(banner.data.data));
-        const preload = (banner.data.data.vods ?? [])
-          .slice(0, 6)
-          .map((v: {portraitPhoto?: string}) => v.portraitPhoto)
-          .filter((uri): uri is string => Boolean(uri))
-          .map(uri => ({
-            uri,
-            priority: FastImage.priority.high,
-            cache: FastImage.cacheControl.immutable,
-          }));
-        if (preload.length) {
-          FastImage.preload(preload);
-        }
-      }
       if (res.ok && res.data) {
         dispatch(setCredentials(res.data.data));
         await authSet(hasUserDetails, JSON.stringify(res.data.data));
@@ -178,20 +135,11 @@ export function useHomeBootstrap(isFullscreen: boolean) {
 
       const prev = getHomeSnapshot();
       setHomeSnapshot({
-        banner:
-          banner.ok && banner.data?.data?.vods
-            ? banner.data.data
-            : prev?.banner,
-        categories:
-          categories.ok && Array.isArray(categoryData)
-            ? categoryData
-            : prev?.categories,
-        genres:
-          genres.ok && Array.isArray(genreData)
-            ? genreData
-            : prev?.genres,
+        banner: prev?.banner,
+        categories: prev?.categories,
+        genres: prev?.genres,
         continueWatching: cW.ok ? continueWatchingData : prev?.continueWatching,
-        fetchedAt: Date.now(),
+        fetchedAt: prev?.fetchedAt ?? Date.now(),
       });
     } catch (error) {
       console.log('[HomeScreen] userProfile failed', error);
@@ -230,8 +178,11 @@ export function useHomeBootstrap(isFullscreen: boolean) {
   }, [dispatch]);
 
   const loadFunc = useCallback(async (force = false) => {
-    const snapshot = getHomeSnapshot();
-    if (!force && snapshot?.fetchedAt && Date.now() - snapshot.fetchedAt < HOME_REFRESH_TTL_MS) {
+    if (
+      !force &&
+      accountLastFetchedAt > 0 &&
+      Date.now() - accountLastFetchedAt < HOME_REFRESH_TTL_MS
+    ) {
       return;
     }
     if (loadInFlight.current) {
@@ -247,6 +198,7 @@ export function useHomeBootstrap(isFullscreen: boolean) {
       // fetched only after it so eleven simultaneous requests no longer fight
       // over the mobile connection whenever Home regains focus.
       await userProfile();
+      accountLastFetchedAt = Date.now();
       await Promise.allSettled([
         getSponsoredEvents(),
         getWallet(),

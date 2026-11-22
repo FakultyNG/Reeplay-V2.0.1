@@ -1,6 +1,11 @@
 import {createMMKV} from 'react-native-mmkv';
 import {MMKV_ENCRYPTION_KEY} from '@env';
-import {ICategoryData, IContinueWatching, IVODContent} from '@/types/api/content.types';
+import {
+  ICategoryData,
+  IContinueWatching,
+  ILiveContent,
+  IVODContent,
+} from '@/types/api/content.types';
 
 export const CONTENT_MMKV_KEYS = {
   HOME_SNAPSHOT: 'home.snapshot',
@@ -9,7 +14,10 @@ export const CONTENT_MMKV_KEYS = {
   GENRE: 'genre',
   IMAGE_CACHE_MAP: 'IMAGE_CACHE_MAP',
   WELCOME_ADS: 'welcome.ads',
+  UPCOMING: 'upcoming.events',
 } as const;
+
+export type UpcomingContent = IVODContent | ILiveContent;
 
 export type HomeSnapshot = {
   banner?: {lives: unknown[]; vods: IVODContent[]};
@@ -74,6 +82,14 @@ export function getHomeSnapshot(): HomeSnapshot | null {
 
 export function setHomeSnapshot(snapshot: HomeSnapshot): void {
   contentSetJson(CONTENT_MMKV_KEYS.HOME_SNAPSHOT, snapshot);
+}
+
+export function getUpcomingCache(): UpcomingContent[] {
+  return contentGetJson<UpcomingContent[]>(CONTENT_MMKV_KEYS.UPCOMING) ?? [];
+}
+
+export function setUpcomingCache(data: UpcomingContent[]): void {
+  contentSetJson(CONTENT_MMKV_KEYS.UPCOMING, data);
 }
 
 /** One-time pull of old flat banner/category/genre keys into a snapshot if needed. */

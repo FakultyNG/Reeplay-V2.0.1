@@ -1,5 +1,5 @@
-import {View, Text, StyleProp, ViewStyle, StyleSheet} from 'react-native';
-import React, {useRef} from 'react';
+import {View, ViewStyle, StyleSheet} from 'react-native';
+import React from 'react';
 import Video, { ReactVideoProps, VideoRef} from 'react-native-video';
 import {isHlsPlaybackUri} from './video/playbackConfig';
 
@@ -17,6 +17,17 @@ const AppVideo = ({
   ...otherProps
 }: VideoProps) => {
   const source = otherProps.source;
+  const hasInvalidRemoteSource =
+    !source ||
+    (typeof source === 'object' &&
+      !Array.isArray(source) &&
+      'uri' in source &&
+      (typeof source.uri !== 'string' || source.uri.trim().length === 0));
+
+  if (hasInvalidRemoteSource) {
+    return <View style={[styles.videoContainer, containerStyle]} />;
+  }
+
   const normalizedSource =
     source &&
     typeof source === 'object' &&

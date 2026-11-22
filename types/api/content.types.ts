@@ -303,7 +303,7 @@ export interface ISeasonData {
   admin: string;
   video: string;
   serial_number: number;
-  description: null;
+  description: string | null;
   commentsCount: number;
   episodes: IEpisode[];
   viewsCount: number;
@@ -321,10 +321,10 @@ export interface IEpisode {
   updatedAt: string;
   viewsCount: number;
   averageRating: number;
-  video: string;
+  video?: string;
   videoUploadId?: string;
-  trailer: string;
-  durationWatched:number
+  trailer?: string;
+  durationWatched?: number;
 }
 
 export interface IVodSubtitleResponse extends IGeneric{

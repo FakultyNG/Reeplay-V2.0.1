@@ -35,7 +35,10 @@ import routes from '@/navigation/routes';
 import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
 import {setPreviewContent} from '@/store/slices/previewContentSlice';
 import {selectContinueWatching} from '@/store/slices/bannerSlice.slice';
-import {createThumbnail} from 'react-native-create-thumbnail';
+import {
+  getEpisodePlaybackUrl,
+  normalizeSeriesSeasons,
+} from '@/Utils/seriesContent';
 
 export type FeaturedExtrasAvailability = boolean | null;
 
@@ -62,45 +65,6 @@ type CachedExtras =
 
 const extrasCache = new Map<string, CachedExtras>();
 const inflight = new Map<string, Promise<CachedExtras>>();
-const episodeThumbCache = new Map<string, string>();
-const episodeThumbInflight = new Map<string, Promise<string | null>>();
-let episodeThumbQueue: Promise<void> = Promise.resolve();
-
-function toFileUri(path: string) {
-  if (path.startsWith('file://') || path.startsWith('http')) {
-    return path;
-  }
-  return `file://${path}`;
-}
-
-function getEpisodeThumb(url: string): Promise<string | null> {
-  const cached = episodeThumbCache.get(url);
-  if (cached) {
-    return Promise.resolve(cached);
-  }
-  const existing = episodeThumbInflight.get(url);
-  if (existing) {
-    return existing;
-  }
-
-  const run = new Promise<string | null>(resolve => {
-    episodeThumbQueue = episodeThumbQueue.then(async () => {
-      try {
-        const response = await createThumbnail({url, timeStamp: 1200});
-        const uri = toFileUri(response.path);
-        episodeThumbCache.set(url, uri);
-        resolve(uri);
-      } catch {
-        resolve(null);
-      } finally {
-        episodeThumbInflight.delete(url);
-      }
-    });
-  });
-  episodeThumbInflight.set(url, run);
-  return run;
-}
-
 function isSeriesType(type?: string) {
   return (type ?? '').toLowerCase().includes('series');
 }
@@ -182,7 +146,7 @@ async function fetchExtrasForVod(vod: IVODContent): Promise<CachedExtras> {
           extrasCache.set(vod._id, empty);
           return empty;
         }
-        const seasons = sortSeasons(res.data.data);
+        const seasons = sortSeasons(normalizeSeriesSeasons(res.data.data));
         const hasEps = seasons.some(s => (s.episodes?.length ?? 0) > 0);
         const value: CachedExtras = hasEps
           ? {kind: 'series', seasons}
@@ -284,6 +248,9 @@ const FeaturedExtras = ({
 
   // Resolve from cache in the same render as the hero index change (no effect lag).
   const extras = useMemo(() => {
+    // The cache is external to React; this counter deliberately invalidates
+    // the memo after a background fetch populates it.
+    void cacheTick;
     if (!vod) {
       return null;
     }
@@ -292,7 +259,7 @@ const FeaturedExtras = ({
       extrasCache.set(vod._id, cached);
     }
     return cached;
-  }, [vod?._id, cacheTick]);
+  }, [vod, cacheTick]);
 
   const setAvailability = useCallback(
     (next: FeaturedExtrasAvailability) => {
@@ -328,7 +295,7 @@ const FeaturedExtras = ({
         clearTimeout(timer);
       }
     };
-  }, [featuredKey]);
+  }, [featuredKey, featuredVods, vod?._id]);
 
   // Keep layout flag in sync without blocking hero paint.
   useEffect(() => {
@@ -351,7 +318,7 @@ const FeaturedExtras = ({
     return () => {
       cancelled = true;
     };
-  }, [vod?._id, extras, setAvailability]);
+  }, [vod, extras, setAvailability]);
 
   if (!vod || !extras || !hasExtrasContent(extras)) {
     return null;
@@ -434,15 +401,6 @@ const SeriesEpisodesExtras = ({
     [selectedSeason],
   );
 
-  useEffect(() => {
-    episodes.slice(0, 6).forEach(episode => {
-      const url = episode.video || episode.trailer;
-      if (url) {
-        getEpisodeThumb(url);
-      }
-    });
-  }, [episodes]);
-
   if (!episodes.length) {
     return null;
   }
@@ -456,11 +414,11 @@ const SeriesEpisodesExtras = ({
   };
 
   const openEpisode = (episode: IEpisode) => {
-    const videoURL = episode.video || episode.trailer;
+    const videoURL = getEpisodePlaybackUrl(episode);
     if (canView && videoURL && makeFullscreen && setFullscreenContent) {
       const playlist = episodes
-        .map(item => {
-          const url = item.video || item.trailer;
+        .map<IDownloadData | null>(item => {
+          const url = getEpisodePlaybackUrl(item);
           if (!url) {
             return null;
           }
@@ -527,6 +485,7 @@ const SeriesEpisodesExtras = ({
         renderItem={({item}) => (
           <EpisodeCard
             episode={item}
+            artwork={vod.landscapePhoto || vod.portraitPhoto}
             continueWatching={continueWatching}
             onPress={() => openEpisode(item)}
           />
@@ -574,19 +533,17 @@ const SeriesEpisodesExtras = ({
 
 interface EpisodeCardProps {
   episode: IEpisode;
+  artwork: string;
   continueWatching: IContinueWatching[];
   onPress: () => void;
 }
 
 const EpisodeCard = React.memo(function EpisodeCard({
   episode,
+  artwork,
   continueWatching,
   onPress,
 }: EpisodeCardProps) {
-  const videoURL = episode.video || episode.trailer;
-  const [thumbUri, setThumbUri] = useState(
-    () => (videoURL ? episodeThumbCache.get(videoURL) : undefined) ?? '',
-  );
   const progress = useMemo(() => {
     const match = continueWatching.find(
       c => c.episode?._id === episode._id || c.watchedDocumentId === episode._id,
@@ -597,27 +554,6 @@ const EpisodeCard = React.memo(function EpisodeCard({
     return 0;
   }, [continueWatching, episode._id]);
 
-  useEffect(() => {
-    if (!videoURL) {
-      setThumbUri('');
-      return;
-    }
-    const cached = episodeThumbCache.get(videoURL);
-    if (cached) {
-      setThumbUri(cached);
-      return;
-    }
-    let cancelled = false;
-    getEpisodeThumb(videoURL).then(uri => {
-      if (!cancelled && uri) {
-        setThumbUri(uri);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [videoURL]);
-
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -626,10 +562,10 @@ const EpisodeCard = React.memo(function EpisodeCard({
       <AppView
         style={styles.episodeCard}
         className="overflow-hidden relative">
-        {!!thumbUri && (
+        {!!artwork && (
           <AppImage
             source={{
-              uri: thumbUri,
+              uri: artwork,
               priority: FastImage.priority.normal,
               cache: FastImage.cacheControl.immutable,
             }}

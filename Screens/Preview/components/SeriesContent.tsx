@@ -1,6 +1,6 @@
 import {ActivityIndicator, SectionList, Text, View} from 'react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AppText, AppVideo, AppView, TouchableOpacity} from '@/components';
+import {AppImage, AppText, AppView, TouchableOpacity} from '@/components';
 import {
   MiniPlayBtn,
   OpenDropDwn,
@@ -10,15 +10,18 @@ import LockWhite from '@/assets/icons/lock-white.svg'
 import { IDownloadData, IEpisode, ISeasonData, IVODContent } from '@/types/api/content.types';
 import { fetchSeasonsForSeries } from '@/api/content.api';
 import ToastNotification from '@/components/ToastNotifications';
-import { OnLoadData, OnProgressData } from 'react-native-video';
 import { getRemoteFileSize } from '@/api/external.api';
 import { downloadAndSave, encryptFile, getAESKeys } from '../utils/downloadUtils';
 import RNFS from 'react-native-fs';
-import {createThumbnail} from 'react-native-create-thumbnail';
 import DownloadedCompleteIcon from '@/assets/icons/Download.svg';
 import { fetchDownloadSource } from '@/api/content.api';
 import {useAppPersistStore} from '@/store/zustand.store';
+import {
+  getEpisodePlaybackUrl,
+  normalizeSeriesSeasons,
+} from '@/Utils/seriesContent';
 
+const SERIES_PAGE_SIZE = 10;
 
 interface Props{
  vod:IVODContent
@@ -30,17 +33,17 @@ interface Props{
 const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}:Props) => {
       const [seasons, setSeasons]= useState<ISeasonData[]>([]);
       const [page, setPage] = useState<number>(1);
-      const [limit, setLimit] = useState<number>(2);
       const [hasMore, setHasMore] = useState<boolean>(true);
       const [loading, setLoading] = useState<boolean>(false);
       const [collapsedSections, setCollapsedSections] = useState(new Set());
 
-      async function handleGetSeasons(page?: number, replace = false) {
+      const handleGetSeasons = useCallback(async (requestedPage?: number, replace = false) => {
       try {
         setLoading(true);
-        const res = await fetchSeasonsForSeries({_id:vod._id, pagination:{page: page ?? 1, limit}});
+        const res = await fetchSeasonsForSeries({_id:vod._id, pagination:{page: requestedPage ?? 1, limit: SERIES_PAGE_SIZE}});
         if (res.ok && res.data) {
-          const data = res.data.data
+          const data = normalizeSeriesSeasons(res.data.data);
+          setHasMore(data.length === SERIES_PAGE_SIZE);
 
           setSeasons(prev =>{
             const current = replace ? [] : prev;
@@ -49,12 +52,9 @@ const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}
               ...current,
               ...data.filter(x => !existing.has(x._id)),
             ];
-            if (!replace && merged.length === prev.length) setHasMore(false);
-
             return merged
           })
-          if (page) setPage(page);
-          setLimit(1);
+          if (requestedPage) setPage(requestedPage);
         } else {
           ToastNotification('error', `${res.data?.message}`);
           setHasMore(false);
@@ -65,14 +65,17 @@ const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}
       } finally {
         setLoading(false);
       }
-    }
+    }, [vod._id]);
   
     const loadMore = useCallback(() => {
-      if (!hasMore || seasons.length < 2) return;
-      handleGetSeasons(seasons.length >= page * limit ? page + 1 : page);
-    }, [page, hasMore]);
+      if (!hasMore || loading) return;
+      handleGetSeasons(page + 1);
+    }, [page, hasMore, loading, handleGetSeasons]);
 
-    const sections = seasons.map(x => ({title:x.serial_number, data:x.episodes}))
+    const sections = seasons.map(x => ({
+      title: x.serial_number,
+      data: Array.isArray(x.episodes) ? x.episodes : [],
+    }));
 
     const toggleSection = (title:number) => {
     setCollapsedSections((prev) => {
@@ -93,7 +96,7 @@ const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}
       setPage(1);
       setHasMore(true);
       handleGetSeasons(1, true);
-    }, [vod._id, accessStatus]);
+    }, [vod._id, accessStatus, handleGetSeasons]);
   return (
     <AppView className="mt-3 pt-[10px] border-t border-grey_200/10">
       <AppView className="w-[82px]">
@@ -128,7 +131,7 @@ const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}
         </TouchableOpacity>
           );
         }}
-        renderItem={({item:series, section, index}) => {
+        renderItem={({item:series, section}) => {
           if (isSectionCollapsed(section.title)) {
           return null;
         }
@@ -174,15 +177,13 @@ const SeriesView = ({
  makeFullscreen,
  setFullscreenContent
 }: SeriesViewProps) => {
-  const [progressBarWidth, setProgressBarWidth] = useState<number>(0)
   const [downloadPercentage, setDownloadPercentage] = useState(0);
   const [size, setSize] = useState<string>('');
     const [isDownloading, setIsDownloading] = useState<boolean>(false);
-    const [thumbnail, setThumbnail] = useState<string>('');
   const lastUpdateRef = useRef(Date.now());
   const {hasDownloadById,addDownload} = useAppPersistStore()
   const isDownloaded = hasDownloadById(item._id);
-  const videoURL = item.video ?? item.trailer
+  const videoURL = getEpisodePlaybackUrl(item);
   const itemData:IDownloadData = {
     _id:item._id,
     desc:item.description,
@@ -198,20 +199,6 @@ const SeriesView = ({
     playbackRole: item.video ? 'main' : 'trailer',
   }
   
-  function onProgress(e:OnLoadData){
-    const progressRatio = item.durationWatched / e.duration;
-    setProgressBarWidth(153 * progressRatio);
-  }
-
-  const generateThumbnail = async () => {
-      try {
-        const response = await createThumbnail({url: item.video ?? item.trailer});
-        setThumbnail(response.path);
-      } catch (error) {
-        console.error('Error generating thumbnail:', error);
-      }
-    };
-
   async function handleDownload() {
           if (!item.videoUploadId) {
             ToastNotification('error', 'Download source is unavailable');
@@ -266,8 +253,8 @@ const SeriesView = ({
             _id:item._id,
             title:item.title,
             pg:vod.pg,
-            portraitPhoto:thumbnail,
-            landscapePhoto:thumbnail,
+            portraitPhoto:vod.portraitPhoto,
+            landscapePhoto:vod.landscapePhoto,
             video: encryptedPath,
             castVideo: downloadURL,
             size:sizeInMB,
@@ -284,29 +271,18 @@ const SeriesView = ({
         }
       }
 
-  useEffect(() =>{
-    if(!isDownloaded) generateThumbnail();
-  }, [item._id]);
-
   return (
     <AppView className="mb-6 flex-row w-full">
       {/* Player */}
       <AppView className="w-[153px] h-[95px] items-center justify-center overflow-hidden rounded-[8px] relative">
-        <View className='w-full h-full absolute'>
-             <AppVideo
-                source={{ uri: videoURL }}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                }}
-                resizeMode="cover"
-                paused={true}
-                onLoad={onProgress}
-              />
-        </View>
+        <AppImage
+          source={{uri: vod.landscapePhoto || vod.portraitPhoto}}
+          style={{width: '100%', height: '100%'}}
+          resizeMode="cover"
+        />
 
         <TouchableOpacity
-        disabled={!accessStatus}
+        disabled={!accessStatus || !videoURL}
           onPress={() =>
           [
             setFullscreenContent({...itemData}),
@@ -316,17 +292,6 @@ const SeriesView = ({
           className="absolute z-30 w-8 h-8 items-center justify-center rounded-full bg-black/60">
           {!accessStatus ? <LockWhite /> : <MiniPlayBtn />}
         </TouchableOpacity>
-
-          {/* ProgressBar */}
-        {progressBarWidth > 0 && <AppView className="absolute bottom-0 w-full h-1 bg-grey_100">
-          <AppView
-            style={{
-              transform: [{translateX: -153 + progressBarWidth}],
-              width: 153,
-            }}
-            className="h-1 bg-red"
-          />
-        </AppView>}
       </AppView>
       {/* details */}
       <AppView className="ml-3 flex-row flex-1 justify-between">

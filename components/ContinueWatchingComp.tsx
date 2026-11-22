@@ -4,7 +4,6 @@ import {
   AppButton,
   AppImage,
   AppText,
-  AppVideo,
   AppView,
   TouchableOpacity,
 } from '@/components';
@@ -23,6 +22,7 @@ import {removeContinueWatchingById} from '@/store/slices/bannerSlice.slice';
 import ToastNotification from './ToastNotifications';
 import {setPreviewContent} from '@/store/slices/previewContentSlice';
 import {getRemoteFileSize} from '@/api/external.api';
+import {getEpisodePlaybackUrl} from '@/Utils/seriesContent';
 
 const ITEM_WIDTH: number = Size.calcWidth(232);
 
@@ -52,8 +52,8 @@ const ContinueWatchingComp = ({
     item?.totalDuration > 0 ? item.duration / item.totalDuration : 0;
   const progressBarWidth = ITEM_WIDTH * progressRatio;
   const episodeUrl = episode
-    ? episode.video ?? episode.trailer
-    : video?.video ?? video?.trailer;
+    ? getEpisodePlaybackUrl(episode)
+    : getEpisodePlaybackUrl(video);
   const videoType = (video?.type ?? '').toLowerCase();
 
   const itemData: IDownloadData | null = video
@@ -124,6 +124,10 @@ const ContinueWatchingComp = ({
 
         <TouchableOpacity
           onPress={() => {
+            if (!episodeUrl) {
+              ToastNotification('error', 'This video is not ready to play yet.');
+              return;
+            }
             setFullscreenContent({
               ...itemData,
               watchedDocumentId: item.watchedDocumentId,
@@ -131,22 +135,10 @@ const ContinueWatchingComp = ({
             makeFullscreen();
           }}
           className="w-full h-[102px] overflow-hidden">
-          {episode && episodeUrl ? (
-            <AppVideo
-              source={{uri: episodeUrl}}
-              style={{
-                width: '100%',
-                height: '100%',
-              }}
-              resizeMode="cover"
-              paused={true}
-            />
-          ) : (
-            <AppImage
-              source={{uri: video.portraitPhoto || video.landscapePhoto}}
-              style={[imageStyle, {height: 102, width: '100%'}]}
-            />
-          )}
+          <AppImage
+            source={{uri: video.landscapePhoto || video.portraitPhoto}}
+            style={[imageStyle, {height: 102, width: '100%'}]}
+          />
         </TouchableOpacity>
         <AppView className="absolute bottom-0 w-full">
           <AppView

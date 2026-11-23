@@ -146,7 +146,9 @@ export interface ICategoryData {
     createdAt: string,
     updatedAt: string,
     position: number,
-    feedType?: 'standard' | 'personalized'
+    feedType?: 'standard' | 'personalized',
+    location?: 'Homepage' | `Live/${string}`,
+    active?: boolean,
 }
 
 

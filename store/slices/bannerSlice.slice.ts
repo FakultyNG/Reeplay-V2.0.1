@@ -1,6 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../app.store';
-import { OrientationType } from 'react-native-orientation-locker';
 import { ICategoryData, IContinueWatching, ILiveContent, IPremiumContentCost, IVODContent } from '@/types/api/content.types';
 import { UserCurrencyInfo } from '@/Hooks/useCurrencyByIP';
 // import type { PayloadAction } from '@reduxjs/toolkit'
@@ -36,7 +35,12 @@ const bannerSlice = createSlice({
     reducers: {
         setCategories: (state, action: PayloadAction<ICategoryData[]>) => {
   const list = Array.isArray(action.payload) ? action.payload : [];
-  state.category = list.slice().sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  state.category = list
+    .filter(category =>
+      category.active !== false &&
+      (category.location == null || category.location === 'Homepage'),
+    )
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 },
        setGenres: (state, action: PayloadAction<ICategoryData[]>) => {
   const list = Array.isArray(action.payload) ? action.payload : [];

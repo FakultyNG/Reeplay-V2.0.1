@@ -69,6 +69,12 @@ import {setNoticationsList} from '@/store/slices/userSlice';
 import {parseShareDeepLink} from '@/Utils/shareLinks';
 import {getAllLiveEvents} from '@/api/live.api';
 import {setLiveModalContent} from '@/store/slices/fullScreenVideo.slice';
+import {
+  flushAnalyticsEvents,
+  queueAnalyticsEvent,
+  startAnalyticsSession,
+  trackScreenView,
+} from '@/api/analytics.api';
 
 const LEFT_APP_TIME = AUTH_MMKV_KEYS.LEFT_APP_TIME;
 const API_ENVIRONMENT_KEY = 'API_BASE_URL';
@@ -260,7 +266,11 @@ function App(): React.JSX.Element {
     return () => subscription.remove();
   }, [navigationReady, openSharedUrl]);
 
-  useEffect(() => registerNotificationReceivedHandler(async () => {
+  useEffect(() => registerNotificationReceivedHandler(async data => {
+    queueAnalyticsEvent({
+      eventType: 'notification_received',
+      notificationId: String(data._messageId ?? data.notificationId ?? ''),
+    });
     const response = await getAllNotifications({page: 1, limit: 20});
     if (response.ok && response.data) {
       store.dispatch(setNoticationsList(response.data.data));
@@ -271,6 +281,10 @@ function App(): React.JSX.Element {
     if (!navigationReady) return;
 
     return registerNotificationOpenHandler(async data => {
+      queueAnalyticsEvent({
+        eventType: 'notification_open',
+        notificationId: String(data._messageId ?? data.notificationId ?? ''),
+      });
       let metadata: Record<string, unknown> = {};
       try {
         metadata = data.metadata ? JSON.parse(data.metadata) : {};
@@ -364,6 +378,7 @@ function App(): React.JSX.Element {
 
       if (isOnline) {
         setStage('network');
+        void flushAnalyticsEvents();
       }
     },
     [],
@@ -432,6 +447,8 @@ function App(): React.JSX.Element {
         console.log('App has come to the foreground!');
         checkLockAppLogic();
         hideSystemNavigationBar();
+        startAnalyticsSession();
+        void flushAnalyticsEvents();
       }
 
       appState.current = nextAppState;
@@ -458,6 +475,7 @@ function App(): React.JSX.Element {
   }, [checkLockAppLogic]);
 
   useEffect(() => {
+    startAnalyticsSession();
     handleTest();
     ensureAESKeysExist();
     Orientation.lockToPortrait();
@@ -499,10 +517,15 @@ function App(): React.JSX.Element {
           theme={navTheme}
           onReady={() => {
             setNavigationReady(true);
-            setCurrentRouteName(navigationRef.current?.getCurrentRoute()?.name);
+            const routeName = navigationRef.current?.getCurrentRoute()?.name;
+            setCurrentRouteName(routeName);
+            if (routeName) trackScreenView(routeName);
           }}
           onStateChange={() => {
             const routeName = navigationRef.current?.getCurrentRoute()?.name;
+            if (routeName && routeName !== currentRouteName) {
+              trackScreenView(routeName, currentRouteName);
+            }
             setCurrentRouteName(routeName);
             if (isGuest && routeName && GUEST_PROTECTED_ROUTES.has(routeName)) {
               navigationRef.current?.reset({

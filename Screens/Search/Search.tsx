@@ -50,6 +50,7 @@ import ToastNotification from '@/components/ToastNotifications';
 import { isAndroid } from '@/configs/constant';
 import {useGuestAccessStore} from '@/store/guestAccess.store';
 import {rankSearchResults} from '@/Utils/searchRelevance';
+import {queueAnalyticsEvent, trackHouseAd} from '@/api/analytics.api';
 
 const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedProps) => {
   const {navigate} = useNavigation<RootNav>()
@@ -72,10 +73,17 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
   const url = (ads && ads.length>0) ? ads[0].link : '';
 
   const handleLink = async () => {
+    if (ads?.[0]?._id) trackHouseAd('house_ad_click', ads[0]._id, 'Search');
     await InAppBrowser.open(url);
   };
 
   async function handleContentClick(item:(IVODContent|ILiveContent), canView?:boolean){
+    queueAnalyticsEvent({
+      eventType: 'content_select',
+      contentId: item._id,
+      contentType: 'adminId' in item ? 'vod' : 'live',
+      sourceScreen: 'Search',
+    });
     if (!isGuest) {
       await registerRecentSearch({contentId:item._id, contentType:'adminId' in item ?'vod' :'live'});
     }
@@ -132,6 +140,11 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
       if(res.ok && res.data){
         const data = [...res.data.data.vods, ...res.data.data.events]
         setContents(rankSearchResults(data, key));
+        queueAnalyticsEvent({
+          eventType: 'search',
+          searchTerm: key.trim().toLowerCase().slice(0, 100),
+          sourceScreen: 'Search',
+        });
       }else{
         ToastNotification('error', `${res.data?.message}`)
       }
@@ -184,6 +197,12 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
     handleRecentSearches();
     handleSuggestions();
   }, [isGuest]);
+
+  useEffect(() => {
+    if (isFocused && ads?.[0]?._id) {
+      trackHouseAd('house_ad_impression', ads[0]._id, 'Search');
+    }
+  }, [ads, isFocused]);
 
    useEffect(() =>{
       if(!currentContentState) setContentState(isFullscreenContent)

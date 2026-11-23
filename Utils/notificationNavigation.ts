@@ -1,7 +1,7 @@
 export type NotificationOpenData = Record<string, string | undefined>;
 
 type Handler = (data: NotificationOpenData) => void | Promise<void>;
-type ReceivedHandler = () => void | Promise<void>;
+type ReceivedHandler = (data: NotificationOpenData) => void | Promise<void>;
 
 let handler: Handler | null = null;
 let pending: NotificationOpenData | null = null;
@@ -21,8 +21,8 @@ export function queueNotificationOpen(data?: NotificationOpenData | null) {
   }
 }
 
-export function notifyNotificationReceived() {
-  receivedHandlers.forEach(receivedHandler => receivedHandler());
+export function notifyNotificationReceived(data: NotificationOpenData = {}) {
+  receivedHandlers.forEach(receivedHandler => receivedHandler(data));
 }
 
 export function registerNotificationReceivedHandler(nextHandler: ReceivedHandler) {

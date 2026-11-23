@@ -135,6 +135,9 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
     const analyticsStartedRef = useRef(false);
     const lastAnalyticsPositionRef = useRef(0);
     const viewReportedRef = useRef(false);
+    const playbackRequestedAtRef = useRef(Date.now());
+    const playbackReadyReportedRef = useRef(false);
+    const bufferStartedAtRef = useRef<number | null>(null);
     const analyticsContentType: AnalyticsContentType =
       props.type === 'live' ? 'live' : props.type === 'series' ? 'episode' : 'vod';
   const {
@@ -681,12 +684,43 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
 
   const handleBuffer = useCallback((e: { isBuffering: boolean }) => {
     setIsBuffering(e.isBuffering);
-  }, []);
+    if (isAdPlayingRef.current) return;
+    if (e.isBuffering && bufferStartedAtRef.current == null) {
+      bufferStartedAtRef.current = Date.now();
+      return;
+    }
+    if (!e.isBuffering && bufferStartedAtRef.current != null) {
+      const bufferingSeconds = (Date.now() - bufferStartedAtRef.current) / 1000;
+      bufferStartedAtRef.current = null;
+      if (bufferingSeconds >= 0.25) {
+        queueAnalyticsEvent({
+          sessionId: analyticsSessionRef.current,
+          contentId: props.contentData._id,
+          contentType: analyticsContentType,
+          eventType: 'buffer',
+          positionSeconds: currentTimeRef.current,
+          bufferingSeconds,
+          quality: videoQuality ?? 'automatic',
+        });
+      }
+    }
+  }, [analyticsContentType, props.contentData._id, videoQuality]);
 
   const handleReadyForDisplay = useCallback(() => {
     setIsReadyForDisplay(true);
     setIsBuffering(false);
-  }, []);
+    if (!isAdPlayingRef.current && !playbackReadyReportedRef.current) {
+      playbackReadyReportedRef.current = true;
+      queueAnalyticsEvent({
+        sessionId: analyticsSessionRef.current,
+        contentId: props.contentData._id,
+        contentType: analyticsContentType,
+        eventType: 'playback_ready',
+        startupMs: Date.now() - playbackRequestedAtRef.current,
+        quality: videoQuality ?? 'automatic',
+      });
+    }
+  }, [analyticsContentType, props.contentData._id, videoQuality]);
 
   const handleAdEvent = useCallback(
     (e: OnReceiveAdEventData) => {
@@ -841,9 +875,24 @@ if(isSaveProgress) {
         source: typeof source?.uri === 'string' ? source.uri : '',
         error,
       });
+      const errorValue = error as unknown as {
+        error?: {errorCode?: string | number; errorString?: string};
+      };
+      queueAnalyticsEvent({
+        sessionId: analyticsSessionRef.current,
+        contentId: props.contentData._id,
+        contentType: analyticsContentType,
+        eventType: 'playback_error',
+        positionSeconds: currentTimeRef.current,
+        quality: videoQuality ?? 'automatic',
+        errorCode: String(
+          errorValue.error?.errorCode ?? errorValue.error?.errorString ?? 'unknown',
+        ).slice(0, 80),
+      });
+      void flushAnalyticsEvents();
       props.onError?.(error);
     },
-    [props, source?.uri],
+    [analyticsContentType, props, source?.uri, videoQuality],
   );
 
   useEffect(() => () => {
@@ -901,12 +950,21 @@ if(isSaveProgress) {
         startTime: currentTimeRef.current,
       })
       .then(() =>
-        console.log(
-          `[${new Date().toLocaleTimeString()}] Media loaded on Cast device.`,
-        ),
+        queueAnalyticsEvent({
+          eventType: 'cast_start',
+          contentId: props.contentData._id,
+          contentType: analyticsContentType,
+          positionSeconds: currentTimeRef.current,
+        }),
       )
       .catch(error => {
         lastCastUrlRef.current = '';
+        queueAnalyticsEvent({
+          eventType: 'cast_error',
+          contentId: props.contentData._id,
+          contentType: analyticsContentType,
+          errorCode: String(error instanceof Error ? error.message : error).slice(0, 80),
+        });
         console.error(
           `[${new Date().toLocaleTimeString()}] Failed to load media on Cast device:`,
           error,
@@ -914,9 +972,11 @@ if(isSaveProgress) {
       });
   }, [
     castSourceUrl,
+    analyticsContentType,
     isCasting,
     posterUri,
     props.contentData.desc,
+    props.contentData._id,
     props.contentData.title,
     remoteClient,
   ]);
@@ -938,6 +998,11 @@ useEffect(() =>{
 }, [props.contentData._id, props.type]);
 
   useEffect(() => {
+    analyticsSessionRef.current = analyticsId('play');
+    analyticsStartedRef.current = false;
+    playbackRequestedAtRef.current = Date.now();
+    playbackReadyReportedRef.current = false;
+    bufferStartedAtRef.current = null;
     setIsReadyForDisplay(false);
     setIsBuffering(true);
     durationRef.current = 0;

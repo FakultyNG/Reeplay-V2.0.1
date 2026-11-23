@@ -53,6 +53,7 @@ export function usePreviewActions({
   const isFocused = useIsFocused();
   const isGuest = useGuestAccessStore(state => state.isGuest);
   const previewContentRef = useRef(previewContent);
+  const trackedPreviewRef = useRef('');
   previewContentRef.current = previewContent;
 
   const [addWatchList_boolean, setAddWatchList] = useState(false);
@@ -241,6 +242,21 @@ export function usePreviewActions({
     if (!isFocused) {
       return;
     }
+    if (trackedPreviewRef.current !== previewContent._id) {
+      trackedPreviewRef.current = previewContent._id;
+      queueAnalyticsEvent({
+        eventType: 'content_select',
+        contentId: previewContent._id,
+        contentType: 'vod',
+        sourceScreen: 'Preview',
+      });
+      queueAnalyticsEvent({
+        eventType: 'preview_start',
+        contentId: previewContent._id,
+        contentType: 'vod',
+        sourceScreen: 'Preview',
+      });
+    }
     Orientation.lockToPortrait();
     handleContentStatusUpdate();
     handleVODRating();
@@ -253,6 +269,7 @@ export function usePreviewActions({
     handleVODRating,
     isFocused,
     isGuest,
+    previewContent._id,
   ]);
 
   return {

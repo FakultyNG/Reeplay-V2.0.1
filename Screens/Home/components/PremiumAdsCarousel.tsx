@@ -1,10 +1,11 @@
-import React, {useCallback} from 'react';
+import React, {useCallback, useRef} from 'react';
 import {
   FlatList,
   Linking,
   StyleSheet,
   TouchableOpacity,
   View,
+  ViewToken,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
@@ -13,6 +14,7 @@ import {selectHomeAds} from '@/store/slices/adsSlice.slice';
 import SectionHeader from './SectionHeader';
 import Size from '@/Utils/useResponsiveSize';
 import {IHomeAdData} from '@/types/api/content.types';
+import {trackHouseAd} from '@/api/analytics.api';
 
 const CARD_WIDTH = Size.getWidth() - 54;
 const CARD_GAP = 12;
@@ -23,8 +25,10 @@ interface Props {
 
 const PremiumAdsCarousel = ({title = 'Premium Ads'}: Props) => {
   const ads = useAppSelector(selectHomeAds);
+  const seenAds = useRef(new Set<string>());
 
   const openAd = useCallback(async (ad: IHomeAdData) => {
+    trackHouseAd('house_ad_click', ad._id, 'Home');
     if (!/^https?:\/\//i.test(ad.link)) {
       return;
     }
@@ -49,6 +53,17 @@ const PremiumAdsCarousel = ({title = 'Premium Ads'}: Props) => {
     }
   }, []);
 
+  const onViewableItemsChanged = useRef(
+    ({viewableItems}: {viewableItems: ViewToken<IHomeAdData>[]}) => {
+      viewableItems.forEach(({item, isViewable}) => {
+        if (isViewable && !seenAds.current.has(item._id)) {
+          seenAds.current.add(item._id);
+          trackHouseAd('house_ad_impression', item._id, 'Home');
+        }
+      });
+    },
+  ).current;
+
   if (ads.length === 0) {
     return null;
   }
@@ -65,6 +80,8 @@ const PremiumAdsCarousel = ({title = 'Premium Ads'}: Props) => {
         snapToInterval={CARD_WIDTH + CARD_GAP}
         snapToAlignment="start"
         disableIntervalMomentum
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={{itemVisiblePercentThreshold: 50, minimumViewTime: 500}}
         contentContainerStyle={styles.list}
         renderItem={({item, index}) => (
           <TouchableOpacity

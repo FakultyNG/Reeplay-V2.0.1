@@ -59,7 +59,7 @@ const onMessageReceived = async message => {
   });
   if (AppState.currentState === 'active') {
     await notifee.incrementBadgeCount();
-    notifyNotificationReceived();
+    notifyNotificationReceived({...data, _messageId: message.messageId || ''});
   }
 };
 

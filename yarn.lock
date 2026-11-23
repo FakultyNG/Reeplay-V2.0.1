@@ -2810,6 +2810,13 @@
   resolved "https://registry.yarnpkg.com/@react-native-community/netinfo/-/netinfo-11.4.1.tgz#a3c247aceab35f75dd0aa4bfa85d2be5a4508688"
   integrity sha512-B0BYAkghz3Q2V09BF88RA601XursIEA111tnc2JOaN7axJWmNefmfjZqw/KdSxKZp7CZUuPpjBmz/WCR9uaHYg==
 
+"@react-native-firebase/analytics@22.4.0":
+  version "22.4.0"
+  resolved "https://registry.yarnpkg.com/@react-native-firebase/analytics/-/analytics-22.4.0.tgz#9131a63e65f7cb9c7179de3a29baf4a46958c4ba"
+  integrity sha512-iTwwJQPv2ea4RhjmuzMu1D2x0rKDRaLFbbkvOYp+hzRXIxSVcDI4Adeo0Hci4Am6EZbi04FRjhEobqUqTFhewA==
+  dependencies:
+    superstruct "^2.0.2"
+
 "@react-native-firebase/app@^22.2.1":
   version "22.4.0"
   resolved "https://registry.yarnpkg.com/@react-native-firebase/app/-/app-22.4.0.tgz#81985d95a26771843d9a46b5ddfe09ebb8485f14"
@@ -2828,6 +2835,11 @@
   version "22.4.0"
   resolved "https://registry.yarnpkg.com/@react-native-firebase/messaging/-/messaging-22.4.0.tgz#91e88deb8cba799c06e847577c0c61fdcfe381cf"
   integrity sha512-iuTA8IJ102pQijFejhWZXxVIt4+JJ5n3JTN8Mb+OXZmIVswUZ4ryErk8Y0RhcFiIwEF5a99ziJfPybA1EheVLg==
+
+"@react-native-firebase/perf@22.4.0":
+  version "22.4.0"
+  resolved "https://registry.yarnpkg.com/@react-native-firebase/perf/-/perf-22.4.0.tgz#1e411c5e169ec0fdd241eb51eafaa4d4d49bdf96"
+  integrity sha512-vUH4CC3I5leLVxbv4yjMwx/2n7FdMbjvc5/jRr8gar+mmfagPRLDK2TojKki61JcSx7FANqFUUYjcPSTywYqwA==
 
 "@react-native-google-signin/google-signin@^15.0.0":
   version "15.0.0"
@@ -10672,6 +10684,11 @@ superagent@^8.0.0:
     mime "2.6.0"
     qs "^6.11.0"
     semver "^7.3.8"
+
+superstruct@^2.0.2:
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/superstruct/-/superstruct-2.0.2.tgz#3f6d32fbdc11c357deff127d591a39b996300c54"
+  integrity sha512-uV+TFRZdXsqXTL2pRvujROjdZQ4RAlBUS5BTh9IGm+jTqQntYThciG/qu57Gs69yjnVUSqdxF9YLmSnpupBW9A==
 
 supports-color@^5.3.0, supports-color@^5.5.0:
   version "5.5.0"

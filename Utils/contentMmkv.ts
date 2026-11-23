@@ -15,6 +15,8 @@ export const CONTENT_MMKV_KEYS = {
   IMAGE_CACHE_MAP: 'IMAGE_CACHE_MAP',
   WELCOME_ADS: 'welcome.ads',
   UPCOMING: 'upcoming.events',
+  ANALYTICS_QUEUE: 'analytics.queue',
+  ANALYTICS_INSTALL_ID: 'analytics.install-id',
 } as const;
 
 export type UpcomingContent = IVODContent | ILiveContent;
@@ -45,7 +47,13 @@ export function contentRemove(key: string): void {
 }
 
 export function clearContentCache(): void {
+  const analyticsQueue = contentGetString(CONTENT_MMKV_KEYS.ANALYTICS_QUEUE);
+  const analyticsInstallId = contentGetString(CONTENT_MMKV_KEYS.ANALYTICS_INSTALL_ID);
   contentMmkv.clearAll();
+  if (analyticsQueue) contentSetString(CONTENT_MMKV_KEYS.ANALYTICS_QUEUE, analyticsQueue);
+  if (analyticsInstallId) {
+    contentSetString(CONTENT_MMKV_KEYS.ANALYTICS_INSTALL_ID, analyticsInstallId);
+  }
 }
 
 export function contentGetJson<T>(key: string): T | null {

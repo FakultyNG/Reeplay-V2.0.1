@@ -6,6 +6,7 @@ import {useAppPersistStore} from '@/store/zustand.store';
 import {IVODContent} from '@/types/api/content.types';
 import {downloadAndSave, encryptFile, getAESKeys} from '../utils/downloadUtils';
 import {fetchVODSource} from '@/api/content.api';
+import {flushAnalyticsEvents, queueAnalyticsEvent} from '@/api/analytics.api';
 
 export function usePreviewDownload(previewContent: IVODContent) {
   const {hasDownloadById, addDownload} = useAppPersistStore();
@@ -15,12 +16,23 @@ export function usePreviewDownload(previewContent: IVODContent) {
   const lastUpdateRef = useRef(Date.now());
 
   const handleDownload = useCallback(async () => {
+    const analytics = {
+      contentId: previewContent._id,
+      contentType: 'vod' as const,
+      sourceScreen: 'Preview',
+    };
+    queueAnalyticsEvent({eventType: 'download_start', ...analytics});
     const sourceResponse = await fetchVODSource(previewContent._id, 'vod', true);
     const source =
       sourceResponse.ok && sourceResponse.data
         ? sourceResponse.data.data.source
         : '';
     if (!source) {
+      queueAnalyticsEvent({
+        eventType: 'download_error',
+        errorCode: 'source_unavailable',
+        ...analytics,
+      });
       ToastNotification(
         'error',
         sourceResponse.data?.message ?? 'Successful wallet payment required',
@@ -30,6 +42,11 @@ export function usePreviewDownload(previewContent: IVODContent) {
 
     const keys = await getAESKeys();
     if (!keys) {
+      queueAnalyticsEvent({
+        eventType: 'download_error',
+        errorCode: 'keys_unavailable',
+        ...analytics,
+      });
       ToastNotification('error', 'This download isn’t available right now.');
       return;
     }
@@ -56,6 +73,11 @@ export function usePreviewDownload(previewContent: IVODContent) {
     });
 
     if (!path) {
+      queueAnalyticsEvent({
+        eventType: 'download_error',
+        errorCode: 'download_failed',
+        ...analytics,
+      });
       ToastNotification('error', 'Download failed');
       setIsDownloading(false);
       return;
@@ -79,7 +101,14 @@ export function usePreviewDownload(previewContent: IVODContent) {
         viewsCount: previewContent.viewsCount,
         vidClass: previewContent.vidClass,
       });
+      queueAnalyticsEvent({eventType: 'download_complete', ...analytics});
+      void flushAnalyticsEvents();
     } catch (error) {
+      queueAnalyticsEvent({
+        eventType: 'download_error',
+        errorCode: 'encryption_failed',
+        ...analytics,
+      });
       console.error('Encryption failed:', error);
       ToastNotification('error', 'Encryption failed');
     } finally {

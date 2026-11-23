@@ -32,6 +32,7 @@ import {
 } from '@/store/slices/bannerSlice.slice';
 import LiveEmptyState from '@/Screens/Live/components/LiveEmptyState';
 import {FHomeIcon} from '@/assets/icons';
+import {queueAnalyticsEvent} from '@/api/analytics.api';
 
 const SLIDER_HEIGHT =
   Platform.OS === 'ios' ? Size.getHeight() * 0.59 : Size.getHeight() * 0.62;
@@ -99,6 +100,7 @@ const Slider = ({
   const dispatch = useAppDispatch();
   const showHeroEmpty = data.length === 0;
   const dataRef = useRef(data);
+  const seenContent = useRef(new Set<string>());
   dataRef.current = data;
 
   const updateChrome = useCallback((index: number) => {
@@ -116,7 +118,17 @@ const Slider = ({
   const commitExtras = useCallback((index: number) => {
     const next = updateChrome(index);
     setCommittedIndex(prev => (prev === next ? prev : next));
-  }, [updateChrome]);
+    const item = dataRef.current[next];
+    if (item && !seenContent.current.has(item._id)) {
+      seenContent.current.add(item._id);
+      queueAnalyticsEvent({
+        eventType: 'content_impression',
+        contentId: item._id,
+        contentType: 'adminId' in item ? 'vod' : 'live',
+        sourceScreen: live ? 'Live' : 'Home',
+      });
+    }
+  }, [live, updateChrome]);
 
   useEffect(() => {
     if (!isLoading) {

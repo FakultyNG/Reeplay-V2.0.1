@@ -1,6 +1,10 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {StyleSheet} from 'react-native';
-import {ViewType, type ReactVideoProps} from 'react-native-video';
+import {
+  ViewType,
+  type ReactVideoProps,
+  type VideoRef,
+} from 'react-native-video';
 import {AppVideo} from '@/components';
 import {IAdsData} from '@/types/api/content.types';
 
@@ -49,6 +53,7 @@ export default function WelcomeAdPlayer({
   }, [ads]);
   const [index, setIndex] = useState(0);
   const [failedAdIds, setFailedAdIds] = useState<string[]>([]);
+  const videoRefs = useRef<Record<string, VideoRef | null>>({});
 
   useEffect(() => {
     setIndex(0);
@@ -57,53 +62,84 @@ export default function WelcomeAdPlayer({
 
   const playableAds = eligibleAds.filter(ad => !failedAdIds.includes(ad._id));
   const useFallback = requestComplete && playableAds.length === 0;
-  const serverAd = playableAds[index % Math.max(playableAds.length, 1)];
-  const item: VideoItem | null = useFallback
-    ? fallbackItem
-    : serverAd
-      ? {
-          id: serverAd._id,
-          source: {uri: serverAd.videoUrl},
-          fallback: false,
-        }
-      : null;
+  const playlist: VideoItem[] = useFallback
+    ? [fallbackItem]
+    : playableAds.map(ad => ({
+        id: ad._id,
+        source: {uri: ad.videoUrl},
+        fallback: false,
+      }));
+  const activeIndex = index % Math.max(playlist.length, 1);
+  const activeItem = playlist[activeIndex];
+  const nextItem =
+    playlist.length > 1 ? playlist[(activeIndex + 1) % playlist.length] : null;
+  const mountedItems = activeItem
+    ? nextItem
+      ? [activeItem, nextItem]
+      : [activeItem]
+    : [];
 
-  if (!item) return null;
+  if (!activeItem) return null;
 
   return (
-    <AppVideo
-      key={item.id}
-      source={item.source}
-      containerStyle={styles.videoLayer}
-      style={styles.video}
-      resizeMode="cover"
-      muted={muted}
-      paused={paused}
-      controls={false}
-      viewType={ViewType.TEXTURE}
-      repeat={item.fallback || playableAds.length === 1}
-      hideShutterView
-      shutterColor="transparent"
-      onEnd={() => {
-        if (!item.fallback) {
-          setIndex(current => (current + 1) % playableAds.length);
-        }
-      }}
-      onError={() => {
-        if (!item.fallback) {
-          setFailedAdIds(ids => (ids.includes(item.id) ? ids : [...ids, item.id]));
-          setIndex(0);
-        }
-      }}
-    />
+    <>
+      {mountedItems.map(item => {
+        const isActive = item.id === activeItem.id;
+
+        return (
+          <AppVideo
+            key={item.id}
+            videoRef={ref => {
+              videoRefs.current[item.id] = ref;
+            }}
+            source={item.source}
+            containerStyle={
+              isActive ? styles.activeVideoLayer : styles.preloadedVideoLayer
+            }
+            style={styles.video}
+            resizeMode="cover"
+            muted={muted}
+            paused={paused || !isActive}
+            controls={false}
+            viewType={ViewType.TEXTURE}
+            repeat={item.fallback || playlist.length === 1}
+            hideShutterView
+            shutterColor="transparent"
+            onEnd={() => {
+              if (!item.fallback && isActive) {
+                // Reset the completed layer so it is ready when the playlist
+                // cycles back to it, then reveal the already-buffered layer.
+                videoRefs.current[item.id]?.seek(0);
+                setIndex(current => (current + 1) % playlist.length);
+              }
+            }}
+            onError={() => {
+              if (!item.fallback) {
+                setFailedAdIds(ids =>
+                  ids.includes(item.id) ? ids : [...ids, item.id],
+                );
+                setIndex(0);
+              }
+            }}
+          />
+        );
+      })}
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  videoLayer: {
+  activeVideoLayer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+    zIndex: 1,
+    opacity: 1,
+  },
+  preloadedVideoLayer: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'transparent',
     zIndex: 0,
+    opacity: 0,
   },
   video: {
     width: '100%',

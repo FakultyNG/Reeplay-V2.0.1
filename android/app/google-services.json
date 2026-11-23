@@ -1,32 +1,13 @@
 {
   "project_info": {
-    "project_number": "1020677113768",
-    "project_id": "reeplay-4a7cd",
-    "storage_bucket": "reeplay-4a7cd.firebasestorage.app"
+    "project_number": "772788660887",
+    "project_id": "reeplay-6a82b",
+    "storage_bucket": "reeplay-6a82b.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1020677113768:android:9fd147f2cea6287cdeff9d",
-        "android_client_info": {
-          "package_name": "com.reeplay"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBabSVlzMd4FMy3vZ0JDDkuAbrCwtxUv8M"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1020677113768:android:7659f1a7f63e756ddeff9d",
+        "mobilesdk_app_id": "1:772788660887:android:e9125d368d44325f9d57d2",
         "android_client_info": {
           "package_name": "com.reeplayv2"
         }
@@ -34,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBabSVlzMd4FMy3vZ0JDDkuAbrCwtxUv8M"
+          "current_key": "AIzaSyBB9MsNwqB-fUeVW5T9MWMALqJdfj2nx1A"
         }
       ],
       "services": {

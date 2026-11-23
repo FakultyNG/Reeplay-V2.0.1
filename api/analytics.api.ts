@@ -39,7 +39,12 @@ export type AnalyticsEventType =
   | 'notification_received'
   | 'notification_open'
   | 'house_ad_impression'
-  | 'house_ad_click';
+  | 'house_ad_click'
+  | 'house_ad_video_start'
+  | 'house_ad_video_25'
+  | 'house_ad_video_50'
+  | 'house_ad_video_75'
+  | 'house_ad_video_complete';
 
 export type ContentAnalyticsEvent = {
   eventId: string;
@@ -201,7 +206,14 @@ export const trackScreenView = (screenName: string, sourceScreen?: string) =>
   queueAnalyticsEvent({eventType: 'screen_view', screenName, sourceScreen});
 
 export const trackHouseAd = (
-  eventType: 'house_ad_impression' | 'house_ad_click',
+  eventType:
+    | 'house_ad_impression'
+    | 'house_ad_click'
+    | 'house_ad_video_start'
+    | 'house_ad_video_25'
+    | 'house_ad_video_50'
+    | 'house_ad_video_75'
+    | 'house_ad_video_complete',
   adId: string,
   sourceScreen: string,
 ) => queueAnalyticsEvent({eventType, adId, sourceScreen});

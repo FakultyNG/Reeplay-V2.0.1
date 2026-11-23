@@ -7,6 +7,7 @@ import {
 } from 'react-native-video';
 import {AppVideo} from '@/components';
 import {IAdsData} from '@/types/api/content.types';
+import {trackHouseAd} from '@/api/analytics.api';
 
 type VideoItem = {
   id: string;
@@ -54,6 +55,24 @@ export default function WelcomeAdPlayer({
   const [index, setIndex] = useState(0);
   const [failedAdIds, setFailedAdIds] = useState<string[]>([]);
   const videoRefs = useRef<Record<string, VideoRef | null>>({});
+  const durations = useRef<Record<string, number>>({});
+  const trackedEvents = useRef<Set<string>>(new Set());
+
+  const trackOnce = (
+    id: string,
+    eventType:
+      | 'house_ad_impression'
+      | 'house_ad_video_start'
+      | 'house_ad_video_25'
+      | 'house_ad_video_50'
+      | 'house_ad_video_75'
+      | 'house_ad_video_complete',
+  ) => {
+    const key = `${id}:${eventType}`;
+    if (trackedEvents.current.has(key)) return;
+    trackedEvents.current.add(key);
+    trackHouseAd(eventType, id, 'WelcomeAuth');
+  };
 
   useEffect(() => {
     setIndex(0);
@@ -105,8 +124,23 @@ export default function WelcomeAdPlayer({
             repeat={item.fallback || playlist.length === 1}
             hideShutterView
             shutterColor="transparent"
+            onLoad={data => {
+              durations.current[item.id] = data.duration;
+            }}
+            onProgress={data => {
+              if (item.fallback || !isActive || data.currentTime <= 0) return;
+              trackOnce(item.id, 'house_ad_impression');
+              trackOnce(item.id, 'house_ad_video_start');
+              const duration = durations.current[item.id];
+              if (!duration) return;
+              const percent = (data.currentTime / duration) * 100;
+              if (percent >= 25) trackOnce(item.id, 'house_ad_video_25');
+              if (percent >= 50) trackOnce(item.id, 'house_ad_video_50');
+              if (percent >= 75) trackOnce(item.id, 'house_ad_video_75');
+            }}
             onEnd={() => {
               if (!item.fallback && isActive) {
+                trackOnce(item.id, 'house_ad_video_complete');
                 // Reset the completed layer so it is ready when the playlist
                 // cycles back to it, then reveal the already-buffered layer.
                 videoRefs.current[item.id]?.seek(0);

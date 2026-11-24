@@ -641,10 +641,23 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
                   const safeName = (x.language || `track-${index}`)
                     .replace(/[^a-z0-9_-]/gi, '_')
                     .toLowerCase();
-                  const vttUri = await saveVttFile(
-                    vtt,
-                    `${parentId}-${safeName}.vtt`,
-                  );
+                  // The JS cue overlay only needs parsed cues. Persisting a
+                  // local VTT copy is an optimisation for the native track,
+                  // so a device cache/RNFS failure must not remove the track
+                  // from the subtitle picker.
+                  let vttUri = normalizeSubtitleUrl(x.src, x.bucket, x.key);
+                  try {
+                    vttUri = await saveVttFile(
+                      vtt,
+                      `${parentId}-${safeName}.vtt`,
+                    );
+                  } catch (cacheError) {
+                    console.warn(
+                      '[subtitles] local cache unavailable; using remote VTT',
+                      x.language,
+                      cacheError,
+                    );
+                  }
 
                   return {
                     language: toLangCode(x.language),

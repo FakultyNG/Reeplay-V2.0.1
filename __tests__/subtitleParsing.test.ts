@@ -43,4 +43,16 @@ describe('mobile subtitle parsing', () => {
       'https://reeplay-media.example/subtitles/movie-english.vtt',
     );
   });
+
+  test('parses production-style English and Yoruba WebVTT tracks', () => {
+    const english = parseVttCues(
+      'WEBVTT\n\n00:00:01.000 --> 00:00:05.000\nWelcome to Reeplay.',
+    );
+    const yoruba = parseVttCues(
+      'WEBVTT\n\n00:00:01.000 --> 00:00:05.000\nẸ káàbọ̀ sí Reeplay.',
+    );
+
+    expect(cueTextAtTime(english, 2)).toBe('Welcome to Reeplay.');
+    expect(cueTextAtTime(yoruba, 2)).toBe('Ẹ káàbọ̀ sí Reeplay.');
+  });
 });

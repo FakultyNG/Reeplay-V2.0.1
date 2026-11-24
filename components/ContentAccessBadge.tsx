@@ -17,11 +17,13 @@ type Props = {
   size?: BadgeSize;
   style?: StyleProp<ViewStyle>;
   labelStyle?: StyleProp<TextStyle>;
+  isReeplayOriginal?: boolean;
 };
 
 const BADGE_CONFIG = {
   premium: {label: 'Premium', color: '#06D097', icon: 'verified'},
-  exclusive: {label: 'Exclusive', color: '#FF1313', icon: 'verified'},
+  exclusive: {label: 'Reeplay Original', color: '#FF1313', icon: 'verified'},
+  original: {label: 'Reeplay Original', color: '#FF1313', icon: 'verified'},
   free: {label: 'Free', color: '#FFCC00', icon: 'unlocked'},
 } as const;
 
@@ -64,8 +66,9 @@ const ContentAccessBadge = ({
   size = 'compact',
   style,
   labelStyle,
+  isReeplayOriginal = false,
 }: Props) => {
-  const normalizedType = contentType?.trim().toLowerCase();
+  const normalizedType = isReeplayOriginal ? 'original' : contentType?.trim().toLowerCase();
   const config = BADGE_CONFIG[normalizedType as keyof typeof BADGE_CONFIG];
 
   if (!config) return null;

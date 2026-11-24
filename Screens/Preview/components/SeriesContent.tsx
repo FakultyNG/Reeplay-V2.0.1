@@ -20,6 +20,7 @@ import {
   getEpisodePlaybackUrl,
   normalizeSeriesSeasons,
 } from '@/Utils/seriesContent';
+import {useStorePurchase} from '@/Hooks/useStorePurchase';
 
 const SERIES_PAGE_SIZE = 10;
 
@@ -66,15 +67,23 @@ const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}
         setLoading(false);
       }
     }, [vod._id]);
+    const storePurchase = useStorePurchase(() => handleGetSeasons(1, true));
   
     const loadMore = useCallback(() => {
       if (!hasMore || loading) return;
       handleGetSeasons(page + 1);
     }, [page, hasMore, loading, handleGetSeasons]);
 
-    const sections = seasons.map(x => ({
+    const sections = [...seasons]
+      .sort((a, b) => a.serial_number - b.serial_number)
+      .map(x => ({
       title: x.serial_number,
-      data: Array.isArray(x.episodes) ? x.episodes : [],
+      seasonId: x._id,
+      canView: vod.vidClass === 'free' || Boolean(x.canView),
+      accessEndsAt: x.accessEndsAt,
+      data: Array.isArray(x.episodes)
+        ? [...x.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber)
+        : [],
     }));
 
     const toggleSection = (title:number) => {
@@ -114,21 +123,26 @@ const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}
         contentContainerStyle={{paddingBottom:50}}
         onEndReachedThreshold={1}
         onEndReached={loadMore}
-        renderSectionHeader={({section: {title}}) => {
+        renderSectionHeader={({section}) => {
+          const {title} = section;
           const isCollapsed = isSectionCollapsed(title);
           return (
-             <TouchableOpacity 
-             onPress={() => toggleSection(title)}
-             className="ml-1 mb-2 flex-row items-center">
-          <AppText className="mr-2 font-ROBOTO_400 text-white text-[13px]">
-            Season {title}
-          </AppText>
-         <View style={{
-          transform:[{rotateZ:isCollapsed?'-90deg':'0deg'}]
-         }}>
-          <OpenDropDwn />
-         </View>
-        </TouchableOpacity>
+            <View className="mb-3 ml-1 flex-row items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
+              <TouchableOpacity onPress={() => toggleSection(title)} className="flex-row items-center">
+                <AppText className="mr-2 font-ROBOTO_500 text-white text-[14px]">Season {title}</AppText>
+                <View style={{transform:[{rotateZ:isCollapsed?'-90deg':'0deg'}]}}><OpenDropDwn /></View>
+              </TouchableOpacity>
+              {!section.canView && (
+                <TouchableOpacity
+                  disabled={storePurchase.busy}
+                  onPress={() => storePurchase.purchase({videoId: vod._id, seasonId: section.seasonId})}
+                  className="rounded-lg bg-red px-3 py-2">
+                  <AppText className="font-ROBOTO_700 text-white text-[12px]">
+                    {storePurchase.busy ? 'Opening store…' : storePurchase.displayPrice || '$0.80'}
+                  </AppText>
+                </TouchableOpacity>
+              )}
+            </View>
           );
         }}
         renderItem={({item:series, section}) => {
@@ -139,7 +153,7 @@ const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}
               <SeriesView
               item={series}
               vod={vod}
-              accessStatus={accessStatus}
+              accessStatus={section.canView}
               makeFullscreen={makeFullscreen}
               setFullscreenContent={setFullscreenContent}
             />

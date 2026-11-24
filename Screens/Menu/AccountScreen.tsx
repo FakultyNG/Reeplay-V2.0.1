@@ -19,12 +19,9 @@ import { useIsFocused, useNavigation } from '@react-navigation/native';
 import {
   AccountDashboard,
   ArrowRight,
-  CardDots,
   EditIcon,
-  Green_SubscripeIcon,
   PasswordDashboard,
   PinDashboard,
-  VisaCard,
 } from '@/assets/icons';
 import colors from '@/configs/colors';
 import Size from '@/Utils/useResponsiveSize';
@@ -35,9 +32,7 @@ import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
 import {
   selectUser,
   selectUserProfilePic,
-  selectWalletInfo,
   setCredentials,
-  setWalletInfo,
 } from '@/store/slices/userSlice';
 import { pickSingleImage } from '@/Utils/MediaPicker';
 import {
@@ -46,11 +41,6 @@ import {
   uploadProfile,
 } from '@/api/profile.api';
 import { formatDate } from '@/Utils/formatTime';
-import { userSubscriptionStatus } from '@/api/subscription.api';
-import { IUserSubscription } from '@/types/api/subscription.types';
-import { WalletDetails } from '@/types/api/payment.type';
-import { walletBalance } from '@/api/payment.api';
-import { formatAmount } from '@/Utils/formatAmount';
 import { LazyLoadImage } from 'react-lazy-load-image-component';
 import FastImage from 'react-native-fast-image';
 import { checkImageUrlValidity } from '@/Utils/ValidateImageUrl';
@@ -65,31 +55,13 @@ const AccountScreen = () => {
   const user = useAppSelector(selectUser);
   const profilePic = useAppSelector(selectUserProfilePic);
   const nav = useNavigation<RootNav>();
-  const [showModal, setShowModal] = useState<'logout'|'gmd'|null>(null);
+  const [showModal, setShowModal] = useState<'logout'|null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const wallet = useAppSelector(selectWalletInfo);
   const [isValidImg, setVallid] = useState<boolean>(false)
-  const [billingService, setBillingService] =
-    useState<IUserSubscription | null>(null);
-
-  // async
-  async function handleSubscriptionStatus() {
-    // const res = await userSubscriptionStatus();
-    // if (res.ok && res.data && res.data.data) {
-    //   setBillingService(res.data.data);
-    // }
-  }
 
   async function handleValidImg() {
     const valid = await checkImageUrlValidity(profilePic)
     setVallid(valid)
-  }
-
-  async function getWallet() {
-    const res = await walletBalance();
-    if (res.ok && res.data) {
-      dispatch(setWalletInfo(res.data.data));
-    }
   }
 
   const openGallery = async () => {
@@ -123,8 +95,7 @@ const AccountScreen = () => {
   }
 
   useEffect(() => {
-    handleSubscriptionStatus();
-    getWallet();
+    handleValidImg();
   }, [isFocused]);
 
   useEffect(() =>{
@@ -226,117 +197,26 @@ const AccountScreen = () => {
         </AppView>
 
         <AppView className="mt-10">
-          <AppText className=" font-MANROPE_500 text-[16px] text-white uppercase">
-            BILLING
+          <AppText className="font-MANROPE_500 text-[16px] text-white uppercase">
+            Purchases
           </AppText>
-          <AppView className="mt-3 pt-5 pb-7 pl-4 pr-5 border border-[#C4C4C445] rounded-md bg-[#1A1A1AD9]">
-            {billingService ? (
-              <AppView className="flex-row items-center justify-between mb-9">
-                <AppView className="flex-row items-center">
-                  <VisaCard />
-                  <AppView className="flex-row items-center ml-3">
-                    <CardDots />
-                    <AppText className="font-MANROPE_500 text-[15px] text-white ml-1.5">
-                      5071
-                    </AppText>
-                  </AppView>
-                </AppView>
-
-                <TouchableOpacity className="flex-row items-center mr-1.5">
-                  <Green_SubscripeIcon />
-                  <AppText className="font-MANROPE_400 text-[13px] text-green ml-1">
-                    Active Plan
-                  </AppText>
-                </TouchableOpacity>
-              </AppView>
-            ) : null}
-
-            <TouchableOpacity
-              onPress={() => navigate(routes.TRANSACTION_HISTORY_SCREEN)}
-              className="flex-row items-center justify-between">
-              <AppText className="ml-2 font-MANROPE_400 text-[16px] text-white">
-                View your Reeplay transaction history
-              </AppText>
-              {/* Arroa */}
-              <ArrowRight />
-            </TouchableOpacity>
-
-            <AppView className="mt-10">
-              {wallet ? (
-                <AppView className="flex-row items-center w-full justify-between">
-                  <View className='flex-row items-center flex-wrap gap-5'>
-                  <TouchableOpacity 
-                  onPress={() => 
-                     navigate(routes.SUBSCRIPTION_SCREEN, {
-                        tab: 'topup',
-                        currency:'NGN'
-                      })
-                  }
-                  className="px-5 pt-1.5 pb-2.5 rounded-[5px] bg-[#286009]">
-                    <AppText className="font-MANROPE_400 text-[9px] text-white">
-                     NGN balance
-                    </AppText>
-                    <AppText className="font-MANROPE_700 text-white text-lg text-left">
-                      ₦{formatAmount(wallet.NGNBalance, 'NGN')}
-                    </AppText>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                  onPress={() => 
-                     navigate(routes.SUBSCRIPTION_SCREEN, {
-                        tab: 'topup',
-                        currency:'USD'
-                      })
-                  }
-                  className="px-6 pt-1.5 pb-2.5 rounded-md bg-[#2873C8]">
-                    <AppText className="font-MANROPE_400 text-[9px] text-white">
-                     USD balance
-                    </AppText>
-                    <AppText className="font-MANROPE_700 text-white text-lg text-left">
-                      ${formatAmount(wallet.USDBalance, 'USD')}
-                    </AppText>
-                  </TouchableOpacity>
-
- <TouchableOpacity 
-                  onPress={() => setShowModal('gmd')}
-                  className="px-6 pt-1.5 pb-2.5 rounded-md bg-[#6D31ED]">
-                    <AppText className="font-MANROPE_400 text-[9px] text-white">
-                     GMD balance
-                    </AppText>
-                    <AppText className="font-MANROPE_700 text-white text-lg text-left">
-                      D{formatAmount(wallet.GMDBalance, 'GMD')}
-                    </AppText>
-                  </TouchableOpacity>
-                  </View>
-                </AppView>
-              ) : (
-                <AppButton
-                  bgColor={colors.RED}
-                  title="Top up"
-                  onPress={() =>
-                    // navigate(routes.SUBSCRIPTION_SCREEN, { tab: 'topup' })
-                    console.log('first')
-                  }
-                  style={{
-                    width: '100%',
-                    borderRadius: 5,
-                    paddingVertical: Size.calcHeight(15),
-                  }}
-                />
-              )}
-            </AppView>
+          <AppView className="mt-3 rounded-xl border border-white/10 bg-[#1A1A1AD9] px-5 py-5">
+            <AppText className="font-MANROPE_500 text-[15px] text-white">
+              Pay only when you choose a premium title
+            </AppText>
+            <AppText className="mt-2 font-MANROPE_400 text-[13px] leading-5 text-grey_500">
+              Movies and seasons are purchased securely through the App Store or Google Play. Access lasts 30 days and works on your Reeplay account across devices.
+            </AppText>
           </AppView>
         </AppView>
 
         <AppView className="mt-6 ml-6 mb-10">
           <Pressable
             onPress={() =>
-              billingService
-                ? navigate(routes.CANCEL_SUBSCRIPTION_SCREEN)
-                : setShowModal('logout')
+              setShowModal('logout')
             }>
             <AppText className=" font-MANROPE_400 text-sm text-[#DE3B40]">
-              {billingService ? 'Cancel Subscription' : 'Log out'}
+              Log out
             </AppText>
           </Pressable>
           <Pressable onPress={() => navigate(routes.DELETE_ACCOUNT_SCREEN)}>
@@ -352,7 +232,7 @@ const AccountScreen = () => {
         replaceDefaultContent={
           <AppView className=" items-center">
             <AppText className="mt-4 font-ROBOTO_400 text-sm text-black text-center leading-5">
-              {showModal === 'logout' ? `Are you sure you want to \nLogout?`:'GMD Wallet funding is only available via Reeplay Gift Cards. Do you want to continue?'}
+              Are you sure you want to log out?
             </AppText>
 
             <AppView className="mt-7" />
@@ -366,7 +246,7 @@ const AccountScreen = () => {
             <AppButton
               bgColor={colors.RED}
               title="Yes"
-              onPress={() => showModal === 'logout' ? handleLogout() : [navigate(routes.GIFT_CARD_SCREEN), setShowModal(null)]}
+              onPress={handleLogout}
               style={styles.btn}
               labelStyle={styles.btnLabel}
             />

@@ -24,7 +24,6 @@ import NotificatoinScreen_S from '@/Screens/Settings/NotificatoinScreen_S';
 import Search from '@/Screens/Search/Search';
 import GetStartedScreen from '@/Screens/authentication/GetStartedScreen';
 import {useNavigation} from '@react-navigation/native';
-import PaymentSummaryView from '@/Screens/Payments/PaymentSummaryView';
 import LanguageScreen from '@/Screens/Language/LanguageScreen';
 import {LiveEvents} from '@/types/api/live.types';
 import {ICast, IVoteInfo} from '@/types/api/content.types';
@@ -84,7 +83,6 @@ export type RootStackParamList = {
     voteInfo?: IVoteInfo | null;
     _id: string;
   };
-  [routes.PAYMENT_SCREEN]: undefined;
 };
 
 export type RootNav = NativeStackNavigationProp<RootStackParamList>;
@@ -141,13 +139,6 @@ const AppNavigator = (): JSX.Element => {
     </OrientationWrapper>
   )}
           </RootStack.Screen>
-      </RootStack.Group>
-
-      <RootStack.Group>
-        <RootStack.Screen
-          name={routes.PAYMENT_SCREEN}
-          component={PaymentSummaryView}
-        />
       </RootStack.Group>
 
       <RootStack.Group>

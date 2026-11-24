@@ -3,17 +3,14 @@ import React, {useEffect, useState} from 'react';
 import {AppScreen, AppView} from '@/components';
 import colors from '@/configs/colors';
 import useToggle from '@/Hooks/useToggle';
-import {useNavigation, useRoute} from '@react-navigation/native';
+import {useRoute} from '@react-navigation/native';
 import {PreviewScreenRoute} from '@/types/typings';
-import {RootNav} from '@/navigation/AppNavigator';
-import routes from '@/navigation/routes';
 import {useAppSelector} from '@/Hooks/reduxHook';
 import {selectUserProfilePic} from '@/store/slices/userSlice';
 import {IReplyDetails} from '@/types/api/comment.types';
 import {IDownloadData} from '@/types/api/content.types';
 import {useCommentHook} from './utils/commentHook';
 import {OrientationInjectedProps} from '@/components/OrientationWrapper';
-import {getWatchTag} from '@/Utils/contentUtils';
 import DownloadFullscreenModalPlayer from '../Download/FullscreenModalPlayer';
 import PreviewCommentPanel from './components/PreviewCommentPanel';
 import PreviewTitleBar from './components/PreviewTitleBar';
@@ -28,6 +25,7 @@ import {usePreviewExitCover} from './hooks/usePreviewExitCover';
 import {requireRegisteredUser} from '@/Utils/guestAccess';
 import ToastNotification from '@/components/ToastNotifications';
 import {fetchVODSource} from '@/api/content.api';
+import {useStorePurchase} from '@/Hooks/useStorePurchase';
 
 const PreviewScreen = ({
   isFullscreen,
@@ -39,7 +37,6 @@ const PreviewScreen = ({
   const [addRatting, setAddRating] = useToggle(false);
   const [isComment, setIsComment] = useState(false);
   const route = useRoute<PreviewScreenRoute>();
-  const {navigate} = useNavigation<RootNav>();
   const [replyDetails, setRepliesDetails] = useState<IReplyDetails | null>(
     null,
   );
@@ -54,7 +51,6 @@ const PreviewScreen = ({
 
   const {
     previewContent,
-    premiumCost,
     addWatchList_boolean,
     loading,
     commentCount,
@@ -66,6 +62,7 @@ const PreviewScreen = ({
     handleAddWatchList,
     handleShare,
     getCommentCount,
+    refreshAccess,
   } = usePreviewActions({
     isFullscreen,
     isComment,
@@ -78,6 +75,17 @@ const PreviewScreen = ({
     usePreviewDownload(previewContent);
 
   const content = route.params.content;
+  const storePurchase = useStorePurchase(refreshAccess);
+
+  useEffect(() => {
+    if (
+      storePurchase.connected &&
+      previewContent.vidClass !== 'free' &&
+      previewContent.type !== 'series'
+    ) {
+      void storePurchase.prepare({videoId: previewContent._id});
+    }
+  }, [previewContent._id, previewContent.type, previewContent.vidClass, storePurchase.connected]);
 
   const {addCommentFunc, loading: loadingComment} = useCommentHook({
     handleFinalFunc: () => getCommentCount(),
@@ -149,23 +157,11 @@ const PreviewScreen = ({
       return;
     }
     if (!requireRegisteredUser()) return;
-    navigate(routes.MAIN, {
-      screen: routes.SUBSCRIPTION_SCREEN,
-      params: {
-        tab: getWatchTag(previewContent.vidClass, false),
-        currency:
-          contentType === 'premium' && premiumCost
-            ? premiumCost.currencyCode
-            : previewContent.currency,
-        amount: `${
-          contentType === 'premium' && premiumCost
-            ? premiumCost.amount
-            : previewContent.amount
-        }`,
-        stage: 'paymentSummary',
-        metadata: {videoId: previewContent._id},
-      },
-    });
+    if (previewContent.type === 'series') {
+      ToastNotification('info', 'Choose a season below to unlock it.');
+      return;
+    }
+    await storePurchase.purchase({videoId: previewContent._id});
   };
 
   return (
@@ -266,7 +262,11 @@ const PreviewScreen = ({
                       content={content}
                       previewContent={previewContent}
                       contentType={contentType}
-                      contentPrice={contentPrice}
+                      contentPrice={
+                        !accessStatus && previewContent.type !== 'series'
+                          ? storePurchase.displayPrice || '$0.30'
+                          : contentPrice
+                      }
                       seeMore={seeMore}
                       setSeeMore={setSeeMore}
                       isDownloaded={isDownloaded}

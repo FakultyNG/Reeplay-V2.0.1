@@ -18,18 +18,12 @@ import {AppView} from '@/components';
 import Size from '@/Utils/useResponsiveSize';
 import Caurosel from './Caurosel';
 import Carousel from 'react-native-reanimated-carousel';
-import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
 import {
   IDownloadData,
   ILiveContent,
   IVODContent,
 } from '@/types/api/content.types';
 import {generateGradientColors} from '@/Utils/contentUtils';
-import {useCurrencyByIP} from '@/Hooks/useCurrencyByIP';
-import {
-  selectPremiumCost,
-  setSelectedPremiumCost,
-} from '@/store/slices/bannerSlice.slice';
 import LiveEmptyState from '@/Screens/Live/components/LiveEmptyState';
 import {FHomeIcon} from '@/assets/icons';
 import {queueAnalyticsEvent} from '@/api/analytics.api';
@@ -92,12 +86,6 @@ const Slider = ({
   });
   const [committedIndex, setCommittedIndex] = useState(0);
 
-  const premiumCost = useAppSelector(selectPremiumCost);
-  const {data: premium, isLoading} = useCurrencyByIP({
-    NGN: premiumCost?.premiumNGN ?? 0,
-    USD: premiumCost?.premiumUSD ?? 0,
-  });
-  const dispatch = useAppDispatch();
   const showHeroEmpty = data.length === 0;
   const dataRef = useRef(data);
   const seenContent = useRef(new Set<string>());
@@ -129,12 +117,6 @@ const Slider = ({
       });
     }
   }, [live, updateChrome]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      dispatch(setSelectedPremiumCost(premium));
-    }
-  }, [dispatch, isLoading, premium]);
 
   useEffect(() => {
     if (data.length > 0) {

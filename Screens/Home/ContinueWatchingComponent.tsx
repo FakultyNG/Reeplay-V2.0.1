@@ -103,6 +103,7 @@ const ContinueWatchingComponent = ({
             <AppView className="flex-row items-center">
               <ContentAccessBadge
                 contentType={item.vidClass}
+                isReeplayOriginal={item.isReeplayOriginal}
                 style={styles.accessBadge}
               />
                 <AppText className="font-ROBOTO_500 text-[11px] text-white mr-1.5">

@@ -32,6 +32,7 @@ export interface ILiveContent {
     viewsCount: number;
     streamKey: string;
     vidClass: string;
+    isReeplayOriginal?: boolean;
     clientId: string;
     previewVideo: string | null;
     createdAt: string
@@ -76,6 +77,7 @@ export interface IVODContent {
     portraitPhoto: string
     viewsCount: number;
     vidClass: string;
+    isReeplayOriginal?: boolean;
     releaseDate: string;
     expiryDate: string;
     defaultRating: number;
@@ -309,6 +311,8 @@ export interface ISeasonData {
   commentsCount: number;
   episodes: IEpisode[];
   viewsCount: number;
+  canView?: boolean;
+  accessEndsAt?: string | null;
 }
 
 export interface IEpisode {

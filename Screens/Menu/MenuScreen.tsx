@@ -13,7 +13,6 @@ import {
   BigClose,
   CreateADIcon,
   DownloadIcon,
-  GiftCardIcon,
   NotificationIcon,
   SettingsIcon,
   SuggestionIcon,
@@ -44,12 +43,10 @@ import {
   selectUserProfilePic,
   selectUnreadNotificationCount,
   setUnreadNotificationCount,
-  setWalletInfo,
   setWatchListContents,
 } from '@/store/slices/userSlice';
 import FastImage from 'react-native-fast-image';
 import {checkImageUrlValidity} from '@/Utils/ValidateImageUrl';
-import {walletBalance} from '@/api/payment.api';
 import {fetchWatchList} from '@/api/watchlist.api';
 import {HAS_LOCK_APP} from '../Settings/SettingScreen';
 import {clearTokens} from '@/Utils/secureTokenStorage';
@@ -65,7 +62,6 @@ const tabs = [
   'Create AD',
   'Notifications',
   'Suggestions',
-  'Gift cards',
   'Settings',
 ];
 
@@ -159,7 +155,6 @@ const MenuScreen = () => {
     if (selectedTab === 'Create AD') setAds(true);
     if (selectedTab === 'Notifications') navigate(routes.NOTIFICATION_SCREEN);
     if (selectedTab === 'Suggestions') navigate(routes.SUGGESTION_SCREEN);
-    if (selectedTab === 'Gift cards') navigate(routes.GIFT_CARD_SCREEN);
     if (selectedTab === 'Settings') navigation.navigate(routes.SETTINGS_SCREEN);
     if (selectedTab === 'Downloads')
       navigation.navigate(routes.DOWNLOAD_SCREEN);
@@ -182,17 +177,6 @@ const MenuScreen = () => {
     });
   }
 
-   const getWallet = useCallback(async () => {
-      try {
-        const res = await walletBalance();
-        if (res.ok && res.data) {
-          dispatch(setWalletInfo(res.data.data));
-        }
-      } catch {
-        // non-fatal on menu open
-      }
-    }, [dispatch]);
-
    const getWatchList = useCallback(async () => {
       try {
         const res = await fetchWatchList({page:1, limit:20});
@@ -209,11 +193,10 @@ const MenuScreen = () => {
     getSkippedState().then(skipped => {
       if (!skipped) {
         getWatchList();
-        getWallet();
       }
     });
     handleValidImg();
-  }, [getWatchList, getWallet, getSkippedState, handleValidImg, user?._id]);
+  }, [getWatchList, getSkippedState, handleValidImg, user?._id]);
 
   const displayName = [user?.first_name, user?.last_name]
     .filter(Boolean)
@@ -272,7 +255,6 @@ const MenuScreen = () => {
                   </View>
                 )}
                 {tab === 'Suggestions' && <SuggestionIcon />}
-                {tab === 'Gift cards' && <GiftCardIcon />}
                 {tab === 'Settings' && <SettingsIcon />}
                 <AppText className="font-MANROPE_400 text-[14.5px] text-white">
                   {tab}

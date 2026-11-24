@@ -255,7 +255,10 @@ handleVODTrailer
         activeOpacity={.7}
         // onPress={() => } TODO: ADD DESCRIPTION MODAL
         >
-        <ContentAccessBadge contentType={item.vidClass} />
+        <ContentAccessBadge
+          contentType={item.vidClass}
+          isReeplayOriginal={item.isReeplayOriginal}
+        />
         </TouchableOpacity>}
         <AppText className="text-white text-sm uppercase font-MANROPE_400 mt-[2px]">
           {contentType}

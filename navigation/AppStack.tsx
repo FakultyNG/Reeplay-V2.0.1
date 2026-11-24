@@ -6,16 +6,11 @@ import MenuScreen from '@/Screens/Menu/MenuScreen';
 import ChangeEmail from '@/Screens/Menu/ChangeEmail';
 import ChangePassword from '@/Screens/Menu/ChangePassword';
 import ChangePin from '@/Screens/Menu/ChangePin';
-import SubscriptionScreen from '@/Screens/Menu/SubscriptionScreen';
-import AddPaymentView from '@/Screens/Menu/components/AddPaymentView';
 import CreateAds from '@/Screens/Menu/CreateAds';
 import NotificationScreen from '@/Screens/Menu/NotificationScreen';
 import SuggestionScreen from '@/Screens/Menu/SuggestionScreen';
-import GiftCardRedeemScreen from '@/Screens/Menu/GiftCardRedeemScreen';
 import DeleteScreen from '@/Screens/support/DeleteScreen';
-import CancelSubscription from '@/Screens/support/CancelSubscription';
 import VoteScreen from '@/Screens/VideoScreen/VoteScreen';
-import TransactionHistory from '@/Screens/Menu/TransactionHistory';
 import { IVoteInfo } from '@/types/api/content.types';
 
 const Drawer = createNativeStackNavigator();
@@ -66,19 +61,6 @@ const AppStack = () => {
       <Drawer.Screen name={routes.CHANGE_EMAIL} component={ChangeEmail} />
       <Drawer.Screen name={routes.CHANGE_PASSWORD} component={ChangePassword} />
       <Drawer.Screen name={routes.CHANGE_PIN} component={ChangePin} />
-      <Drawer.Screen name={routes.TRANSACTION_HISTORY_SCREEN} component={TransactionHistory} />
-      <Drawer.Screen
-        name={routes.GIFT_CARD_SCREEN}
-        component={GiftCardRedeemScreen}
-      />
-      <Drawer.Screen
-        name={routes.ADD_PAYMENT_METHOD}
-        component={AddPaymentView}
-      />
-      <Drawer.Screen
-        name={routes.SUBSCRIPTION_SCREEN}
-        component={SubscriptionScreen}
-      />
       <Drawer.Screen name={routes.CREATE_ADS_SCREEN} component={CreateAds} />
       <Drawer.Screen
         name={routes.SUGGESTION_SCREEN}
@@ -92,10 +74,6 @@ const AppStack = () => {
       <Drawer.Screen
         name={routes.DELETE_ACCOUNT_SCREEN}
         component={DeleteScreen}
-      />
-      <Drawer.Screen
-        name={routes.CANCEL_SUBSCRIPTION_SCREEN}
-        component={CancelSubscription}
       />
 
       <Drawer.Screen name={routes.VOTE_SCREEN} component={VoteScreen} />

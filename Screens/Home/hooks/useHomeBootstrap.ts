@@ -13,13 +13,11 @@ import {
   setCredentials,
   setHideTabBar,
   setNoticationsList,
-  setWalletInfo,
 } from '@/store/slices/userSlice';
 import {hasUserDetails} from '../../Splashscreen/Splashscreen';
 import {getSponsoredLiveEvents} from '@/api/live.api';
 import {setSponsoredEventProps} from '@/store/slices/liveEvents/sponsoredSlice';
 import {
-  contentCostApi,
   deleteContinueWatchingById,
   fetchHomeAds,
   getContinueWatching,
@@ -30,10 +28,8 @@ import {
   setCategories,
   setContinueWatching,
   setGenres,
-  setPremiumContentCost,
 } from '@/store/slices/bannerSlice.slice';
 import {setAdsContent, setHomeAdsContent} from '@/store/slices/adsSlice.slice';
-import {walletBalance} from '@/api/payment.api';
 import {resetFullVideo} from '@/store/slices/fullScreenVideo.slice';
 import {getAllNotifications} from '@/api/notification.api';
 import {setOrientations} from '@/store/slices/orientationSlize';
@@ -70,20 +66,6 @@ export function useHomeBootstrap(isFullscreen: boolean) {
       dispatch(setContinueWatching(snapshot.continueWatching));
     }
 
-  }, [dispatch]);
-
-  const getWallet = useCallback(async () => {
-    const res = await walletBalance();
-    if (res.ok && res.data) {
-      dispatch(setWalletInfo(res.data.data));
-    }
-  }, [dispatch]);
-
-  const handlePremiumContentCost = useCallback(async () => {
-    const res = await contentCostApi();
-    if (res.ok && res.data) {
-      dispatch(setPremiumContentCost(res.data.data));
-    }
   }, [dispatch]);
 
   const userProfile = useCallback(async () => {
@@ -201,8 +183,6 @@ export function useHomeBootstrap(isFullscreen: boolean) {
       accountLastFetchedAt = Date.now();
       await Promise.allSettled([
         getSponsoredEvents(),
-        getWallet(),
-        handlePremiumContentCost(),
         handleNotifications(),
       ]);
     })();
@@ -216,9 +196,7 @@ export function useHomeBootstrap(isFullscreen: boolean) {
     checkOrientation,
     dispatch,
     getSponsoredEvents,
-    getWallet,
     handleNotifications,
-    handlePremiumContentCost,
     userProfile,
   ]);
 

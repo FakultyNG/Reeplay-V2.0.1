@@ -12,6 +12,35 @@ import {
 } from '@/types/api/payment.type';
 import {IGeneric, IPagination} from '@/types/api/auth.types';
 
+export type StoreProductConfig = {
+  target: 'movie' | 'season';
+  videoId: string;
+  seasonId: string | null;
+  accessDays: number;
+  referencePrice: {amount: number; currency: 'USD'};
+  products: {apple: string; google: string};
+  accountTokens: {apple: string; google: string};
+};
+
+export const getStoreProduct = async (videoId: string, seasonId?: string) =>
+  await apiCall<IGeneric & {data: StoreProductConfig}>(baseApi =>
+    baseApi.get(
+      `/customers/shared/store-products/${videoId}${seasonId ? `?seasonId=${seasonId}` : ''}`,
+    ),
+  );
+
+export const verifyStorePurchase = async (data: {
+  provider: 'apple' | 'google';
+  productId: string;
+  transactionId?: string;
+  purchaseToken?: string;
+  videoId: string;
+  seasonId?: string;
+}) =>
+  await apiCall<IGeneric & {data: {entitlement: {accessEndsAt: string}}}>(baseApi =>
+    baseApi.post('/customers/shared/store-purchases/verify', data),
+  );
+
 export const handleCreatePayment = async (data: {
   reference: string;
   save_card: boolean;

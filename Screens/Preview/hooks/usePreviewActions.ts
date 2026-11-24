@@ -22,9 +22,6 @@ import {
   hasPaidContentStatus,
 } from '@/api/content.api';
 import {IVODRatings} from '@/types/api/content.types';
-import {formatAmount} from '@/Utils/formatAmount';
-import {selectUserPremiumCost} from '@/store/slices/bannerSlice.slice';
-import getSymbolFromCurrency from 'currency-symbol-map';
 import Orientation from 'react-native-orientation-locker';
 import {
   analyticsId,
@@ -49,7 +46,6 @@ export function usePreviewActions({
 }: Options) {
   const dispatch = useAppDispatch();
   const previewContent = useAppSelector(selectPreviewVODContent);
-  const premiumCost = useAppSelector(selectUserPremiumCost);
   const isFocused = useIsFocused();
   const isGuest = useGuestAccessStore(state => state.isGuest);
   const previewContentRef = useRef(previewContent);
@@ -65,19 +61,9 @@ export function usePreviewActions({
   const contentType = previewContent.vidClass;
   const contentPrice = accessStatus
     ? 'Watch'
-    : previewContent.amount && previewContent.currency
-      ? `${getSymbolFromCurrency(previewContent.currency)}${formatAmount(
-          previewContent.amount,
-          previewContent.currency,
-        )}`
-      : contentType === 'premium' &&
-          premiumCost?.currencyCode &&
-          premiumCost.amount
-        ? `${getSymbolFromCurrency(premiumCost.currencyCode)}${formatAmount(
-            premiumCost.amount,
-            premiumCost.currencyCode,
-          )}`
-        : 'Watch';
+    : contentType === 'premium' || contentType === 'exclusive'
+      ? previewContent.type === 'series' ? 'Choose a season' : '$0.30'
+      : 'Watch';
 
   const handleFetchVodMeta = useCallback(async () => {
     const res = await fetchVODDetails({_id: previewContent._id});
@@ -274,7 +260,6 @@ export function usePreviewActions({
 
   return {
     previewContent,
-    premiumCost,
     addWatchList_boolean,
     loading,
     commentCount,
@@ -286,5 +271,6 @@ export function usePreviewActions({
     handleAddWatchList,
     handleShare,
     getCommentCount,
+    refreshAccess: handleContentStatusUpdate,
   };
 }

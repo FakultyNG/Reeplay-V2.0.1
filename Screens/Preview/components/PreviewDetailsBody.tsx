@@ -122,6 +122,7 @@ const PreviewDetailsBody = ({
           )}
           <ContentAccessBadge
             contentType={contentType}
+            isReeplayOriginal={previewContent.isReeplayOriginal}
             size="regular"
             style={styles.accessBadge}
           />

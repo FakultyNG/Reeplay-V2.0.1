@@ -13,11 +13,7 @@ import {useNavigation} from '@react-navigation/native';
 import routes from '@/navigation/routes';
 import {PORTRAIT} from 'react-native-orientation-locker';
 import {useAppSelector} from '@/Hooks/reduxHook';
-import {
-  selectBannerContent,
-  selectCategories,
-  selectContinueWatching,
-} from '@/store/slices/bannerSlice.slice';
+import {selectBannerContent, selectContinueWatching} from '@/store/slices/bannerSlice.slice';
 import {TabNavParams} from '@/navigation/TabNavigation';
 import {OrientationInjectedProps} from '@/components/OrientationWrapper';
 import DownloadFullscreenModalPlayer from '../Download/FullscreenModalPlayer';
@@ -25,7 +21,6 @@ import {IDownloadData} from '@/types/api/content.types';
 import HomeContinueRow from './components/HomeContinueRow';
 import {useHomeBootstrap} from './hooks/useHomeBootstrap';
 import {useTabBarCompactOnScroll} from '@/navigation/useTabBarCompactOnScroll';
-import ContentWrapper from '@/components/ContentWrapper';
 
 const HomeScreen = ({
   isFullscreen,
@@ -38,7 +33,6 @@ const HomeScreen = ({
   reportScrollOffsetRef.current = reportScrollOffset;
   const {navigate} = useNavigation<TabNavParams>();
   const vods = useAppSelector(selectBannerContent).vods ?? [];
-  const categories = useAppSelector(selectCategories) ?? [];
   const continueWatching = useAppSelector(selectContinueWatching) ?? [];
   const [isFullscreenContent, setFullscreenContent] =
     useState<IDownloadData | null>(null);
@@ -90,11 +84,7 @@ const HomeScreen = ({
               setFullscreenContent={setFullscreenContent}
             />
 
-            {categories.length > 0 && (
-              <AppView className="mt-8 pl-5">
-                <ContentWrapper enums={categories[0]} showPagination />
-              </AppView>
-            )}
+            <Sections deferHeavy={deferHeavyRows} />
 
             <AppView className="mt-8">
               <AppView className="pl-5">
@@ -116,10 +106,6 @@ const HomeScreen = ({
               />
             )}
 
-            <Sections
-              isSkipped={false}
-              deferHeavy={deferHeavyRows}
-            />
           </ScrollView>
 
           <Header scrollY={headerScrollY} />

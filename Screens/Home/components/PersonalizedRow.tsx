@@ -47,7 +47,7 @@ const PersonalizedRow = ({title}: {title?: string}) => {
     }, [isGuest, user.settings_info?.interest_categories, user.settings_info?.interest_genres]),
   );
 
-  if (!loading && content.length === 0) return null;
+  if (loading || content.length === 0) return null;
 
   return (
     <AppView className="mt-8 pl-5">

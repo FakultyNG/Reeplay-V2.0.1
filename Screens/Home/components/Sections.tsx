@@ -1,18 +1,16 @@
 import {StyleSheet} from 'react-native';
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {AppView} from '@/components';
 import Size from '@/Utils/useResponsiveSize';
 import ContentWrapper from '@/components/ContentWrapper';
 import {useAppSelector} from '@/Hooks/reduxHook';
 import {selectCategories} from '@/store/slices/bannerSlice.slice';
-import LiveEmptyState from '@/Screens/Live/components/LiveEmptyState';
-import {FHomeIcon} from '@/assets/icons';
 import PremiumAdsCarousel from './PremiumAdsCarousel';
 import {ICategoryData} from '@/types/api/content.types';
 import PersonalizedRow from './PersonalizedRow';
+import {selectHomeAds} from '@/store/slices/adsSlice.slice';
 
 interface Props {
-  isSkipped: boolean;
   /** When true, only first few category rows fetch/render network. */
   deferHeavy?: boolean;
 }
@@ -27,8 +25,54 @@ const TOP_TEN_ROW: ICategoryData = {
   position: 0,
 };
 
-const Sections = ({isSkipped, deferHeavy = false}: Props) => {
+type CategoryRowProps = {
+  category: ICategoryData;
+  index: number;
+  isTop10: boolean;
+  isComingSoon: boolean;
+  isMusic: boolean;
+};
+
+const CategoryRow = ({
+  category,
+  index,
+  isTop10,
+  isComingSoon,
+  isMusic,
+}: CategoryRowProps) => {
+  const [hasContent, setHasContent] = useState(false);
+  const updateAvailability = useCallback((available: boolean) => {
+    setHasContent(available);
+  }, []);
+
+  return (
+    <AppView
+      style={{
+        display: hasContent ? 'flex' : 'none',
+        marginTop: index === 0 ? 32 : 24,
+      }}
+      className={`pl-5 ${isComingSoon ? 'mb-[40px]' : ''}`}>
+      <ContentWrapper
+        enums={category}
+        showPagination={index === 0}
+        style={{
+          marginRight: Size.calcHeight(isTop10 || isComingSoon ? 8 : 12),
+        }}
+        imageStyle={
+          isComingSoon || isTop10 ? {} : isMusic ? styles.videoBackdrop : {}
+        }
+        topTen={isTop10}
+        isMusic={isMusic}
+        enabled
+        onContentAvailabilityChange={updateAvailability}
+      />
+    </AppView>
+  );
+};
+
+const Sections = ({deferHeavy = false}: Props) => {
   const cat = useAppSelector(selectCategories);
+  const homeAds = useAppSelector(selectHomeAds);
   const [enabledCount, setEnabledCount] = useState(IMMEDIATE_ROW_COUNT);
 
   useEffect(() => {
@@ -52,19 +96,13 @@ const Sections = ({isSkipped, deferHeavy = false}: Props) => {
   }, [deferHeavy, cat.length]);
 
   if (cat.length === 0) {
-    return (
-      <LiveEmptyState
-        icon={<FHomeIcon width={36} height={20} />}
-        title="No categories yet"
-        message="Home sections will appear here when titles are available. Check back later."
-      />
-    );
+    return null;
   }
 
   const visibleCount = deferHeavy
     ? IMMEDIATE_ROW_COUNT
     : Math.max(enabledCount, IMMEDIATE_ROW_COUNT);
-  const categoryRows = cat.slice(1, visibleCount);
+  const categoryRows = cat.slice(0, visibleCount);
   const legacyTopTenIndex = categoryRows.findIndex(row =>
     row.name.toLowerCase().includes('top 10'),
   );
@@ -79,46 +117,31 @@ const Sections = ({isSkipped, deferHeavy = false}: Props) => {
 
   return (
     <>
-      {isSkipped && (
-        <AppView className="mt-10 pl-5">
-          <ContentWrapper enums={cat[0]} showPagination enabled />
-        </AppView>
-      )}
       {rows.map((x, i) => {
         const isTop10 = x._id === TOP_TEN_ROW._id;
         const isComingSoon = x.name.toLowerCase().includes('comming soon');
-        const isLive = x.name.toLowerCase().includes('live');
         const isMusic = x.name.toLowerCase().includes('music');
         const isPremiumAds = x.name.trim().toLowerCase() === 'premium ads';
         const isPersonalized = x.feedType === 'personalized';
         if (isPersonalized) {
           return <PersonalizedRow key={x._id} title={x.name} />;
         }
-        return (
-          <AppView
-            key={x._id ?? i}
-            style={{marginTop: i === 0 ? (isSkipped ? 24 : 32) : 24}}
-            className={`pl-5 ${isComingSoon ? 'mb-[40px]' : ''}`}>
-            {isPremiumAds ? (
+        if (isPremiumAds) {
+          return homeAds.length > 0 ? (
+            <AppView key={x._id} className="mt-6 pl-5">
               <PremiumAdsCarousel title={x.name} />
-            ) : (
-              <ContentWrapper
-                enums={x}
-                style={{
-                  marginRight: Size.calcHeight(
-                    isTop10 || isComingSoon ? 8 : 12,
-                  ),
-                }}
-                imageStyle={
-                  isComingSoon || isTop10 ? {} : isMusic ? styles.videoBackdrop : {}
-                }
-                topTen={isTop10}
-                live={isLive}
-                isMusic={isMusic}
-                enabled
-              />
-            )}
-          </AppView>
+            </AppView>
+          ) : null;
+        }
+        return (
+          <CategoryRow
+            key={x._id ?? i}
+            category={x}
+            index={i}
+            isTop10={isTop10}
+            isComingSoon={isComingSoon}
+            isMusic={isMusic}
+          />
         );
       })}
     </>

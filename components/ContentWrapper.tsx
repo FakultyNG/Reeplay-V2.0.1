@@ -6,9 +6,6 @@ import AppCategories from './AppCategories';
 import Size from '@/Utils/useResponsiveSize';
 import FastImage, {ImageStyle} from 'react-native-fast-image';
 import {getVodRowCache, setVodRowCache} from '@/Utils/contentMmkv';
-import LiveEmptyState from '@/Screens/Live/components/LiveEmptyState';
-import SectionHeader from '@/Screens/Home/components/SectionHeader';
-import {FHomeIcon} from '@/assets/icons';
 import InfinityPaginationDots from './InfinityPaginationDots';
 
 interface Props {
@@ -21,6 +18,8 @@ interface Props {
   isMusic?: boolean;
   /** When false, skip network until enabled (progressive home). */
   enabled?: boolean;
+  /** Lets Home remove the entire row when this category has no titles. */
+  onContentAvailabilityChange?: (hasContent: boolean) => void;
 }
 
 const VISIBLE_ITEMS = 3;
@@ -36,6 +35,7 @@ const ContentWrapper = ({
   topTen = false,
   style,
   enabled = true,
+  onContentAvailabilityChange,
 }: Props) => {
   const [content, setContent] = useState<IVODContent[]>(() => {
     const cached = getVodRowCache(enums._id) ?? [];
@@ -94,21 +94,12 @@ const ContentWrapper = ({
     setCurrentIndex(0);
   }, [enums._id, content.length]);
 
+  useEffect(() => {
+    onContentAvailabilityChange?.(content.length > 0);
+  }, [content.length, onContentAvailabilityChange]);
+
   if (!loading && content.length === 0) {
-    return (
-      <View>
-        <SectionHeader
-          title={enums.name}
-          btnText=""
-          onPress={() => console.log('popular')}
-        />
-        <LiveEmptyState
-          icon={<FHomeIcon width={36} height={20} />}
-          title={`No ${enums.name} yet`}
-          message="Titles for this section will appear here when they are available. Check back later."
-        />
-      </View>
-    );
+    return null;
   }
 
   return (

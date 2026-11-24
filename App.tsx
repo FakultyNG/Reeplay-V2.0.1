@@ -133,7 +133,7 @@ function App(): React.JSX.Element {
     isGuest,
     setEnabled: setGuestAccessEnabled,
     setGuest,
-    showLoginRequired,
+    showAutomaticLoginRequired,
     hideLoginRequired,
     needsAuthRedirect,
     clearAuthRedirect,
@@ -532,7 +532,7 @@ function App(): React.JSX.Element {
                 index: 0,
                 routes: [{name: routes.TAB_MAIN}],
               });
-              showLoginRequired();
+              showAutomaticLoginRequired();
               return;
             }
             if (routeName && PUBLIC_ROUTES.has(routeName)) {

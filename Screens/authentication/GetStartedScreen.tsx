@@ -60,6 +60,9 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
   const { isLock, setIsLock, isSessionExpired, biometrics } = useAppPersistStore()
   const [modal, setModal] = useState<'privacy' | 'terms' | null>(null)
   const guestAccessEnabled = useGuestAccessStore(state => state.enabled);
+  const showAutomaticLoginRequired = useGuestAccessStore(
+    state => state.showAutomaticLoginRequired,
+  );
   const [adRequestComplete, setAdRequestComplete] = useState(false);
 
   async function handleLogin() {
@@ -90,6 +93,7 @@ const GetStartedScreen = ({ handleFunc, screen }: { handleFunc?: () => void, scr
   async function handleGuestAccess() {
     await startGuestSession();
     navigation.reset({index: 0, routes: [{name: routes.TAB_MAIN}]});
+    showAutomaticLoginRequired();
   }
 
   async function getLockState() {

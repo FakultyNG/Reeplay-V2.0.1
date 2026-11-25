@@ -264,7 +264,7 @@ const PreviewScreen = ({
                       contentType={contentType}
                       contentPrice={
                         !accessStatus && previewContent.type !== 'series'
-                          ? storePurchase.displayPrice || '$0.30'
+                          ? storePurchase.displayPrice || '$0.59'
                           : contentPrice
                       }
                       seeMore={seeMore}

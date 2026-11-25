@@ -138,7 +138,7 @@ const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}
                   onPress={() => storePurchase.purchase({videoId: vod._id, seasonId: section.seasonId})}
                   className="rounded-lg bg-red px-3 py-2">
                   <AppText className="font-ROBOTO_700 text-white text-[12px]">
-                    {storePurchase.busy ? 'Opening store…' : storePurchase.displayPrice || '$0.80'}
+                    {storePurchase.busy ? 'Opening store…' : storePurchase.displayPrice || '$1.59'}
                   </AppText>
                 </TouchableOpacity>
               )}

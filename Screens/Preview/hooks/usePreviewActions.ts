@@ -62,7 +62,7 @@ export function usePreviewActions({
   const contentPrice = accessStatus
     ? 'Watch'
     : contentType === 'premium' || contentType === 'exclusive'
-      ? previewContent.type === 'series' ? 'Choose a season' : '$0.30'
+      ? previewContent.type === 'series' ? 'Choose a season' : '$0.59'
       : 'Watch';
 
   const handleFetchVodMeta = useCallback(async () => {

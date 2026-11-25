@@ -92,6 +92,15 @@ workflows:
             LATEST_BUILD_NUMBER=4
           fi
           NEXT_BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
+          # Invalid uploads may not be returned by App Store Connect but their
+          # build number can still be unavailable. Include Codemagic's sequence
+          # so every retry receives a higher number than the original build 4.
+          if [[ "${BUILD_NUMBER:-}" =~ ^[0-9]+$ ]]; then
+            CI_BUILD_NUMBER=$((BUILD_NUMBER + 4))
+            if (( CI_BUILD_NUMBER > NEXT_BUILD_NUMBER )); then
+              NEXT_BUILD_NUMBER=$CI_BUILD_NUMBER
+            fi
+          fi
           cd ios
           agvtool new-version -all "$NEXT_BUILD_NUMBER"
       - name: Build signed IPA

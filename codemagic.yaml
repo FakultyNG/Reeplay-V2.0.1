@@ -72,7 +72,10 @@ workflows:
       - name: Install CocoaPods dependencies
         script: |
           cd ios
-          pod install --repo-update
+          # Podfile.lock was created before the React Native 0.83 upgrade.
+          # Refresh all native pods together so local React podspecs (including
+          # fmt) and the lockfile cannot remain pinned to React Native 0.78.
+          pod update --repo-update
       - name: Verify backend configuration
         script: |
           test "$BASE_URL" = "https://reeplay-api-ts-production.up.railway.app/api/v1"
@@ -96,6 +99,7 @@ workflows:
             --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ios/ipa/*.ipa
+      - ios/Podfile.lock
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM

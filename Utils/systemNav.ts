@@ -1,22 +1,15 @@
-import {Platform} from 'react-native';
-import SystemNavigationBar from 'react-native-system-navigation-bar';
+import {NativeModules, Platform} from 'react-native';
+
+const systemUi = NativeModules.ReeplaySystemUi as
+  | {setVideoImmersive: (enabled: boolean) => Promise<void>}
+  | undefined;
 
 /**
- * Hide the Android system navigation bar while Reeplay is open.
- * Status bar stays visible. If the user swipes the bar back, it will
- * re-hide on next apply (e.g. app resume / leaving video fullscreen).
+ * Retained for compatibility with older call sites. Normal app screens keep
+ * system navigation available; only fullscreen video uses immersive mode.
  */
 export async function hideSystemNavigationBar() {
-  if (Platform.OS !== 'android') {
-    return;
-  }
-  try {
-    // If the bar flashes back into view, keep it black (not white).
-    await SystemNavigationBar.setNavigationColor('#000000', 'light');
-    await SystemNavigationBar.navigationHide();
-  } catch {
-    // Native module may be unavailable in some builds — ignore.
-  }
+  return;
 }
 
 /** Used when entering landscape video; pairs with restoreAppSystemChrome. */
@@ -25,7 +18,7 @@ export async function enterVideoImmersive() {
     return;
   }
   try {
-    await SystemNavigationBar.fullScreen(true);
+    await systemUi?.setVideoImmersive(true);
   } catch {
     // ignore
   }
@@ -37,9 +30,8 @@ export async function restoreAppSystemChrome() {
     return;
   }
   try {
-    await SystemNavigationBar.fullScreen(false);
+    await systemUi?.setVideoImmersive(false);
   } catch {
     // ignore
   }
-  await hideSystemNavigationBar();
 }

@@ -1,6 +1,6 @@
 workflows:
   rn-android-release:
-    name: Reeplay Android (release APK)
+    name: Reeplay Android (Play Store AAB)
     max_build_duration: 120
     instance_type: mac_mini_m2
     environment:
@@ -22,10 +22,12 @@ workflows:
           test "$BASE_URL" = "https://reeplay-api-ts-production.up.railway.app/api/v1"
           test ! -f android/app/src/main/assets/index.android.bundle
           ! grep -R "typescript.reeplay.app\|api.reeplay.app" --exclude-dir=node_modules --exclude-dir=build --exclude-dir=.git --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' .
-      - name: Build fresh Android release APK
+      - name: Build fresh Play Store app bundle
         script: |
           cd android
-          ./gradlew clean assembleRelease --no-daemon
+          ./gradlew clean bundleRelease --no-daemon
     artifacts:
-      - android/app/build/outputs/**/*.apk
+      - android/app/build/outputs/**/*.aab
+      - android/app/build/outputs/mapping/release/mapping.txt
+      - android/app/build/outputs/native-debug-symbols/release/*.zip
       - android/app/build/outputs/logs/*.txt

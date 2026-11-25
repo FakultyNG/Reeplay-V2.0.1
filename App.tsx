@@ -46,7 +46,6 @@ import {
 import {SocketContextProvider} from './context/socketContent';
 import ErrorBoundaryWrapper from './context/ErrorBoundary';
 import routes from '@/navigation/routes';
-import {hideSystemNavigationBar} from '@/Utils/systemNav';
 import {BASE_URL} from '@env';
 import {clearTokens} from '@/Utils/secureTokenStorage';
 import {clearContentCache} from '@/Utils/contentMmkv';
@@ -437,8 +436,6 @@ function App(): React.JSX.Element {
   }
 
   useEffect(() => {
-    hideSystemNavigationBar();
-
     const subscription = AppState.addEventListener('change', nextAppState => {
       if (
         appState.current.match(/inactive|background/) &&
@@ -446,7 +443,6 @@ function App(): React.JSX.Element {
       ) {
         console.log('App has come to the foreground!');
         checkLockAppLogic();
-        hideSystemNavigationBar();
         startAnalyticsSession();
         void flushAnalyticsEvents();
       }
@@ -511,7 +507,7 @@ function App(): React.JSX.Element {
       <SocketContextProvider>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000' }}>
         <SafeAreaProvider style={{flex:1}}>
-        <StatusBar backgroundColor="#000" />
+        <StatusBar barStyle="light-content" />
         <NavigationContainer
           ref={navigationRef}
           theme={navTheme}

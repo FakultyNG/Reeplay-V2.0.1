@@ -59,7 +59,10 @@ import {
   resetFullVideo,
 } from '@/store/slices/fullScreenVideo.slice';
 import FastImage from 'react-native-fast-image';
-import { resolvePlaybackSource } from '@/components/video/playbackConfig';
+import {
+  normalizeCastImageUrl,
+  resolvePlaybackSource,
+} from '@/components/video/playbackConfig';
 import Casting from '@/components/video/controls/Casting';
 import {
   MediaInfo,
@@ -116,6 +119,7 @@ const FullScreenModal = () => {
   const [show, setShow] = useState(false);
   const [cover, setCover] = useState<boolean>(true);
   const [key, setKey] = useState(0);
+  const castArtworkUrl = normalizeCastImageUrl(coverImg || channelImg);
 
   useEffect(() => {
     currentTimeRef.current = currentTime;
@@ -142,7 +146,9 @@ const FullScreenModal = () => {
       metadata: {
         type: 'generic',
         title: title || 'Reeplay',
-        images: coverImg ? [{url: coverImg}] : [],
+        images: castArtworkUrl
+          ? [{url: castArtworkUrl, width: 1280, height: 720}]
+          : [],
       },
     };
 
@@ -158,7 +164,14 @@ const FullScreenModal = () => {
         lastCastUrlRef.current = '';
         console.error('Failed to load media on Cast device:', error);
       });
-  }, [castSession, remoteMediaClient, videoURL, title, coverImg, useApprovedPlayer]);
+  }, [
+    castSession,
+    remoteMediaClient,
+    videoURL,
+    title,
+    castArtworkUrl,
+    useApprovedPlayer,
+  ]);
 
   useFocusEffect(
     React.useCallback(() => {

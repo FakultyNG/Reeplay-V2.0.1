@@ -50,6 +50,7 @@ import {
   getPreferredForwardBufferDuration,
   isLiveNowPlayback,
   maxBitRateForQuality,
+  normalizeCastImageUrl,
   shouldAttachGoogleAd,
   shouldTreatPlaybackEndAsContentEnd,
 } from './playbackConfig';
@@ -126,6 +127,7 @@ type RenderVideoProps = Pick<
   enableMainContentAds?: boolean;
   minimalUi?: boolean;
   showQualityControl?: boolean;
+  maxBitRateOverride?: number;
   // videoRef: React.RefObject<VideoRef | null>
 };
 
@@ -180,7 +182,8 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
   const videoQuality = useAppSelector(selectUser).settings_info?.video_quality;
   const liveNow = isLiveNowPlayback(props.type, props.isTime);
   const playbackMode = liveNow ? 'live' : 'vod';
-  const maxBitRate = maxBitRateForQuality(videoQuality);
+  const maxBitRate =
+    props.maxBitRateOverride ?? maxBitRateForQuality(videoQuality);
   const showLoadingOverlay =
     !isAdPlaying && (!isReadyForDisplay || isBuffering);
 
@@ -194,6 +197,9 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
     }
     return (thumb as ImageURISource).uri;
   })();
+  const castArtworkUrl = normalizeCastImageUrl(
+    posterUri || props.contentData.logo,
+  );
 
   /* ---------------- REFS ---------------- */
   const videoRef = useRef<VideoRef>(null);
@@ -527,7 +533,20 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
     key?: string,
   ): Promise<string> {
     const url = normalizeSubtitleUrl(src, bucket, key);
-    const res = await fetch(url);
+    if (!/^https?:\/\//i.test(url)) {
+      throw new Error(`Invalid subtitle URL: ${url}`);
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: {Accept: 'text/vtt, text/plain;q=0.9, */*;q=0.1'},
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!res.ok) {
       throw new Error(`Subtitle fetch failed (${res.status}) for ${url}`);
     }
@@ -693,6 +712,13 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
     }
     subtitleRef.current = data;
     setSubtitle(data);
+    if (data.length) {
+      // Uploaded captions are useful immediately. Users can still choose Off
+      // from the subtitle menu, but a valid first track no longer looks broken.
+      selectedSubtitleIndexRef.current = 0;
+      setSelectedSubtitleIndex(0);
+      setActiveCueText(cueTextAtTime(data[0].cues, currentTimeRef.current));
+    }
   }
 
   const handleBuffer = useCallback((e: { isBuffering: boolean }) => {
@@ -951,7 +977,9 @@ if(isSaveProgress) {
         type: 'generic',
         title: props.contentData.title,
         subtitle: props.contentData.desc,
-        images: posterUri ? [{url: posterUri}] : [],
+        images: castArtworkUrl
+          ? [{url: castArtworkUrl, width: 1280, height: 720}]
+          : [],
       },
     };
 
@@ -987,7 +1015,7 @@ if(isSaveProgress) {
     castSourceUrl,
     analyticsContentType,
     isCasting,
-    posterUri,
+    castArtworkUrl,
     props.contentData.desc,
     props.contentData._id,
     props.contentData.title,
@@ -1026,9 +1054,9 @@ useEffect(() =>{
     setIsAdPlaying(false);
     setDuration(0);
     setProgress(0);
-    selectedSubtitleIndexRef.current = -1;
-    setSelectedSubtitleIndex(-1);
-    setActiveCueText('');
+    // Subtitle lifecycle is keyed by content id above. Do not clear a track
+    // here: source URLs can change while HLS is preparing and previously raced
+    // the completed subtitle request back to an invisible "Off" state.
   }, [typeof source?.uri === 'string' ? source.uri : source?.uri]);
 
   /* ---------------- RENDER ---------------- */

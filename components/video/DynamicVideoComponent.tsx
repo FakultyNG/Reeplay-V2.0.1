@@ -123,6 +123,8 @@ export interface VideoPlayerProps extends ReactVideoProps {
   /** Opt-in approved controls. Keep false for trailers and Upcoming playback. */
   minimalUi?: boolean;
   showQualityControl?: boolean;
+  /** Force a playback ceiling for specialized surfaces such as trailers. */
+  maxBitRateOverride?: number;
 }
 
 /** Pre–quarter-flash-fix layout: onLayout width → 16:9 sizeStyles. */

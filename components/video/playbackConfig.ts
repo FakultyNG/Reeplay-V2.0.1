@@ -87,7 +87,7 @@ export function getPreferredForwardBufferDuration(mode: PlaybackMode): number {
 
 /**
  * Map Settings video_quality → maxBitRate (bps).
- * `automatic` / empty → 0 (no cap, full ABR).
+ * `automatic` / empty → Full HD ceiling while retaining adaptive playback.
  */
 export function maxBitRateForQuality(quality?: string | null): number {
   const q = (quality ?? '').trim().toLowerCase();
@@ -101,10 +101,22 @@ export function maxBitRateForQuality(quality?: string | null): number {
     case 'automatic':
     case 'auto':
     case '':
-      return 0;
+      return 6_500_000;
     default:
-      return 0;
+      return 6_500_000;
   }
+}
+
+/** Cast receivers can only load public HTTP(S) artwork, not device-local URIs. */
+export function normalizeCastImageUrl(uri?: string | null): string | undefined {
+  let normalized = (uri ?? '').trim().replace(/&amp;/gi, '&');
+  if (!normalized) return undefined;
+  if (normalized.startsWith('//')) normalized = `https:${normalized}`;
+  if (normalized.startsWith('http://')) {
+    normalized = `https://${normalized.slice('http://'.length)}`;
+  }
+  if (!normalized.startsWith('https://')) return undefined;
+  return normalized.replace(/ /g, '%20');
 }
 
 function isLocalUri(uri: string): boolean {

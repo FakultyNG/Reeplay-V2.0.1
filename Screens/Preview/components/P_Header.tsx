@@ -8,6 +8,7 @@ import DynamicVideoComponent, {
 import {IVODContent} from '@/types/api/content.types';
 import {
   getYouTubeEmbedUrl,
+  maxBitRateForQuality,
   resolvePlaybackSource,
 } from '@/components/video/playbackConfig';
 import {fetchVODSource} from '@/api/content.api';
@@ -60,6 +61,7 @@ const P_Header = ({
 
   const coverUri = content.landscapePhoto || content.portraitPhoto;
   const youtubeEmbedUrl = getYouTubeEmbedUrl(videoURL);
+  const isTrailerPlayback = !isFullscreen || content.type === 'series';
 
   return (
     <View style={fillStyle.fill} className="overflow-hidden">
@@ -83,6 +85,9 @@ const P_Header = ({
         thumbnail={{uri: coverUri}}
         autoplay
         source={resolvePlaybackSource(videoURL, 'vod')}
+        maxBitRateOverride={
+          isTrailerPlayback ? maxBitRateForQuality('720p') : undefined
+        }
         onError={e => console.log(e)}
         showDuration={true}
         isFullscreen={isFullscreen}

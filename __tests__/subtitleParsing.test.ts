@@ -55,4 +55,16 @@ describe('mobile subtitle parsing', () => {
     expect(cueTextAtTime(english, 2)).toBe('Welcome to Reeplay.');
     expect(cueTextAtTime(yoruba, 2)).toBe('Ẹ káàbọ̀ sí Reeplay.');
   });
+
+  test('parses cue settings and exporters that omit blank lines', () => {
+    const cues = parseVttCues(
+      'WEBVTT\n\n00:00:01.000 --> 00:00:02.000 align:center\nFirst\n' +
+        '2\n00:00:02.000 --> 00:00:03.500 line:90%\nSecond &amp; final',
+    );
+
+    expect(cues).toEqual([
+      {start: 1, end: 2, text: 'First'},
+      {start: 2, end: 3.5, text: 'Second & final'},
+    ]);
+  });
 });

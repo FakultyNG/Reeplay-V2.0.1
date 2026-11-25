@@ -313,34 +313,37 @@ export function parseVttCues(vtt: string): VttCue[] {
   }
 
   const body = normalized.replace(/^WEBVTT[^\n]*\n?/i, '').trim();
-  const blocks = body.split(/\n{2,}/);
+  const lines = body.split('\n');
   const cues: VttCue[] = [];
 
-  for (const block of blocks) {
-    const lines = block
-      .split('\n')
-      .map(l => l.trim())
-      .filter(Boolean);
-    if (!lines.length) {
-      continue;
-    }
-
-    const timeIdx = lines.findIndex(l => l.includes('-->'));
-    if (timeIdx < 0) {
-      continue;
-    }
-
-    const [startRaw, endRaw] = lines[timeIdx].split('-->');
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!lines[index].includes('-->')) continue;
+    const [startRaw, endRaw] = lines[index].split('-->');
     if (!startRaw || !endRaw) {
       continue;
     }
 
     const start = parseVttTimestamp(startRaw);
     const end = parseVttTimestamp(endRaw);
-    const text = lines
-      .slice(timeIdx + 1)
+    const textLines: string[] = [];
+    for (index += 1; index < lines.length; index += 1) {
+      const line = lines[index];
+      if (line.includes('-->')) {
+        index -= 1;
+        break;
+      }
+      if (/^\d+$/.test(line.trim()) && lines[index + 1]?.includes('-->')) {
+        index -= 1;
+        break;
+      }
+      if (!line.trim()) break;
+      textLines.push(line.trim());
+    }
+    const text = textLines
       .join('\n')
       .replace(/<\/?[^>]+>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
       .trim();
 
     if (text && end > start) {

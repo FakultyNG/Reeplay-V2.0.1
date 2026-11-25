@@ -32,6 +32,39 @@ workflows:
       - android/app/build/outputs/native-debug-symbols/release/*.zip
       - android/app/build/outputs/logs/*.txt
 
+  rn-android-apk-release:
+    name: Reeplay Android (Release APK)
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      node: v22.13.1
+      java: 17
+      vars:
+        BASE_URL: "https://reeplay-api-ts-production.up.railway.app/api/v1"
+    scripts:
+      - name: Install JavaScript dependencies
+        script: |
+          corepack yarn@1.22.22 --version
+          corepack yarn@1.22.22 install --frozen-lockfile --ignore-scripts
+          ./node_modules/.bin/patch-package
+      - name: Set Android SDK location
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
+      - name: Verify no stale source bundle or backend URL
+        script: |
+          test "$BASE_URL" = "https://reeplay-api-ts-production.up.railway.app/api/v1"
+          test ! -f android/app/src/main/assets/index.android.bundle
+          ! grep -R "typescript.reeplay.app\|api.reeplay.app" --exclude-dir=node_modules --exclude-dir=build --exclude-dir=.git --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' .
+      - name: Build signed release APK
+        script: |
+          cd android
+          ./gradlew clean assembleRelease --no-daemon
+    artifacts:
+      - android/app/build/outputs/apk/release/*.apk
+      - android/app/build/outputs/mapping/release/mapping.txt
+      - android/app/build/outputs/native-debug-symbols/release/*.zip
+      - android/app/build/outputs/logs/*.txt
+
   rn-ios-testflight:
     name: Reeplay iOS (TestFlight)
     max_build_duration: 120

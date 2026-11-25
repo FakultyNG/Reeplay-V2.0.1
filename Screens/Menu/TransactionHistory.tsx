@@ -12,8 +12,12 @@ import { formatToMonthDayYear, formatToTime } from '@/Utils/formatTime'
 import getSymbolFromCurrency from 'currency-symbol-map'
 import { truncateText } from '@/Utils/textUtils'
 import { formatAmount } from '@/Utils/formatAmount'
+import { ArrowLeft } from '@/assets/icons'
+import { useNavigation } from '@react-navigation/native'
+import type { MenuNavigatorParams } from '@/navigation/AppStack'
 
 const TransactionHistory = () => {
+    const {goBack} = useNavigation<MenuNavigatorParams>();
     const [loading, setLoading] = useState<boolean>(false);
     const [transactions, setTransactions] = useState<ITransactionHistory[]>([])
     const [filteredTransactions, setFilteredTransactions] = useState<ITransactionHistory[]>([])
@@ -73,9 +77,10 @@ const TransactionHistory = () => {
       if(searchText.length > 0) return;
       if (!hasMore || transactions.length < 20) return;
       handleGetTransaction(transactions.length >= page * 20 ? page + 1 : page);
-    }, [page, hasMore]);
+    }, [page, hasMore, searchText.length, transactions.length]);
 
    function handleFilterTransaction(query: string) {
+  setSearchText(query);
   if (!query) {
     setFilteredTransactions(transactions);
     return;
@@ -107,7 +112,17 @@ const TransactionHistory = () => {
     <AppScreen containerStyle={{ paddingTop: 20, paddingHorizontal:0 }}>
     <View className='px-5'>
 
-      <Text className='font-ROBOTO_700 text-white text-2xl mb-1 mt-2'>History</Text>
+      <View style={styles.header}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={goBack}
+          style={styles.backButton}>
+          <ArrowLeft />
+        </TouchableOpacity>
+        <Text style={styles.title}>Purchase history</Text>
+        <View style={styles.headerSpacer} />
+      </View>
 
        <View
             className="flex-row items-center bg-[#262A33] rounded-md px-3 py-[3.5px] my-3 mb-4">
@@ -118,6 +133,7 @@ const TransactionHistory = () => {
               placeholder="Search"
               placeholderTextColor={'#9095A0'}
               style={styles.input}
+              value={searchText}
               onChangeText={handleFilterTransaction}
             />
           </View>
@@ -169,6 +185,31 @@ const TransactionHistory = () => {
 export default TransactionHistory
 
 const styles = StyleSheet.create({
+    header: {
+        alignItems: 'center',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+        marginTop: 2,
+    },
+    backButton: {
+        alignItems: 'center',
+        backgroundColor: '#181818',
+        borderColor: '#FFFFFF14',
+        borderRadius: 18,
+        borderWidth: 1,
+        height: 36,
+        justifyContent: 'center',
+        width: 36,
+    },
+    title: {
+        color: colors.WHITE,
+        fontFamily: fonts.MANROPE_700,
+        fontSize: 20,
+    },
+    headerSpacer: {
+        width: 36,
+    },
     input: {
         fontFamily:fonts.INTER_400,
         fontSize:15,

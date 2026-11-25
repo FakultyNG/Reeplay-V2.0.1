@@ -52,7 +52,6 @@ import {HAS_LOCK_APP} from '../Settings/SettingScreen';
 import {clearTokens} from '@/Utils/secureTokenStorage';
 import {unregisterNotificationDevice} from '@/Utils/notificationDevice';
 import {useAppPersistStore} from '@/store/zustand.store';
-import {fetchBackendVersion} from '@/api/version.api';
 import {getUnreadNotificationCount} from '@/api/notification.api';
 
 const tabs = [
@@ -79,30 +78,6 @@ const MenuScreen = () => {
   const profilePic = useAppSelector(selectUserProfilePic);
   const unreadNotificationCount = useAppSelector(selectUnreadNotificationCount);
   const [isValidImg, setVallid] = useState<boolean>(false)
-  const [backendVersion, setBackendVersion] = useState(
-    appVersion.backendVersion,
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-
-      fetchBackendVersion()
-        .then(response => {
-          if (isActive && response.ok && response.data?.data.version) {
-            setBackendVersion(response.data.data.version);
-          }
-        })
-        .catch(() => {
-          // Keep the bundled version while the device or backend is unavailable.
-        });
-
-      return () => {
-        isActive = false;
-      };
-    }, []),
-  );
-
   useFocusEffect(
     useCallback(() => {
       if (!user?._id) return;
@@ -278,7 +253,7 @@ const MenuScreen = () => {
             </AppText>
           </Pressable>
           <AppText className="mt-4 font-MANROPE_400 text-sm text-light_blue">
-            Reeplay Version {backendVersion}
+            Reeplay Version {appVersion.version}
           </AppText>
         </AppView>
       </AppScreen>

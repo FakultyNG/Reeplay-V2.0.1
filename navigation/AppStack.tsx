@@ -9,6 +9,7 @@ import ChangePin from '@/Screens/Menu/ChangePin';
 import CreateAds from '@/Screens/Menu/CreateAds';
 import NotificationScreen from '@/Screens/Menu/NotificationScreen';
 import SuggestionScreen from '@/Screens/Menu/SuggestionScreen';
+import TransactionHistory from '@/Screens/Menu/TransactionHistory';
 import DeleteScreen from '@/Screens/support/DeleteScreen';
 import VoteScreen from '@/Screens/VideoScreen/VoteScreen';
 import { IVoteInfo } from '@/types/api/content.types';
@@ -69,6 +70,10 @@ const AppStack = () => {
       <Drawer.Screen
         name={routes.NOTIFICATION_SCREEN}
         component={NotificationScreen}
+      />
+      <Drawer.Screen
+        name={routes.TRANSACTION_HISTORY_SCREEN}
+        component={TransactionHistory}
       />
 
       <Drawer.Screen

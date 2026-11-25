@@ -1,12 +1,9 @@
 import {
   ActivityIndicator,
   Pressable,
-  StatusBar,
   StyleSheet,
-  Text,
-  View,
 } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {
   AppButton,
   AppImage,
@@ -18,10 +15,12 @@ import {
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import {
   AccountDashboard,
+  ArrowLeft,
   ArrowRight,
   EditIcon,
   PasswordDashboard,
   PinDashboard,
+  WalletIcon,
 } from '@/assets/icons';
 import colors from '@/configs/colors';
 import Size from '@/Utils/useResponsiveSize';
@@ -38,15 +37,35 @@ import { pickSingleImage } from '@/Utils/MediaPicker';
 import {
   getProfileDetails,
   updateProfileDetails,
-  uploadProfile,
 } from '@/api/profile.api';
 import { formatDate } from '@/Utils/formatTime';
-import { LazyLoadImage } from 'react-lazy-load-image-component';
 import FastImage from 'react-native-fast-image';
-import { checkImageUrlValidity } from '@/Utils/ValidateImageUrl';
-import { RootNav } from '@/navigation/AppNavigator';
-import { MenuNavigatorParams } from '@/navigation/AppStack';
+import {checkImageUrlValidity} from '@/Utils/ValidateImageUrl';
+import {RootNav} from '@/navigation/AppNavigator';
+import {MenuNavigatorParams} from '@/navigation/AppStack';
 import ToastNotification from '@/components/ToastNotifications';
+
+type AccountRowProps = {
+  icon: React.ReactNode;
+  label: string;
+  onPress: () => void;
+  divider?: boolean;
+};
+
+const AccountRow = ({icon, label, onPress, divider = true}: AccountRowProps) => (
+  <TouchableOpacity
+    activeOpacity={0.75}
+    onPress={onPress}
+    style={[styles.accountRow, divider && styles.accountRowDivider]}>
+    <AppView style={styles.accountRowContent}>
+      <AppView style={styles.accountIcon}>{icon}</AppView>
+      <AppText style={styles.accountRowLabel} numberOfLines={1}>
+        {label}
+      </AppText>
+    </AppView>
+    <ArrowRight width={8} height={14} />
+  </TouchableOpacity>
+);
 
 const AccountScreen = () => {
   const dispatch = useAppDispatch();
@@ -55,37 +74,44 @@ const AccountScreen = () => {
   const user = useAppSelector(selectUser);
   const profilePic = useAppSelector(selectUserProfilePic);
   const nav = useNavigation<RootNav>();
-  const [showModal, setShowModal] = useState<'logout'|null>(null);
+  const [showModal, setShowModal] = useState<'logout' | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [isValidImg, setVallid] = useState<boolean>(false)
+  const [isValidImg, setValidImage] = useState<boolean>(false);
 
-  async function handleValidImg() {
-    const valid = await checkImageUrlValidity(profilePic)
-    setVallid(valid)
-  }
+  const handleValidImg = useCallback(async () => {
+    if (!profilePic) {
+      setValidImage(false);
+      return;
+    }
+    const valid = await checkImageUrlValidity(profilePic);
+    setValidImage(valid);
+  }, [profilePic]);
 
   const openGallery = async () => {
-    setLoading(true);
-    const result = await pickSingleImage();
-    if (result && result.uri && result.fileName && result.type) {
-      let data = new FormData();
-      data.append('photo', {
-        uri: result.uri,
-        name: result.fileName,
-        type: result.type,
-      });
-
+    try {
+      setLoading(true);
+      const result = await pickSingleImage();
+      if (result?.uri && result.fileName && result.type) {
+        const data = new FormData();
+        data.append('photo', {
+          uri: result.uri,
+          name: result.fileName,
+          type: result.type,
+        });
         const profileRes = await updateProfileDetails(data, user._id);
         if (profileRes.ok && profileRes.data) {
           const profile = await getProfileDetails();
           if (profile.ok && profile.data) {
             dispatch(setCredentials(profile.data.data));
-            setLoading(false);
           }
         } else {
-          ToastNotification('error', `${profileRes.data?.message}`)
-          setLoading(false);
+          ToastNotification('error', `${profileRes.data?.message}`);
         }
+      }
+    } catch {
+      ToastNotification('error', 'Unable to update profile photo. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -96,133 +122,124 @@ const AccountScreen = () => {
 
   useEffect(() => {
     handleValidImg();
-  }, [isFocused]);
+  }, [handleValidImg, isFocused]);
 
-  useEffect(() =>{
-    handleValidImg();
-  }, [profilePic])
+  const displayName = [user.first_name, user.last_name]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
 
 
   return (
     <>
-      <AppScreen scrollable containerStyle={{ paddingTop: 20 }}>
-        <TouchableOpacity onPress={goBack}>
-          <AppText className="font-ROBOTO_400 text-white text-[15px]">
-            Back
-          </AppText>
-        </TouchableOpacity>
+      <AppScreen
+        scrollable
+        containerStyle={styles.screen}
+        scrollContentStyle={styles.scrollContent}>
+        <AppView style={styles.header}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            onPress={goBack}
+            style={styles.backButton}>
+            <ArrowLeft />
+          </TouchableOpacity>
+          <AppText style={styles.pageTitle}>Account</AppText>
+          <AppView style={styles.headerSpacer} />
+        </AppView>
 
-        <AppView className="flex-row items-center justify-between mt-3">
-          <AppView className="flex-row items-center gap-x-[14px]">
-            <AppView className="relative items-center justify-center">
-                <AppImage
-                  source={!isValidImg ? require('@/assets/images/default-user-profile.webp') :{
-                    uri: profilePic,
-                    priority: FastImage.priority.high,
-                  }}
-                  style={styles.image}
-                />
-              
-
-              {loading && (
-                <ActivityIndicator
-                  size={16}
-                  color={colors.WHITE}
-                  style={{ position: 'absolute' }}
-                />
-              )}
-            </AppView>
-
-            <AppView>
-              <AppText className="font-MANROPE_700 capitalize text-white text-lg">
-                {user.first_name} {user.last_name}
-              </AppText>
-              <AppText className="font-MANROPE_400 text-grey_100 text-[14px]">
-                Joined {formatDate(user.createdAt)}
-              </AppText>
-            </AppView>
+        <AppView style={styles.profileCard}>
+          <AppView style={styles.profileImageWrapper}>
+            <AppImage
+              source={
+                isValidImg
+                  ? {
+                      uri: profilePic,
+                      priority: FastImage.priority.high,
+                    }
+                  : require('@/assets/images/default-user-profile.webp')
+              }
+              style={styles.image}
+            />
+            {loading && (
+              <AppView style={styles.imageLoadingOverlay}>
+                <ActivityIndicator size={18} color={colors.WHITE} />
+              </AppView>
+            )}
           </AppView>
 
-          <TouchableOpacity onPress={openGallery}>
-            <EditIcon />
+          <AppView style={styles.profileDetails}>
+            <AppText style={styles.profileName} numberOfLines={1}>
+              {displayName || 'Reeplay user'}
+            </AppText>
+            <AppText style={styles.profileEmail} numberOfLines={1}>
+              {user.email}
+            </AppText>
+            <AppText style={styles.joinedText}>
+              Joined {formatDate(user.createdAt)}
+            </AppText>
+          </AppView>
+
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Change profile photo"
+            activeOpacity={0.75}
+            disabled={loading}
+            onPress={openGallery}
+            style={styles.editButton}>
+            <EditIcon width={18} height={18} />
           </TouchableOpacity>
         </AppView>
 
-        {/* Body */}
-        <AppView className="mt-11">
-          <AppText className="font-MANROPE_500 text-[16px] text-white uppercase">
-            ACCOUNT
-          </AppText>
-          <AppView className="mt-3 pt-5 pb-7 pl-4 pr-5 border border-[#C4C4C445] rounded-md bg-[#1A1A1AD9]">
-            <TouchableOpacity
+        <AppView style={styles.section}>
+          <AppText style={styles.sectionTitle}>ACCOUNT DETAILS</AppText>
+          <AppView style={styles.card}>
+            <AccountRow
+              icon={<AccountDashboard width={24} height={24} />}
+              label={user.email}
               onPress={() => navigate(routes.CHANGE_EMAIL)}
-              className="flex-row items-center justify-between my-4">
-              <AppView className="flex-row items-center">
-                <AccountDashboard />
-                <AppText className="ml-2 font-MANROPE_400 text-base text-white">
-                  {user.email}
-                </AppText>
-              </AppView>
-              {/* Arroa */}
-              <ArrowRight />
-            </TouchableOpacity>
-
-            <TouchableOpacity
+            />
+            <AccountRow
+              icon={<PasswordDashboard width={24} height={24} />}
+              label="Change password"
               onPress={() => navigate(routes.CHANGE_PASSWORD)}
-              className="flex-row items-center justify-between my-4">
-              <AppView className="flex-row items-center">
-                <PasswordDashboard />
-                <AppText className="ml-2 font-MANROPE_400 text-base text-white">
-                  Change Password
-                </AppText>
-              </AppView>
-              {/* Arroa */}
-              <ArrowRight />
-            </TouchableOpacity>
-
-            <TouchableOpacity
+            />
+            <AccountRow
+              icon={<PinDashboard width={24} height={24} />}
+              label="Change PIN"
+              divider={false}
               onPress={() => navigate(routes.CHANGE_PIN)}
-              className="flex-row items-center justify-between my-4">
-              <AppView className="flex-row items-center">
-                <PinDashboard />
-                <AppText className="ml-2 font-MANROPE_400 text-base text-white">
-                  Change Pin
-                </AppText>
-              </AppView>
-              {/* Arroa */}
-              <ArrowRight />
-            </TouchableOpacity>
-
+            />
           </AppView>
         </AppView>
 
-        <AppView className="mt-10">
-          <AppText className="font-MANROPE_500 text-[16px] text-white uppercase">
-            Purchases
-          </AppText>
-          <AppView className="mt-3 rounded-xl border border-white/10 bg-[#1A1A1AD9] px-5 py-5">
-            <AppText className="font-MANROPE_500 text-[15px] text-white">
-              Pay only when you choose a premium title
+        <AppView style={styles.section}>
+          <AppText style={styles.sectionTitle}>PURCHASES</AppText>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="View purchase and transaction history"
+            activeOpacity={0.78}
+            onPress={() => navigate(routes.TRANSACTION_HISTORY_SCREEN)}
+            style={styles.historyButton}>
+            <AppView style={styles.historyIcon}>
+              <WalletIcon width={21} height={20} />
+            </AppView>
+            <AppText style={styles.historyLabel}>
+              Purchase &amp; transaction history
             </AppText>
-            <AppText className="mt-2 font-MANROPE_400 text-[13px] leading-5 text-grey_500">
-              Movies and seasons are purchased securely through the App Store or Google Play. Access lasts 30 days and works on your Reeplay account across devices.
-            </AppText>
-          </AppView>
+            <ArrowRight width={8} height={14} />
+          </TouchableOpacity>
         </AppView>
 
-        <AppView className="mt-6 ml-6 mb-10">
-          <Pressable
-            onPress={() =>
-              setShowModal('logout')
-            }>
-            <AppText className=" font-MANROPE_400 text-sm text-[#DE3B40]">
-              Log out
-            </AppText>
+        <AppView style={styles.accountActions}>
+          <Pressable onPress={() => setShowModal('logout')} style={styles.actionButton}>
+            <AppText style={styles.logoutText}>Log out</AppText>
           </Pressable>
-          <Pressable onPress={() => navigate(routes.DELETE_ACCOUNT_SCREEN)}>
-            <AppText className="mt-3 font-MANROPE_400 text-sm text-light_blue">
-              Delete account
-            </AppText>
+          <AppView style={styles.actionDivider} />
+          <Pressable
+            onPress={() => navigate(routes.DELETE_ACCOUNT_SCREEN)}
+            style={styles.actionButton}>
+            <AppText style={styles.deleteText}>Delete account</AppText>
           </Pressable>
         </AppView>
       </AppScreen>
@@ -261,11 +278,199 @@ const AccountScreen = () => {
 export default AccountScreen;
 
 const styles = StyleSheet.create({
-  image:{
-                    width: 65,
-                    height: 65,
-                    borderRadius: 99,
-                  },
+  screen: {
+    paddingTop: Size.calcHeight(12),
+  },
+  scrollContent: {
+    paddingBottom: Size.calcHeight(36),
+  },
+  header: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: Size.calcHeight(24),
+  },
+  backButton: {
+    alignItems: 'center',
+    backgroundColor: '#181818',
+    borderColor: '#FFFFFF14',
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  pageTitle: {
+    color: colors.WHITE,
+    fontFamily: fonts.MANROPE_700,
+    fontSize: 20,
+  },
+  headerSpacer: {
+    width: 36,
+  },
+  profileCard: {
+    alignItems: 'center',
+    backgroundColor: '#131313',
+    borderColor: '#FFFFFF14',
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    padding: 16,
+  },
+  profileImageWrapper: {
+    borderColor: '#FFFFFF24',
+    borderRadius: 38,
+    borderWidth: 1,
+    height: 76,
+    overflow: 'hidden',
+    width: 76,
+  },
+  image: {
+    borderRadius: 38,
+    height: 74,
+    width: 74,
+  },
+  imageLoadingOverlay: {
+    alignItems: 'center',
+    backgroundColor: '#00000099',
+    bottom: 0,
+    justifyContent: 'center',
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  profileDetails: {
+    flex: 1,
+    marginLeft: 14,
+    marginRight: 8,
+  },
+  profileName: {
+    color: colors.WHITE,
+    fontFamily: fonts.MANROPE_700,
+    fontSize: 17,
+    textTransform: 'capitalize',
+  },
+  profileEmail: {
+    color: '#B6B6B6',
+    fontFamily: fonts.MANROPE_400,
+    fontSize: 12,
+    marginTop: 3,
+  },
+  joinedText: {
+    color: '#777777',
+    fontFamily: fonts.MANROPE_400,
+    fontSize: 11,
+    marginTop: 5,
+  },
+  editButton: {
+    alignItems: 'center',
+    backgroundColor: '#272727',
+    borderRadius: 18,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  section: {
+    marginTop: Size.calcHeight(28),
+  },
+  sectionTitle: {
+    color: '#858585',
+    fontFamily: fonts.MANROPE_700,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    marginBottom: 10,
+    marginLeft: 4,
+  },
+  card: {
+    backgroundColor: '#131313',
+    borderColor: '#FFFFFF14',
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    paddingHorizontal: 16,
+  },
+  accountRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 64,
+  },
+  accountRowDivider: {
+    borderBottomColor: '#FFFFFF12',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  accountRowContent: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    marginRight: 16,
+  },
+  accountIcon: {
+    alignItems: 'center',
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  accountRowLabel: {
+    color: colors.WHITE,
+    flex: 1,
+    fontFamily: fonts.MANROPE_500,
+    fontSize: 14,
+    marginLeft: 12,
+  },
+  historyButton: {
+    alignItems: 'center',
+    backgroundColor: '#171313',
+    borderColor: '#FF13132E',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    minHeight: 68,
+    paddingHorizontal: 16,
+  },
+  historyIcon: {
+    alignItems: 'center',
+    backgroundColor: '#FF13131A',
+    borderRadius: 12,
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+  },
+  historyLabel: {
+    color: colors.WHITE,
+    flex: 1,
+    fontFamily: fonts.MANROPE_600,
+    fontSize: 14,
+    marginHorizontal: 13,
+  },
+  accountActions: {
+    backgroundColor: '#101010',
+    borderColor: '#FFFFFF10',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: Size.calcHeight(30),
+    overflow: 'hidden',
+  },
+  actionButton: {
+    alignItems: 'center',
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  actionDivider: {
+    backgroundColor: '#FFFFFF10',
+    height: StyleSheet.hairlineWidth,
+  },
+  logoutText: {
+    color: '#FF565A',
+    fontFamily: fonts.MANROPE_600,
+    fontSize: 14,
+  },
+  deleteText: {
+    color: '#A7BBDD',
+    fontFamily: fonts.MANROPE_500,
+    fontSize: 13,
+  },
   btnLabel: {
     fontFamily: fonts.ROBOTO_700,
     fontSize: 16,

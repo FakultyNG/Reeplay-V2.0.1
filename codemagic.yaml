@@ -51,7 +51,9 @@ workflows:
         XCODE_SCHEME: "Reeplay"
         BASE_URL: "https://reeplay-api-ts-production.up.railway.app/api/v1"
       node: v22.13.1
-      xcode: latest
+      # Pin the stable iOS 27 SDK toolchain. `latest` previously resolved to
+      # Xcode 26.6 on the selected image and triggered ITMS-90725.
+      xcode: 27.2
       cocoapods: 1.16.2
     cache:
       cache_paths:
@@ -59,6 +61,16 @@ workflows:
         - $HOME/Library/Caches/CocoaPods
         - $HOME/.cocoapods
     scripts:
+      - name: Verify Xcode and iOS SDK requirement
+        script: |
+          xcodebuild -version
+          IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
+          echo "Selected iPhoneOS SDK: $IOS_SDK_VERSION"
+          IOS_SDK_MAJOR=${IOS_SDK_VERSION%%.*}
+          if (( IOS_SDK_MAJOR < 27 )); then
+            echo "Xcode with the iOS 27 SDK or later is required for App Store uploads."
+            exit 1
+          fi
       - name: Verify App Store Connect credentials
         script: |
           : "${APP_STORE_APPLE_ID:?Add APP_STORE_APPLE_ID to the app_store_credentials group}"

@@ -9,17 +9,19 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import AppNavigator from '@/navigation/AppNavigator';
-import 'react-native-reanimated';
-import 'react-native-gesture-handler';
 import { Provider } from 'react-redux';
 import store from '@/store/app.store';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
+  ActivityIndicator,
   AppState,
   BackHandler,
+  Image,
   Linking,
   Platform,
+  StyleSheet,
   StatusBar,
+  View,
 } from 'react-native';
 import {
   authGet,
@@ -77,6 +79,19 @@ import {
 
 const LEFT_APP_TIME = AUTH_MMKV_KEYS.LEFT_APP_TIME;
 const API_ENVIRONMENT_KEY = 'API_BASE_URL';
+const STARTUP_REQUEST_TIMEOUT_MS = 5000;
+
+const StartupScreen = () => (
+  <View style={startupStyles.container}>
+    <StatusBar barStyle="light-content" backgroundColor="#000" />
+    <Image
+      source={require('@/assets/images/authLogo.png')}
+      resizeMode="contain"
+      style={startupStyles.logo}
+    />
+    <ActivityIndicator color="#FF1313" size="small" />
+  </View>
+);
 
 const PUBLIC_ROUTES = new Set<string>([
   routes.SPLASH_SCREEN,
@@ -168,8 +183,15 @@ function App(): React.JSX.Element {
           hasSkipped = false;
         }
 
-        const guestSetting = await getGuestAccessSetting();
-        if (guestSetting.ok && guestSetting.data?.data) {
+        // Startup must never wait indefinitely for Railway, DNS, or a captive
+        // network. The setting can be refreshed after navigation is mounted.
+        const guestSetting = await Promise.race([
+          getGuestAccessSetting(),
+          new Promise<null>(resolve =>
+            setTimeout(() => resolve(null), STARTUP_REQUEST_TIMEOUT_MS),
+          ),
+        ]);
+        if (guestSetting?.ok && guestSetting.data?.data) {
           const enabled = guestSetting.data.data.enabled;
           setGuestAccessEnabled(enabled);
           setGuest(enabled && hasSkipped);
@@ -178,6 +200,8 @@ function App(): React.JSX.Element {
             await clearTokens();
           }
         }
+      } catch (error) {
+        console.warn('[startup] environment initialization failed', error);
       } finally {
         if (isMounted) {
           setIsBackendEnvironmentReady(true);
@@ -498,7 +522,7 @@ function App(): React.JSX.Element {
     !PUBLIC_ROUTES.has(currentRouteName);
 
   if (!isBackendEnvironmentReady) {
-    return <GestureHandlerRootView style={{flex: 1, backgroundColor: '#000'}} />;
+    return <StartupScreen />;
   }
 
   return (
@@ -556,3 +580,17 @@ function App(): React.JSX.Element {
 
 
 export default App;
+
+const startupStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+    backgroundColor: '#000',
+  },
+  logo: {
+    width: 112,
+    height: 76,
+  },
+});

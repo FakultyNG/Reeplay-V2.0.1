@@ -1,9 +1,11 @@
 import {
+  ActivityIndicator,
+  Image,
   SafeAreaView,
   StatusBar,
   StyleSheet,
 } from 'react-native';
-import React, {useEffect} from 'react';
+import React, {useCallback, useEffect, useRef} from 'react';
 import colors from '@/configs/colors';
 import {useNavigation} from '@react-navigation/native';
 import {SplashScreenProps} from '@/types/typings';
@@ -24,16 +26,27 @@ const Splashscreen = () => {
   const navigation = useNavigation<SplashScreenProps>();
   const dispatch = useAppDispatch();
   const setIsSessionExpired = useAppPersistStore(s => s.setIsSessionExpired);
+  const hasNavigated = useRef(false);
 
-  async function handleNav() {
-    const hasOnboard = await authGet(HAS_ONBOARD);
-    if (hasOnboard) {
-      navigation.replace(routes.AUTH);
-    } else {
-      await authSet(HAS_ONBOARD, 'true');
+  const handleNav = useCallback(async () => {
+    if (hasNavigated.current) return;
+    hasNavigated.current = true;
+
+    try {
+      const hasOnboard = await authGet(HAS_ONBOARD);
+      if (hasOnboard) {
+        navigation.replace(routes.AUTH);
+      } else {
+        await authSet(HAS_ONBOARD, 'true');
+        navigation.replace(routes.ONBOARDING_SCREEN);
+      }
+    } catch (error) {
+      // A corrupted/temporarily unavailable secure store must not strand the
+      // user on the splash screen. Onboarding is the safest recovery route.
+      console.warn('[splash] local startup state unavailable', error);
       navigation.replace(routes.ONBOARDING_SCREEN);
     }
-  }
+  }, [navigation]);
 
   async function setDefaultLockState() {
     const lockState = await authGet(HAS_LOCK_APP);
@@ -66,9 +79,24 @@ const Splashscreen = () => {
     });
   }, [dispatch, setIsSessionExpired]);
 
+  useEffect(() => {
+    // dotLottie completion callbacks have occasionally not fired in iOS
+    // release builds. Always continue after a short bounded splash interval.
+    const fallback = setTimeout(() => {
+      void handleNav();
+    }, 3500);
+    return () => clearTimeout(fallback);
+  }, [handleNav]);
+
   return (
     <SafeAreaView style={[styles.center, styles.container]}>
       <StatusBar hidden />
+      <Image
+        source={require('@/assets/images/authLogo.png')}
+        resizeMode="contain"
+        style={styles.fallbackLogo}
+      />
+      <ActivityIndicator color={colors.RED} size="small" style={styles.loader} />
       <LottieView
         source={require('@/assets/lottie/ReeplaySplash.lottie')}
         autoPlay
@@ -76,8 +104,8 @@ const Splashscreen = () => {
         speed={1}
         resizeMode="contain"
         style={styles.animation}
-        onAnimationFinish={handleNav}
-        onAnimationFailure={handleNav}
+        onAnimationFinish={() => void handleNav()}
+        onAnimationFailure={() => void handleNav()}
       />
     </SafeAreaView>
   );
@@ -96,7 +124,15 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   animation: {
+    ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
+  },
+  fallbackLogo: {
+    width: 112,
+    height: 76,
+  },
+  loader: {
+    marginTop: 24,
   },
 });

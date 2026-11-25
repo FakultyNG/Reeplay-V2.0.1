@@ -209,7 +209,16 @@ export const fetchVODDetails = async ({_id}:{_id:string}) =>
 export const fetchVODNotificationDetails = async ({_id}:{_id:string}) =>
     await apiCall<IVodDetailsResponse>(baseApi => baseApi.get<IVodDetailsResponse>(`/customers/shared/vods/details/${_id}`))
 
-export const getDefaultLibrary = async ({pagination}:{pagination:IPagination}) => {
+export type LibraryFilters = {
+    search?: string;
+    type?: 'movie'|'series'|'music-video'|'skit';
+    access?: 'free'|'premium'|'original';
+    genreId?: string;
+    categoryId?: string;
+    sort?: 'recommended'|'newest'|'popular'|'az';
+};
+
+export const getDefaultLibrary = async ({pagination, filters = {}}:{pagination:IPagination; filters?:LibraryFilters}) => {
     const local = useGuestAccessStore.getState().isGuest
         ? await getGuestInterestPreferences()
         : {genreIds: [], categoryIds: []};
@@ -217,8 +226,17 @@ export const getDefaultLibrary = async ({pagination}:{pagination:IPagination}) =
         local.genreIds.length ? `genreIds=${encodeURIComponent(local.genreIds.join(','))}` : '',
         local.categoryIds.length ? `categoryIds=${encodeURIComponent(local.categoryIds.join(','))}` : '',
     ].filter(Boolean).join('&');
+    const filterQuery = [
+        filters.search?.trim() ? `search=${encodeURIComponent(filters.search.trim())}` : '',
+        filters.type ? `type=${encodeURIComponent(filters.type)}` : '',
+        filters.access ? `access=${encodeURIComponent(filters.access)}` : '',
+        filters.genreId ? `genreId=${encodeURIComponent(filters.genreId)}` : '',
+        filters.categoryId ? `categoryId=${encodeURIComponent(filters.categoryId)}` : '',
+        filters.sort ? `sort=${encodeURIComponent(filters.sort)}` : '',
+    ].filter(Boolean).join('&');
+    const query = [preferenceQuery, filterQuery].filter(Boolean).join('&');
     return await getMergedVodList(
-        `/customers/shared/vods/default-library?page=${pagination.page}&limit=${pagination.limit}${preferenceQuery ? `&${preferenceQuery}` : ''}`,
+        `/customers/shared/vods/default-library?page=${pagination.page}&limit=${pagination.limit}${query ? `&${query}` : ''}`,
     );
 }
 

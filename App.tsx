@@ -69,13 +69,20 @@ import {getAllNotifications} from '@/api/notification.api';
 import {setNoticationsList} from '@/store/slices/userSlice';
 import {parseShareDeepLink} from '@/Utils/shareLinks';
 import {getAllLiveEvents} from '@/api/live.api';
-import {setLiveModalContent} from '@/store/slices/fullScreenVideo.slice';
+import {
+  resetLiveVideo,
+  setLiveModalContent,
+} from '@/store/slices/fullScreenVideo.slice';
 import {
   flushAnalyticsEvents,
   queueAnalyticsEvent,
   startAnalyticsSession,
   trackScreenView,
 } from '@/api/analytics.api';
+import {
+  refreshLiveFeatureSetting,
+  useLiveFeatureStore,
+} from '@/store/liveFeature.store';
 
 const LEFT_APP_TIME = AUTH_MMKV_KEYS.LEFT_APP_TIME;
 const API_ENVIRONMENT_KEY = 'API_BASE_URL';
@@ -152,6 +159,7 @@ function App(): React.JSX.Element {
     needsAuthRedirect,
     clearAuthRedirect,
   } = useGuestAccessStore();
+  const liveEnabled = useLiveFeatureStore(state => state.enabled);
 
   useEffect(() => {
     let isMounted = true;
@@ -185,11 +193,22 @@ function App(): React.JSX.Element {
 
         // Startup must never wait indefinitely for Railway, DNS, or a captive
         // network. The setting can be refreshed after navigation is mounted.
-        const guestSetting = await Promise.race([
-          getGuestAccessSetting(),
-          new Promise<null>(resolve =>
-            setTimeout(() => resolve(null), STARTUP_REQUEST_TIMEOUT_MS),
-          ),
+        const [guestSetting] = await Promise.all([
+          Promise.race([
+            getGuestAccessSetting(),
+            new Promise<null>(resolve =>
+              setTimeout(() => resolve(null), STARTUP_REQUEST_TIMEOUT_MS),
+            ),
+          ]),
+          Promise.race([
+            refreshLiveFeatureSetting(),
+            new Promise<boolean>(resolve =>
+              setTimeout(
+                () => resolve(useLiveFeatureStore.getState().enabled),
+                STARTUP_REQUEST_TIMEOUT_MS,
+              ),
+            ),
+          ]),
         ]);
         if (guestSetting?.ok && guestSetting.data?.data) {
           const enabled = guestSetting.data.data.enabled;
@@ -252,6 +271,12 @@ function App(): React.JSX.Element {
     }
 
     if (shared.type === 'live') {
+      if (!useLiveFeatureStore.getState().enabled) {
+        navigationRef.current.navigate(routes.TAB_MAIN, {
+          screen: routes.HOME_SCREEN,
+        });
+        return;
+      }
       const response = await getAllLiveEvents();
       const live = response.ok && response.data
         ? response.data.data.find(item => item._id === shared.id)
@@ -337,7 +362,10 @@ function App(): React.JSX.Element {
       if (data.type === 'LIVE_EVENT_REMINDER' || metadata.liveId) {
         const isLiveNow = data.body?.toLowerCase().includes("it's live now") || metadata.destination === 'live';
         navigationRef.current?.navigate(routes.TAB_MAIN, {
-          screen: isLiveNow ? routes.LIVE_SCREEN : routes.UPCOMING_SCREEN,
+          screen:
+            isLiveNow && useLiveFeatureStore.getState().enabled
+              ? routes.LIVE_SCREEN
+              : routes.UPCOMING_SCREEN,
         });
         return;
       }
@@ -469,6 +497,7 @@ function App(): React.JSX.Element {
         checkLockAppLogic();
         startAnalyticsSession();
         void flushAnalyticsEvents();
+        void refreshLiveFeatureSetting();
       }
 
       appState.current = nextAppState;
@@ -493,6 +522,16 @@ function App(): React.JSX.Element {
       }
     };
   }, [checkLockAppLogic]);
+
+  useEffect(() => {
+    if (liveEnabled || !navigationReady || !navigationRef.current) return;
+    store.dispatch(resetLiveVideo());
+    if (navigationRef.current.getCurrentRoute()?.name === routes.LIVE_SCREEN) {
+      navigationRef.current.navigate(routes.TAB_MAIN, {
+        screen: routes.HOME_SCREEN,
+      });
+    }
+  }, [liveEnabled, navigationReady]);
 
   useEffect(() => {
     startAnalyticsSession();
@@ -543,6 +582,13 @@ function App(): React.JSX.Element {
           }}
           onStateChange={() => {
             const routeName = navigationRef.current?.getCurrentRoute()?.name;
+            if (
+              routeName === routes.HOME_SCREEN &&
+              currentRouteName &&
+              PUBLIC_ROUTES.has(currentRouteName)
+            ) {
+              void refreshLiveFeatureSetting();
+            }
             if (routeName && routeName !== currentRouteName) {
               trackScreenView(routeName, currentRouteName);
             }

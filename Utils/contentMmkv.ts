@@ -17,6 +17,7 @@ export const CONTENT_MMKV_KEYS = {
   UPCOMING: 'upcoming.events',
   ANALYTICS_QUEUE: 'analytics.queue',
   ANALYTICS_INSTALL_ID: 'analytics.install-id',
+  LIVE_FEATURE: 'feature.live',
 } as const;
 
 export type UpcomingContent = IVODContent | ILiveContent;

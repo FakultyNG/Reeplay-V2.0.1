@@ -30,19 +30,23 @@ import {FUpcomingIcon} from '@/assets/icons';
 import Size from '@/Utils/useResponsiveSize';
 import {useTabBarCompactOnScroll} from '@/navigation/useTabBarCompactOnScroll';
 import {getUpcomingCache, setUpcomingCache} from '@/Utils/contentMmkv';
+import {useLiveFeatureStore} from '@/store/liveFeature.store';
 
 const UpcomingScreen = ({
   isFullscreen,
   makeFullscreen,
   makePortrait,
 }: OrientationInjectedProps) => {
+  const liveEnabled = useLiveFeatureStore(state => state.enabled);
   const [playingIndexes, setPlayingIndexes] = useState<number[]>([]);
   const scrollY = useRef(new Animated.Value(0)).current;
   const {reportScrollOffset} = useTabBarCompactOnScroll();
   const [orientation, setOrientation] = useState<string | null>(null);
   const [upcomingEvents, setUpcomingEvents] = useState<
     (IVODContent | ILiveContent)[]
-  >(() => getUpcomingCache());
+  >(() =>
+    getUpcomingCache().filter(item => liveEnabled || 'adminId' in item),
+  );
   const [pagination] = useState<IPagination>({page: 1, limit: 100});
   const [isFullscreenContent, setFullscreenContent] =
     useState<IDownloadData | null>(null);
@@ -59,7 +63,7 @@ const UpcomingScreen = ({
 
       if (response.ok && response.data?.data) {
         const merged = [
-          ...(response.data.data.lives ?? []),
+          ...(liveEnabled ? response.data.data.lives ?? [] : []),
           ...(response.data.data.vods ?? []),
         ];
 
@@ -98,7 +102,16 @@ const UpcomingScreen = ({
     } finally {
       setIsLoading(false);
     }
-  }, [pagination]);
+  }, [liveEnabled, pagination]);
+
+  useEffect(() => {
+    if (liveEnabled) return;
+    setUpcomingEvents(current => {
+      const vodsOnly = current.filter(item => 'adminId' in item);
+      setUpcomingCache(vodsOnly);
+      return vodsOnly;
+    });
+  }, [liveEnabled]);
 
   useLayoutEffect(() => {
     handleUpcomingEvents();

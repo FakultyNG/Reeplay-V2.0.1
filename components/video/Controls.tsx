@@ -107,8 +107,6 @@ export const Controls = ({
   ...seekbarProps
 }: ControlsProps) => {
   const {logo} = contentData;
-  const normalizedType = type?.toLowerCase() ?? '';
-  const isSeriesContent = normalizedType.includes('series');
   const playerLabels = getPlayerLabels(
     contentData,
     type,
@@ -230,6 +228,8 @@ const [pendingSeekProgress, setPendingSeekProgress] =
           onSelectSubtitle={onSelectSubtitle}
           onPickerOpenChange={onSubtitlePickerOpenChange}
           showQualityControl={showQualityControl}
+          onBrightnessGestureStart={onBrightnessGestureStart}
+          onBrightnessGestureEnd={onBrightnessGestureEnd}
         />
       </AnimatedWrapper>
     );
@@ -363,7 +363,7 @@ const [pendingSeekProgress, setPendingSeekProgress] =
         {/* Always show chrome — do not hide mute/play behind loading. */}
         <>
             {/* CENTER PART */}
-            <View className="flex-1 items-center justify-center">
+            <View style={styles.centerStage} pointerEvents="box-none">
               {isFullscreeen && (
                 <Animated.View
                   style={{
@@ -420,7 +420,6 @@ const [pendingSeekProgress, setPendingSeekProgress] =
                     style={({pressed}) => ({
                       opacity: pressed ? 0.6 : 1,
                       transform: [{scale: pressed ? 0.92 : 1}],
-                      marginLeft: -8,
                     })}>
                     <SeekForwardIcon />
                   </Pressable>
@@ -589,6 +588,11 @@ const styles = StyleSheet.create({
   chromeFullscreen: {
     // Keep controls edge-safe without shrinking the video surface.
     paddingHorizontal: 16,
+  },
+  centerStage: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

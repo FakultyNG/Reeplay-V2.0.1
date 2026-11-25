@@ -51,6 +51,7 @@ import { isAndroid } from '@/configs/constant';
 import {useGuestAccessStore} from '@/store/guestAccess.store';
 import {rankSearchResults} from '@/Utils/searchRelevance';
 import {queueAnalyticsEvent, trackHouseAd} from '@/api/analytics.api';
+import {useLiveFeatureStore} from '@/store/liveFeature.store';
 
 const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedProps) => {
   const {navigate} = useNavigation<RootNav>()
@@ -66,6 +67,7 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
   const isFullscreenContent = useAppSelector(selectFullVideoProps);
   const isLiveModalContent = useAppSelector(selectLiveModalContent);
   const isGuest = useGuestAccessStore(state => state.isGuest);
+  const liveEnabled = useLiveFeatureStore(state => state.enabled);
   const [currentContentState, setContentState] = useState<IVODContent|ILiveContent|null>(isFullscreenContent)
         const isFocused = useIsFocused();
   
@@ -110,7 +112,8 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
     const resSug = await fetchContentSuggestions();
     if(resSug.ok && resSug.data){
       const data = resSug.data.data
-      setSuggestions(data.items ?? [...data.vods, ...data.lives]);
+      const items = data.items ?? [...data.vods, ...data.lives];
+      setSuggestions(items.filter(item => liveEnabled || 'adminId' in item));
     }
   }
   async function handleRecentSearches(){
@@ -121,7 +124,10 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
     const res = await recentSearches();
     if(res.ok && res.data){
       const data = res.data.data
-      setRecentSearches([...data.vods, ...data.lives]);
+      setRecentSearches([
+        ...data.vods,
+        ...(liveEnabled ? data.lives : []),
+      ]);
     }
   }
   async function handleGetAds(){
@@ -138,7 +144,10 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
       if (requestId !== searchRequestId.current) return;
 
       if(res.ok && res.data){
-        const data = [...res.data.data.vods, ...res.data.data.events]
+        const data = [
+          ...res.data.data.vods,
+          ...(liveEnabled ? res.data.data.events : []),
+        ]
         setContents(rankSearchResults(data, key));
         queueAnalyticsEvent({
           eventType: 'search',

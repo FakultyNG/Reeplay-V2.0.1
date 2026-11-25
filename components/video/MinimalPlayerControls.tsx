@@ -1,10 +1,11 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {MotiView} from 'moti';
 import {Easing} from 'react-native-reanimated';
 import {
   ArrowLeft,
   BigClose,
+  BrightnessIcon,
   SeekBackIcon,
   SeekForwardIcon,
 } from '@/assets/icons';
@@ -20,6 +21,7 @@ import PlayerQuality from './controls/PlayerQuality';
 import {Seekbar, SeekbarProps} from './controls/Seekbar';
 import Subtitle from './controls/Subtitle';
 import type {VideoPlayerProps} from 'react-native-video-player';
+import BrightnessBar from '@/Screens/VideoScreen/components/BrightnessBar';
 
 type Props = Partial<
   Omit<
@@ -55,6 +57,8 @@ type Props = Partial<
   onSelectSubtitle?: (index: number) => void;
   onPickerOpenChange?: (open: boolean) => void;
   showQualityControl?: boolean;
+  onBrightnessGestureStart?: () => void;
+  onBrightnessGestureEnd?: () => void;
 };
 
 const MinimalPlayerControls = ({
@@ -86,14 +90,31 @@ const MinimalPlayerControls = ({
   onSelectSubtitle,
   onPickerOpenChange,
   showQualityControl = true,
+  onBrightnessGestureStart,
+  onBrightnessGestureEnd,
   ...seekbarProps
 }: Props) => {
   const isSeries = type?.toLowerCase().includes('series') ?? false;
+  const [brightLevel, setBrightLevel] = useState<number | null>(null);
 
   return (
     <View style={styles.root} pointerEvents="box-none">
       <View style={styles.topScrim} pointerEvents="none" />
       <View style={styles.bottomScrim} pointerEvents="none" />
+
+      <View style={styles.brightnessControl} pointerEvents="box-none">
+        <View style={styles.brightnessIcon}>
+          <BrightnessIcon />
+        </View>
+        <View style={styles.brightnessTrack}>
+          <BrightnessBar
+            brightLevel={brightLevel}
+            setLevel={setBrightLevel}
+            onGestureStart={onBrightnessGestureStart}
+            onGestureEnd={onBrightnessGestureEnd}
+          />
+        </View>
+      </View>
 
       <View style={styles.topBar}>
         <View style={styles.titleGroup}>
@@ -261,9 +282,21 @@ const styles = StyleSheet.create({
   liveDot: {width: 7, height: 7, borderRadius: 4, backgroundColor: '#FF1313', marginRight: 6},
   topActions: {flexDirection: 'row', alignItems: 'center', gap: 5},
   centerControls: {
-    position: 'absolute', left: 0, right: 0, top: '39%',
+    position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 62,
   },
+  brightnessControl: {
+    position: 'absolute',
+    left: 8,
+    top: 52,
+    bottom: 72,
+    width: 56,
+    zIndex: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brightnessIcon: {alignSelf: 'center', marginBottom: 8},
+  brightnessTrack: {height: 180, width: 56, alignItems: 'center'},
   loadingControls: {opacity: 0.35},
   transportButton: {width: 52, height: 52, alignItems: 'center', justifyContent: 'center'},
   bottomArea: {position: 'absolute', left: 24, right: 24, bottom: 12},

@@ -11,6 +11,7 @@ import {
   LiveTabScreen,
   UpcomingTabScreen,
 } from './tabShared';
+import {useLiveFeatureStore} from '@/store/liveFeature.store';
 
 const Tab = createNativeBottomTabNavigator();
 
@@ -20,6 +21,7 @@ const Tab = createNativeBottomTabNavigator();
  */
 const TabNavigation = () => {
   const hideTabBar = useAppSelector(selectHideTabBar);
+  const liveEnabled = useLiveFeatureStore(state => state.enabled);
 
   return (
     <Tab.Navigator
@@ -51,17 +53,19 @@ const TabNavigation = () => {
           }),
         }}
       />
-      <Tab.Screen
-        name={routes.LIVE_SCREEN}
-        component={LiveTabScreen}
-        options={{
-          title: 'Live',
-          tabBarIcon: ({focused}) => ({
-            type: 'sfSymbol',
-            name: focused ? 'tv.fill' : 'tv',
-          }),
-        }}
-      />
+      {liveEnabled ? (
+        <Tab.Screen
+          name={routes.LIVE_SCREEN}
+          component={LiveTabScreen}
+          options={{
+            title: 'Live',
+            tabBarIcon: ({focused}) => ({
+              type: 'sfSymbol',
+              name: focused ? 'tv.fill' : 'tv',
+            }),
+          }}
+        />
+      ) : null}
       <Tab.Screen
         name={routes.UPCOMING_SCREEN}
         component={UpcomingTabScreen}

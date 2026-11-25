@@ -11,6 +11,7 @@ import {
   LiveTabScreen,
   UpcomingTabScreen,
 } from './tabShared';
+import {useLiveFeatureStore} from '@/store/liveFeature.store';
 
 const Tab = createBottomTabNavigator();
 
@@ -19,6 +20,7 @@ const Tab = createBottomTabNavigator();
  */
 const TabNavigation = () => {
   const hideTabBar = useAppSelector(selectHideTabBar);
+  const liveEnabled = useLiveFeatureStore(state => state.enabled);
 
   return (
     <Tab.Navigator
@@ -51,7 +53,9 @@ const TabNavigation = () => {
         },
       }}>
       <Tab.Screen name={routes.HOME_SCREEN} component={HomeTabScreen} />
-      <Tab.Screen name={routes.LIVE_SCREEN} component={LiveTabScreen} />
+      {liveEnabled ? (
+        <Tab.Screen name={routes.LIVE_SCREEN} component={LiveTabScreen} />
+      ) : null}
       <Tab.Screen name={routes.UPCOMING_SCREEN} component={UpcomingTabScreen} />
       <Tab.Screen name={routes.LIBRARY_SCREEN} component={LibraryTabScreen} />
     </Tab.Navigator>

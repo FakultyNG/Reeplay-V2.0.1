@@ -84,19 +84,22 @@ const HomeScreen = ({
               setFullscreenContent={setFullscreenContent}
             />
 
-            <Sections deferHeavy={deferHeavyRows} />
-
-            <AppView className="mt-8">
-              <AppView className="pl-5">
-                <SectionHeader
-                  title="Genres"
-                  btnText="SEE ALL"
-                  headerStyle={{marginRight: 12}}
-                  onPress={() => navigate(routes.LIBRARY_SCREEN)}
-                />
-              </AppView>
-              <SwiperContainer />
-            </AppView>
+            <Sections
+              deferHeavy={deferHeavyRows}
+              afterFirstCategory={
+                <AppView className="mt-8">
+                  <AppView className="pl-5">
+                    <SectionHeader
+                      title="Genres"
+                      btnText="SEE ALL"
+                      headerStyle={{marginRight: 12}}
+                      onPress={() => navigate(routes.LIBRARY_SCREEN)}
+                    />
+                  </AppView>
+                  <SwiperContainer />
+                </AppView>
+              }
+            />
 
             {continueWatching.length > 0 && (
               <HomeContinueRow

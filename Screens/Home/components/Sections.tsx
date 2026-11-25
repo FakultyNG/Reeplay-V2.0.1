@@ -13,6 +13,8 @@ import {selectHomeAds} from '@/store/slices/adsSlice.slice';
 interface Props {
   /** When true, only first few category rows fetch/render network. */
   deferHeavy?: boolean;
+  /** Content that must remain directly below the first category row. */
+  afterFirstCategory?: React.ReactNode;
 }
 
 const IMMEDIATE_ROW_COUNT = 3;
@@ -70,7 +72,7 @@ const CategoryRow = ({
   );
 };
 
-const Sections = ({deferHeavy = false}: Props) => {
+const Sections = ({deferHeavy = false, afterFirstCategory}: Props) => {
   const cat = useAppSelector(selectCategories);
   const homeAds = useAppSelector(selectHomeAds);
   const [enabledCount, setEnabledCount] = useState(IMMEDIATE_ROW_COUNT);
@@ -123,25 +125,33 @@ const Sections = ({deferHeavy = false}: Props) => {
         const isMusic = x.name.toLowerCase().includes('music');
         const isPremiumAds = x.name.trim().toLowerCase() === 'premium ads';
         const isPersonalized = x.feedType === 'personalized';
+        let section: React.ReactNode;
+
         if (isPersonalized) {
-          return <PersonalizedRow key={x._id} title={x.name} />;
-        }
-        if (isPremiumAds) {
-          return homeAds.length > 0 ? (
-            <AppView key={x._id} className="mt-6 pl-5">
+          section = <PersonalizedRow title={x.name} />;
+        } else if (isPremiumAds) {
+          section = homeAds.length > 0 ? (
+            <AppView className="mt-6 pl-5">
               <PremiumAdsCarousel title={x.name} />
             </AppView>
           ) : null;
+        } else {
+          section = (
+            <CategoryRow
+              category={x}
+              index={i}
+              isTop10={isTop10}
+              isComingSoon={isComingSoon}
+              isMusic={isMusic}
+            />
+          );
         }
+
         return (
-          <CategoryRow
-            key={x._id ?? i}
-            category={x}
-            index={i}
-            isTop10={isTop10}
-            isComingSoon={isComingSoon}
-            isMusic={isMusic}
-          />
+          <React.Fragment key={x._id ?? i}>
+            {section}
+            {i === 0 ? afterFirstCategory : null}
+          </React.Fragment>
         );
       })}
     </>

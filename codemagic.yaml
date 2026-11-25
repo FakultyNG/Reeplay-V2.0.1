@@ -31,3 +31,76 @@ workflows:
       - android/app/build/outputs/mapping/release/mapping.txt
       - android/app/build/outputs/native-debug-symbols/release/*.zip
       - android/app/build/outputs/logs/*.txt
+
+  rn-ios-testflight:
+    name: Reeplay iOS (TestFlight)
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        # Create this group in Codemagic and add the four variables documented
+        # below. Mark the API private key as secret.
+        - app_store_credentials
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.reeplayv2
+      vars:
+        BUNDLE_ID: "com.reeplayv2"
+        XCODE_WORKSPACE: "Reeplay.xcworkspace"
+        XCODE_SCHEME: "Reeplay"
+        BASE_URL: "https://reeplay-api-ts-production.up.railway.app/api/v1"
+      node: v22.13.1
+      xcode: latest
+      cocoapods: 1.16.2
+    cache:
+      cache_paths:
+        - $CM_BUILD_DIR/node_modules
+        - $HOME/Library/Caches/CocoaPods
+        - $HOME/.cocoapods
+    scripts:
+      - name: Verify App Store Connect credentials
+        script: |
+          : "${APP_STORE_APPLE_ID:?Add APP_STORE_APPLE_ID to the app_store_credentials group}"
+          : "${APP_STORE_CONNECT_KEY_IDENTIFIER:?Add APP_STORE_CONNECT_KEY_IDENTIFIER to the app_store_credentials group}"
+          : "${APP_STORE_CONNECT_ISSUER_ID:?Add APP_STORE_CONNECT_ISSUER_ID to the app_store_credentials group}"
+          : "${APP_STORE_CONNECT_PRIVATE_KEY:?Add APP_STORE_CONNECT_PRIVATE_KEY to the app_store_credentials group}"
+      - name: Install JavaScript dependencies
+        script: |
+          corepack yarn@1.22.22 --version
+          corepack yarn@1.22.22 install --frozen-lockfile --ignore-scripts
+          ./node_modules/.bin/patch-package
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          pod install --repo-update
+      - name: Verify backend configuration
+        script: |
+          test "$BASE_URL" = "https://reeplay-api-ts-production.up.railway.app/api/v1"
+          ! grep -R "typescript.reeplay.app\|api.reeplay.app" --exclude-dir=node_modules --exclude-dir=Pods --exclude-dir=build --exclude-dir=.git --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' .
+      - name: Apply App Store signing profiles
+        script: |
+          xcode-project use-profiles
+      - name: Set next TestFlight build number
+        script: |
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || true)
+          if ! [[ "$LATEST_BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+            LATEST_BUILD_NUMBER=4
+          fi
+          NEXT_BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
+          cd ios
+          agvtool new-version -all "$NEXT_BUILD_NUMBER"
+      - name: Build signed IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID

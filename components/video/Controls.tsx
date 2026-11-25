@@ -23,6 +23,7 @@ import EyesIcon from '@/assets/icons/eyes.svg'
 import { useSocket } from '../../Hooks/useSocket';
 import { formatLikesNumber } from '@/Utils/formatAmount';
 import MinimalPlayerControls from './MinimalPlayerControls';
+import {getPlayerLabels} from './playerLabels';
 
 const AnimatedLinear = Animated.createAnimatedComponent(LinearGradient);
 
@@ -105,7 +106,16 @@ export const Controls = ({
   showQualityControl = true,
   ...seekbarProps
 }: ControlsProps) => {
-  const {logo, title} = contentData;
+  const {logo} = contentData;
+  const normalizedType = type?.toLowerCase() ?? '';
+  const isSeriesContent = normalizedType.includes('series');
+  const playerLabels = getPlayerLabels(
+    contentData,
+    type,
+    type === 'live' && isTime,
+  );
+  const playerTitle = playerLabels.title;
+  const playerSecondary = playerLabels.secondary;
   const { goBack } = useNavigation();
   const [seekingProgress, setSeekingProgress] =
     useState<number | null>(null);
@@ -187,7 +197,8 @@ const [pendingSeekProgress, setPendingSeekProgress] =
         animationDuration={animationDuration}>
         <MinimalPlayerControls
           {...seekbarProps}
-          title={title || 'Reeplay'}
+          title={playerTitle || 'Reeplay'}
+          secondaryLabel={playerSecondary}
           type={type}
           duration={duration}
           displayedProgress={displayedProgress}
@@ -314,11 +325,20 @@ const [pendingSeekProgress, setPendingSeekProgress] =
                     }}
                   />
                 )}
-                <Text
-                  numberOfLines={1}
-                  className="font-ROBOTO_500 text-white text-[13px] flex-shrink">
-                  {title}
-                </Text>
+                <View className="flex-1">
+                  <Text
+                    numberOfLines={1}
+                    className="font-ROBOTO_500 text-white text-[13px]">
+                    {playerTitle}
+                  </Text>
+                  {playerSecondary ? (
+                    <Text
+                      numberOfLines={1}
+                      className="mt-0.5 font-ROBOTO_400 text-grey_200 text-[11px]">
+                      {playerSecondary}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
 
               <View className="flex-row items-center gap-x-2">

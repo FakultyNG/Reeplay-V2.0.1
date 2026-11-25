@@ -144,6 +144,9 @@ const PreviewScreen = ({
           vidClass: previewContent.vidClass,
           viewsCount: previewContent.viewsCount,
           playbackRole: 'main',
+          releaseYear: previewContent.releaseDate,
+          runtime: previewContent.runtime,
+          isReeplayOriginal: previewContent.isReeplayOriginal,
         });
         makeFullscreen();
       } catch {

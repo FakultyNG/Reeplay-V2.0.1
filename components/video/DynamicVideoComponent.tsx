@@ -48,6 +48,13 @@ export interface IContentData {
   vidClass: string;
   seekTo?: number;
   watchedDocumentId?: string;
+  seriesTitle?: string;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  episodeTitle?: string;
+  releaseYear?: string | number;
+  runtime?: string;
+  isReeplayOriginal?: boolean;
 }
 
 export interface CustomStyles {

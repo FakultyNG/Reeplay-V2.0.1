@@ -153,6 +153,7 @@ const SeriesContent = ({vod, accessStatus, setFullscreenContent, makeFullscreen}
               <SeriesView
               item={series}
               vod={vod}
+              seasonNumber={section.title}
               accessStatus={section.canView}
               makeFullscreen={makeFullscreen}
               setFullscreenContent={setFullscreenContent}
@@ -179,6 +180,7 @@ export default SeriesContent;
 interface SeriesViewProps {
   item: IEpisode
   vod: IVODContent
+  seasonNumber: number
   accessStatus: boolean
   makeFullscreen: () => void
   setFullscreenContent: React.Dispatch<React.SetStateAction<IDownloadData | null>>
@@ -187,6 +189,7 @@ interface SeriesViewProps {
 const SeriesView = ({
  item,
  vod,
+ seasonNumber,
  accessStatus,
  makeFullscreen,
  setFullscreenContent
@@ -206,6 +209,10 @@ const SeriesView = ({
     pg:vod.pg,
     size,
     title:item.title,
+    seriesTitle: vod.title,
+    seasonNumber,
+    episodeNumber: item.episodeNumber,
+    episodeTitle: item.title,
     type:vod.type,
     vidClass:vod.vidClass,
     video:videoURL,
@@ -274,6 +281,10 @@ const SeriesView = ({
             size:sizeInMB,
             desc:item.description,
             type:'series',
+            seriesTitle: vod.title,
+            seasonNumber,
+            episodeNumber: item.episodeNumber,
+            episodeTitle: item.title,
             viewsCount:item.viewsCount,
             vidClass:vod.vidClass
           })

@@ -90,6 +90,13 @@ const DownloadFullscreenModalPlayer = ({
             title: content.title,
             viewsCount: content.viewsCount,
             vidClass: content.vidClass,
+            seriesTitle: content.seriesTitle,
+            seasonNumber: content.seasonNumber,
+            episodeNumber: content.episodeNumber,
+            episodeTitle: content.episodeTitle,
+            releaseYear: content.releaseYear,
+            runtime: content.runtime,
+            isReeplayOriginal: content.isReeplayOriginal,
             ...(content.watchedDocumentId && {
               watchedDocumentId: content.watchedDocumentId,
               seekTo: content.seekTo,

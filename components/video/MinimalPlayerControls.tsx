@@ -28,6 +28,7 @@ type Props = Partial<
   >
 > & {
   title: string;
+  secondaryLabel: string;
   type?: string;
   duration: number;
   displayedProgress: number;
@@ -58,6 +59,7 @@ type Props = Partial<
 
 const MinimalPlayerControls = ({
   title,
+  secondaryLabel,
   type,
   duration,
   displayedProgress,
@@ -87,7 +89,6 @@ const MinimalPlayerControls = ({
   ...seekbarProps
 }: Props) => {
   const isSeries = type?.toLowerCase().includes('series') ?? false;
-  const secondaryLabel = isLiveNow ? 'LIVE' : isSeries ? 'Series episode' : 'Video';
 
   return (
     <View style={styles.root} pointerEvents="box-none">
@@ -108,7 +109,9 @@ const MinimalPlayerControls = ({
             <Text numberOfLines={1} style={styles.title}>{title}</Text>
             <View style={styles.secondaryRow}>
               {isLiveNow && <View style={styles.liveDot} />}
-              <Text style={[styles.secondary, isLiveNow && styles.liveText]}>
+              <Text
+                numberOfLines={1}
+                style={[styles.secondary, isLiveNow && styles.liveText]}>
                 {secondaryLabel}
               </Text>
             </View>

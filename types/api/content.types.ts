@@ -257,6 +257,14 @@ export interface IDownloadData{
     playlistIndex?: number
     /** Distinguishes monetized full playback from trailers/previews. */
     playbackRole?: 'main' | 'trailer' | 'preview';
+    /** Context displayed in the player heading. */
+    seriesTitle?: string;
+    seasonNumber?: number;
+    episodeNumber?: number;
+    episodeTitle?: string;
+    releaseYear?: string | number;
+    runtime?: string;
+    isReeplayOriginal?: boolean;
 }
 
 export interface IVODRatingResponse extends IGeneric{

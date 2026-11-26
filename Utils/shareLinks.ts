@@ -1,4 +1,4 @@
-import {BASE_URL} from '@env';
+import {PUBLIC_SHARE_ORIGIN} from '@env';
 
 export type ShareEntityType =
   | 'vod'
@@ -9,7 +9,7 @@ export type ShareEntityType =
   | 'cast'
   | 'live';
 
-const publicOrigin = BASE_URL.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+const publicOrigin = (PUBLIC_SHARE_ORIGIN || 'https://go.reeplay.app').replace(/\/$/, '');
 
 export const buildShareUrl = (
   type: ShareEntityType | string,

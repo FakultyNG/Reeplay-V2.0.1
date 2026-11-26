@@ -1,5 +1,6 @@
 declare module '@env' {
   export const BASE_URL: string;
+  export const PUBLIC_SHARE_ORIGIN: string;
   export const IMAGE_BASE_URL: string;
   export const GUEST_TOKEN: string;
   export const PAYSTACK_PK: string;

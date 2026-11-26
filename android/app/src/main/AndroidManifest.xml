@@ -56,7 +56,7 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data
               android:scheme="https"
-              android:host="reeplay-api-ts-production.up.railway.app"
+              android:host="go.reeplay.app"
               android:pathPrefix="/share/" />
         </intent-filter>
       </activity>

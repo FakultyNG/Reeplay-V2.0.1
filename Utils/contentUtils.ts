@@ -216,6 +216,11 @@ export function normalizeSubtitleUrl(
   bucket?: string | null,
   key?: string | null,
 ): string {
+  const mediaOrigin = (BASE_URL || 'https://api.reeplay.app/api/v1')
+    .replace(/\/api\/v\d+\/?$/i, '')
+    .replace(/\/$/, '');
+  const brandedSubtitleUrl = (objectKey: string) =>
+    `${mediaOrigin}/media/subtitles/${encodeURIComponent(objectKey.replace(/^\/+/, ''))}`;
   let raw = String(src ?? '')
     .trim()
     .replace(/^['"]+|['"]+$/g, '')
@@ -229,13 +234,7 @@ export function normalizeSubtitleUrl(
       .trim()
       .replace(/^\/+/, '');
     if (objectKey) {
-      const host = String(bucket)
-        .trim()
-        .replace(/^https?:\/\//i, '')
-        .replace(/\/+$/, '');
-      raw = host.includes('.')
-        ? `https://${host}/${objectKey}`
-        : `https://${host}.s3.amazonaws.com/${objectKey}`;
+      raw = brandedSubtitleUrl(objectKey);
     }
   }
 
@@ -249,13 +248,19 @@ export function normalizeSubtitleUrl(
 
   const s3Match = raw.match(/^s3:\/\/([^/]+)\/(.+)$/i);
   if (s3Match) {
-    raw = `https://${s3Match[1]}.s3.amazonaws.com/${s3Match[2]}`;
+    raw = brandedSubtitleUrl(s3Match[2]);
+  }
+
+  const awsUrl = raw.match(/^https?:\/\/[^/]+\.s3(?:[.-][^/]+)?\.amazonaws\.com\/(.+)$/i)
+    ?? raw.match(/^https?:\/\/s3(?:[.-][^/]+)?\.amazonaws\.com\/[^/]+\/(.+)$/i);
+  if (awsUrl) {
+    raw = brandedSubtitleUrl(decodeURIComponent(awsUrl[1]));
   }
 
   if (!/^https?:\/\//i.test(raw)) {
     if (raw.startsWith('/')) {
       const origin =
-        (BASE_URL || 'https://reeplay-api-ts-production.up.railway.app/api/v1')
+        (BASE_URL || 'https://api.reeplay.app/api/v1')
         .replace(/\/api\/v\d+\/?$/i, '')
         .replace(/\/$/, '');
       raw = `${origin}${raw}`;

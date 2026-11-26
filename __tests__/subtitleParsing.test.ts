@@ -44,6 +44,22 @@ describe('mobile subtitle parsing', () => {
     );
   });
 
+  test('rewrites legacy S3 subtitle locations through the branded API', () => {
+    expect(
+      normalizeSubtitleUrl(
+        's3://legacy-bucket/subtitles/movie-yoruba.vtt',
+      ),
+    ).toBe(
+      'https://api.reeplay.app/media/subtitles/subtitles%2Fmovie-yoruba.vtt',
+    );
+
+    expect(
+      normalizeSubtitleUrl('', 'legacy-bucket', 'subtitles/movie-english.vtt'),
+    ).toBe(
+      'https://api.reeplay.app/media/subtitles/subtitles%2Fmovie-english.vtt',
+    );
+  });
+
   test('parses production-style English and Yoruba WebVTT tracks', () => {
     const english = parseVttCues(
       'WEBVTT\n\n00:00:01.000 --> 00:00:05.000\nWelcome to Reeplay.',

@@ -7,7 +7,8 @@ workflows:
       node: v22.13.1
       java: 17
       vars:
-        BASE_URL: "https://reeplay-api-ts-production.up.railway.app/api/v1"
+        BASE_URL: "https://api.reeplay.app/api/v1"
+        PUBLIC_SHARE_ORIGIN: "https://go.reeplay.app"
     scripts:
       - name: Install JavaScript dependencies
         script: |
@@ -19,9 +20,10 @@ workflows:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
       - name: Verify no stale source bundle or backend URL
         script: |
-          test "$BASE_URL" = "https://reeplay-api-ts-production.up.railway.app/api/v1"
+          test "$BASE_URL" = "https://api.reeplay.app/api/v1"
+          test "$PUBLIC_SHARE_ORIGIN" = "https://go.reeplay.app"
           test ! -f android/app/src/main/assets/index.android.bundle
-          ! grep -R "typescript.reeplay.app\|api.reeplay.app" --exclude-dir=node_modules --exclude-dir=build --exclude-dir=.git --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' .
+          ! grep -R "up.railway.app\|typescript.reeplay.app" --exclude-dir=node_modules --exclude-dir=build --exclude-dir=.git --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' .
       - name: Build fresh Play Store app bundle
         script: |
           cd android
@@ -40,7 +42,8 @@ workflows:
       node: v22.13.1
       java: 17
       vars:
-        BASE_URL: "https://reeplay-api-ts-production.up.railway.app/api/v1"
+        BASE_URL: "https://api.reeplay.app/api/v1"
+        PUBLIC_SHARE_ORIGIN: "https://go.reeplay.app"
     scripts:
       - name: Install JavaScript dependencies
         script: |
@@ -52,9 +55,10 @@ workflows:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
       - name: Verify no stale source bundle or backend URL
         script: |
-          test "$BASE_URL" = "https://reeplay-api-ts-production.up.railway.app/api/v1"
+          test "$BASE_URL" = "https://api.reeplay.app/api/v1"
+          test "$PUBLIC_SHARE_ORIGIN" = "https://go.reeplay.app"
           test ! -f android/app/src/main/assets/index.android.bundle
-          ! grep -R "typescript.reeplay.app\|api.reeplay.app" --exclude-dir=node_modules --exclude-dir=build --exclude-dir=.git --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' .
+          ! grep -R "up.railway.app\|typescript.reeplay.app" --exclude-dir=node_modules --exclude-dir=build --exclude-dir=.git --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' .
       - name: Build signed release APK
         script: |
           cd android
@@ -82,7 +86,8 @@ workflows:
         XCODE_PROJECT: "Reeplay.xcodeproj"
         XCODE_WORKSPACE: "Reeplay.xcworkspace"
         XCODE_SCHEME: "Reeplay"
-        BASE_URL: "https://reeplay-api-ts-production.up.railway.app/api/v1"
+        BASE_URL: "https://api.reeplay.app/api/v1"
+        PUBLIC_SHARE_ORIGIN: "https://go.reeplay.app"
       node: v22.13.1
       # Pin the stable iOS 27 SDK toolchain. `latest` previously resolved to
       # Xcode 26.6 on the selected image and triggered ITMS-90725.
@@ -124,8 +129,9 @@ workflows:
           pod update --repo-update
       - name: Verify backend configuration
         script: |
-          test "$BASE_URL" = "https://reeplay-api-ts-production.up.railway.app/api/v1"
-          ! grep -R "typescript.reeplay.app\|api.reeplay.app" --exclude-dir=node_modules --exclude-dir=Pods --exclude-dir=build --exclude-dir=.git --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' .
+          test "$BASE_URL" = "https://api.reeplay.app/api/v1"
+          test "$PUBLIC_SHARE_ORIGIN" = "https://go.reeplay.app"
+          ! grep -R "up.railway.app\|typescript.reeplay.app" --exclude-dir=node_modules --exclude-dir=Pods --exclude-dir=build --exclude-dir=.git --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' .
       - name: Apply App Store signing profiles
         script: |
           xcode-project use-profiles \

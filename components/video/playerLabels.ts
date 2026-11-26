@@ -23,8 +23,8 @@ export function getPlayerLabels(
   if (isSeries) {
     const title = content.seriesTitle || content.title || 'Reeplay';
     const episodeContext = [
-      content.seasonNumber != null ? `Season ${content.seasonNumber}` : '',
-      content.episodeNumber != null ? `Episode ${content.episodeNumber}` : '',
+      content.seasonNumber != null ? `S${content.seasonNumber}` : '',
+      content.episodeNumber != null ? `Ep ${content.episodeNumber}` : '',
     ]
       .filter(Boolean)
       .join(', ');

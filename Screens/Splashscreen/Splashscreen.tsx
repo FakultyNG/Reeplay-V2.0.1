@@ -1,12 +1,9 @@
 import {
-  ActivityIndicator,
-  Image,
   SafeAreaView,
   StatusBar,
   StyleSheet,
 } from 'react-native';
 import React, {useCallback, useEffect, useRef} from 'react';
-import colors from '@/configs/colors';
 import {useNavigation} from '@react-navigation/native';
 import {SplashScreenProps} from '@/types/typings';
 import routes from '@/navigation/routes';
@@ -91,12 +88,6 @@ const Splashscreen = () => {
   return (
     <SafeAreaView style={[styles.center, styles.container]}>
       <StatusBar hidden />
-      <Image
-        source={require('@/assets/images/authLogo.png')}
-        resizeMode="contain"
-        style={styles.fallbackLogo}
-      />
-      <ActivityIndicator color={colors.RED} size="small" style={styles.loader} />
       <LottieView
         source={require('@/assets/lottie/ReeplaySplash.lottie')}
         autoPlay
@@ -120,19 +111,12 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: colors.DEEP_BLACK,
+    backgroundColor: '#000000',
     position: 'relative',
   },
   animation: {
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
-  },
-  fallbackLogo: {
-    width: 112,
-    height: 76,
-  },
-  loader: {
-    marginTop: 24,
   },
 });

@@ -41,6 +41,7 @@ import Placeholder from '@/components/SkeletonLoader';
 import {setPreviewContent} from '@/store/slices/previewContentSlice';
 import {useAppDispatch} from '@/Hooks/reduxHook';
 import {useSharedValue} from 'react-native-reanimated';
+import CastAvatar from '@/components/CastAvatar';
 
 const CastScreeen = () => {
   const scrollY = useSharedValue(0);
@@ -118,13 +119,7 @@ const CastScreeen = () => {
             ]}
           />
 
-          <AppImage
-            source={{uri: cast.photoUrl, priority:FastImage.priority.high}}
-            style={{
-              width:Size.wp(100),
-              height:500
-            }}
-          />
+          <CastAvatar uri={cast.photoUrl} style={styles.castHero} />
 
           <AppView className="absolute bottom-0 z-30 items-center w-full">
             <AppText className="teext-center uppercase font-ROBOTO_700 text-[15px] text-white">
@@ -217,6 +212,10 @@ const CastScreeen = () => {
 export default CastScreeen;
 
 const styles = StyleSheet.create({
+  castHero: {
+    width: Size.wp(100),
+    height: 500,
+  },
   gradientStyles: {
     width: '100%',
     height: Size.calcHeight(130),

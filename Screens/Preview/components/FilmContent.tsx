@@ -1,13 +1,13 @@
 import {FlatList, StyleSheet} from 'react-native';
 import React, {useCallback, useEffect, useState} from 'react';
-import {AppImage, AppText, AppView, TouchableOpacity} from '@/components';
+import {AppText, AppView, TouchableOpacity} from '@/components';
 import {useNavigation} from '@react-navigation/native';
 import routes from '@/navigation/routes';
 import {ICast} from '@/types/api/content.types';
 import {RootNav} from '@/navigation/AppNavigator';
-import FastImage from 'react-native-fast-image';
 import {fetchCastsByVOID} from '@/api/content.api';
 import Placeholder from '@/components/SkeletonLoader';
+import CastAvatar from '@/components/CastAvatar';
 
 interface Props {
   vodId: string;
@@ -94,13 +94,7 @@ const FilmContent = ({vodId}: Props) => {
                   onPress={() =>
                     navigate(routes.CAST_SCREEN, {cast, vodId})
                   }>
-                  <AppImage
-                    source={{
-                      uri: cast.photoUrl,
-                      priority: FastImage.priority.high,
-                    }}
-                    style={styles.image}
-                  />
+                  <CastAvatar uri={cast.photoUrl} style={styles.image} />
                   <AppText className="capitalize text-center mt-2 font-ROBOTO_400 text-white text-[10px]">
                     {cast.name}
                   </AppText>

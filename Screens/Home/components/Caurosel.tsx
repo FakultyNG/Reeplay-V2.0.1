@@ -66,6 +66,9 @@ handleVODTrailer
   const { navigate } = useNavigation<RootNav>();
   const [videoURL, setVideoURL] = useState<string>('');
   const [imgLoad, setImgLoad] = useState<boolean>(true);
+  const [posterUri, setPosterUri] = useState(
+    'adminId' in item ? item.portraitPhoto || item.landscapePhoto : '',
+  );
   const [modal, setModal] = useState<string|null>(null);
   const isFocused = useIsFocused();
   const startTime = item && 'start' in item ? item.start : item?.releaseDate;
@@ -115,6 +118,13 @@ handleVODTrailer
       handleContentStatusUpdate();
     }
   }, [isFocused, item?._id]);
+
+  useEffect(() => {
+    if ('adminId' in item) {
+      setPosterUri(item.portraitPhoto || item.landscapePhoto);
+      setImgLoad(true);
+    }
+  }, [item]);
 
   if (!item) {
     return <View style={{width: WIDTH, height: 410}} />;
@@ -235,12 +245,22 @@ handleVODTrailer
 
       {("adminId" in item && !live) && <FastImage
         source={{
-          uri: item.portraitPhoto,
+          uri: posterUri,
           priority: FastImage.priority.high,
           cache: FastImage.cacheControl.immutable,
         }}
         onLoadEnd={() => setImgLoad(false)}
-        onError={() => setImgLoad(false)}
+        onError={() => {
+          if (
+            posterUri === item.portraitPhoto &&
+            item.landscapePhoto &&
+            item.landscapePhoto !== item.portraitPhoto
+          ) {
+            setPosterUri(item.landscapePhoto);
+            return;
+          }
+          setImgLoad(false);
+        }}
         style={{
           width: ITEM_WIDTH,
           position: 'absolute',

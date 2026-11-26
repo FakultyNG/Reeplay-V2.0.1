@@ -81,7 +81,12 @@ const LibraryScreen = () => {
   const [error, setError] = useState('');
   const requestId = useRef(0);
   const loadingMoreRef = useRef(false);
-  const cardWidth = Math.max(140, (width - 52) / 2);
+  const columnCount = width >= 700 ? 5 : width >= 330 ? 3 : 2;
+  const horizontalInset = 40;
+  const columnGap = 10;
+  const cardWidth = Math.floor(
+    (width - horizontalInset - columnGap * (columnCount - 1)) / columnCount,
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), 350);
@@ -222,7 +227,8 @@ const LibraryScreen = () => {
       <FlatList
         data={loading ? Array.from({length: 6}, (_, index) => ({_id: `skeleton-${index}`} as IVODContent)) : contents}
         keyExtractor={item => item._id}
-        numColumns={2}
+        key={`library-grid-${columnCount}`}
+        numColumns={columnCount}
         columnWrapperStyle={styles.gridRow}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -350,9 +356,16 @@ export const ContentItem = ({item, width}: {item: IVODContent; width: number}) =
   const dispatch = useAppDispatch();
   const [imageLoading, setImageLoading] = useState(true);
   const [imageFailed, setImageFailed] = useState(false);
+  const [posterUri, setPosterUri] = useState(
+    item.portraitPhoto || item.landscapePhoto,
+  );
   const year = item.releaseDate ? String(item.releaseDate).slice(0, 4) : '';
   const typeLabel = item.type === 'series' ? 'Series' : item.type === 'music-video' ? 'Music video' : item.type === 'skit' ? 'Skit' : 'Movie';
-  const accessLabel = item.isReeplayOriginal ? 'ORIGINAL' : item.vidClass === 'premium' ? 'PREMIUM' : 'FREE';
+  const isOriginal =
+    item.isReeplayOriginal ||
+    item.vidClass === 'original' ||
+    item.vidClass === 'exclusive';
+  const accessLabel = isOriginal ? 'ORIGINAL' : item.vidClass === 'premium' ? 'PREMIUM' : 'FREE';
 
   return (
     <Pressable
@@ -371,19 +384,44 @@ export const ContentItem = ({item, width}: {item: IVODContent; width: number}) =
           </View>
         ) : (
           <AppImage
-            source={{uri: item.portraitPhoto, priority: FastImage.priority.normal}}
+            source={{uri: posterUri, priority: FastImage.priority.normal}}
             style={[styles.poster, {width}]}
             resizeMode={FastImage.resizeMode.cover}
             onLoadStart={() => setImageLoading(true)}
             onLoadEnd={() => setImageLoading(false)}
             onError={() => {
+              if (
+                posterUri === item.portraitPhoto &&
+                item.landscapePhoto &&
+                item.landscapePhoto !== item.portraitPhoto
+              ) {
+                setPosterUri(item.landscapePhoto);
+                setImageLoading(true);
+                return;
+              }
               setImageLoading(false);
               setImageFailed(true);
             }}
           />
         )}
-        <View style={[styles.accessBadge, item.vidClass === 'free' && styles.freeBadge]}>
-          <AppText style={styles.accessBadgeText}>{accessLabel}</AppText>
+        <View
+          style={[
+            styles.accessBadge,
+            isOriginal
+              ? styles.originalBadge
+              : item.vidClass === 'premium'
+                ? styles.premiumBadge
+                : styles.freeBadge,
+          ]}>
+          <AppText
+            style={[
+              styles.accessBadgeText,
+              !isOriginal && item.vidClass === 'premium'
+                ? styles.premiumBadgeText
+                : null,
+            ]}>
+            {accessLabel}
+          </AppText>
         </View>
       </View>
       <AppText numberOfLines={2} style={styles.cardTitle}>{item.title}</AppText>
@@ -428,7 +466,7 @@ const styles = StyleSheet.create({
   resultsText: {color: '#7E838E', fontSize: 12},
   resetInline: {color: '#FF5559', fontSize: 12, fontWeight: '600'},
   listContent: {paddingTop: 8, paddingBottom: 120, flexGrow: 1},
-  gridRow: {justifyContent: 'space-between', marginBottom: 22},
+  gridRow: {justifyContent: 'flex-start', gap: 10, marginBottom: 20},
   card: {minWidth: 0},
   cardPressed: {opacity: 0.78, transform: [{scale: 0.985}]},
   posterWrap: {aspectRatio: 0.68, overflow: 'hidden', borderRadius: 14, backgroundColor: '#15171C'},
@@ -436,9 +474,12 @@ const styles = StyleSheet.create({
   skeletonTitle: {width: '72%', height: 14, marginTop: 10, borderRadius: 7},
   imageFallback: {height: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: '#20232A'},
   imageFallbackText: {color: '#4A4F5A', fontSize: 42, fontWeight: '700'},
-  accessBadge: {position: 'absolute', top: 9, left: 9, minHeight: 23, paddingHorizontal: 8, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E92E33'},
+  accessBadge: {position: 'absolute', top: 7, left: 7, minHeight: 21, paddingHorizontal: 7, borderRadius: 6, alignItems: 'center', justifyContent: 'center'},
+  originalBadge: {backgroundColor: '#FF1313'},
+  premiumBadge: {backgroundColor: '#06D097'},
   freeBadge: {backgroundColor: 'rgba(16,18,22,0.88)'},
   accessBadgeText: {color: '#FFFFFF', fontSize: 9, fontWeight: '800', letterSpacing: 0.5},
+  premiumBadgeText: {color: '#071A14'},
   cardTitle: {color: '#F6F6F7', fontSize: 14, lineHeight: 19, fontWeight: '600', marginTop: 9},
   cardMeta: {color: '#7E838E', fontSize: 11, marginTop: 4},
   footerLoader: {height: 70, alignItems: 'center', justifyContent: 'center'},

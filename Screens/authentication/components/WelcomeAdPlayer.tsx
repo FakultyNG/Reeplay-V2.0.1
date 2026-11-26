@@ -1,11 +1,11 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {ViewType, type ReactVideoProps, type VideoRef} from 'react-native-video';
+import RNFS from 'react-native-fs';
+import {ViewType, type ReactVideoProps} from 'react-native-video';
 import {AppImage, AppVideo} from '@/components';
 import {IAdsData} from '@/types/api/content.types';
 import {trackHouseAd} from '@/api/analytics.api';
 import {getEligibleWelcomeAds} from '@/Utils/welcomeAds';
-import {maxBitRateForQuality} from '@/components/video/playbackConfig';
 
 interface Props {
   ads: IAdsData[];
@@ -14,62 +14,60 @@ interface Props {
   requestComplete: boolean;
 }
 
-type RemoteSlotIndex = 0 | 1;
-type RemoteSlots = [IAdsData | null, IAdsData | null];
-type ReadySlots = [boolean, boolean];
+interface PreparedAd {
+  ad: IAdsData;
+  uri: string;
+}
 
 const bundledAuthVideo = require('@/assets/videos/AuthVideo.mp4');
 const emergencyFallbackVideo = require('@/assets/videos/getStartedVideo.mp4');
 const bundledAuthPoster = require('@/assets/images/AuthVideoPoster.jpg');
-const REMOTE_READY_TIMEOUT_MS = 15_000;
-const AUTH_AD_MAX_BIT_RATE = maxBitRateForQuality('720p');
 
-export default function WelcomeAdPlayer({
-  ads,
-  muted,
-  paused,
-  requestComplete,
-}: Props) {
+const cacheIdentity = (ad: IAdsData) => {
+  const sourcePath = ad.videoUrl.split('?')[0];
+  let hash = 0;
+  for (let index = 0; index < sourcePath.length; index += 1) {
+    hash = (hash * 31 + sourcePath.charCodeAt(index)) % 2147483647;
+  }
+  return `${ad._id.replace(/[^a-zA-Z0-9_-]/g, '')}-${Math.abs(hash)}`;
+};
+
+export default function WelcomeAdPlayer({ads, muted, paused, requestComplete}: Props) {
   const eligibleAds = useMemo(() => getEligibleWelcomeAds(ads), [ads]);
   const eligibleKey = eligibleAds.map(ad => `${ad._id}:${ad.videoUrl}`).join('|');
   const [failedAdIds, setFailedAdIds] = useState<string[]>([]);
-  const [remoteSlots, setRemoteSlotsState] = useState<RemoteSlots>([null, null]);
-  const [readySlots, setReadySlotsState] = useState<ReadySlots>([false, false]);
-  const [activeSlot, setActiveSlotState] = useState<RemoteSlotIndex | null>(null);
-  const [introFinished, setIntroFinished] = useState(false);
+  const [current, setCurrentState] = useState<PreparedAd | null>(null);
   const [localReady, setLocalReady] = useState(false);
   const [useEmergencyFallback, setUseEmergencyFallback] = useState(false);
 
-  const remoteSlotsRef = useRef<RemoteSlots>([null, null]);
-  const readySlotsRef = useRef<ReadySlots>([false, false]);
-  const activeSlotRef = useRef<RemoteSlotIndex | null>(null);
-  const preferredSlotRef = useRef<RemoteSlotIndex | null>(0);
-  const introFinishedRef = useRef(false);
-  const localRef = useRef<VideoRef | null>(null);
-  const remoteRefs = useRef<[VideoRef | null, VideoRef | null]>([null, null]);
-  const durations = useRef<[number, number]>([0, 0]);
+  const currentRef = useRef<PreparedAd | null>(null);
+  const playableAdsRef = useRef<IAdsData[]>([]);
+  const prepared = useRef<Map<string, PreparedAd>>(new Map());
+  const preparing = useRef<Map<string, Promise<PreparedAd | null>>>(new Map());
+  const duration = useRef(0);
   const trackedEvents = useRef<Set<string>>(new Set());
+  const mounted = useRef(true);
 
   const playableAds = useMemo(
     () => eligibleAds.filter(ad => !failedAdIds.includes(ad._id)),
     [eligibleAds, failedAdIds],
   );
-  const playableKey = playableAds.map(ad => `${ad._id}:${ad.videoUrl}`).join('|');
 
-  const setActiveSlot = useCallback((slot: RemoteSlotIndex | null) => {
-    activeSlotRef.current = slot;
-    setActiveSlotState(slot);
-    if (slot !== null) preferredSlotRef.current = null;
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
   }, []);
 
-  const setReadySlots = useCallback((slots: ReadySlots) => {
-    readySlotsRef.current = slots;
-    setReadySlotsState(slots);
-  }, []);
+  useEffect(() => {
+    playableAdsRef.current = playableAds;
+  }, [playableAds]);
 
-  const setRemoteSlots = useCallback((slots: RemoteSlots) => {
-    remoteSlotsRef.current = slots;
-    setRemoteSlotsState(slots);
+  const setCurrent = useCallback((value: PreparedAd | null) => {
+    currentRef.current = value;
+    duration.current = 0;
+    setCurrentState(value);
   }, []);
 
   const trackOnce = useCallback(
@@ -92,234 +90,158 @@ export default function WelcomeAdPlayer({
   );
 
   const markAdFailed = useCallback((adId: string) => {
+    prepared.current.delete(adId);
     setFailedAdIds(ids => (ids.includes(adId) ? ids : [...ids, adId]));
+  }, []);
+
+  const prepareAd = useCallback(async (ad: IAdsData) => {
+    const cached = prepared.current.get(ad._id);
+    if (cached && cacheIdentity(cached.ad) === cacheIdentity(ad)) return cached;
+
+    const inProgress = preparing.current.get(ad._id);
+    if (inProgress) return inProgress;
+
+    const task = (async (): Promise<PreparedAd | null> => {
+      const identity = cacheIdentity(ad);
+      const destination = `${RNFS.CachesDirectoryPath}/reeplay-welcome-${identity}.mp4`;
+      const temporary = `${destination}.part`;
+      try {
+        if (!(await RNFS.exists(destination))) {
+          if (await RNFS.exists(temporary)) await RNFS.unlink(temporary);
+          const result = await RNFS.downloadFile({
+            fromUrl: ad.videoUrl,
+            toFile: temporary,
+            background: true,
+            discretionary: false,
+          }).promise;
+          if (result.statusCode < 200 || result.statusCode >= 300) {
+            throw new Error(`Auth ad download failed with HTTP ${result.statusCode}`);
+          }
+          await RNFS.moveFile(temporary, destination);
+        }
+        const value = {ad, uri: `file://${destination}`};
+        prepared.current.set(ad._id, value);
+        return value;
+      } catch {
+        if (await RNFS.exists(temporary)) await RNFS.unlink(temporary).catch(() => undefined);
+        if (mounted.current) markAdFailed(ad._id);
+        return null;
+      } finally {
+        preparing.current.delete(ad._id);
+      }
+    })();
+
+    preparing.current.set(ad._id, task);
+    return task;
+  }, [markAdFailed]);
+
+  const nextAdAfter = useCallback((ad: IAdsData | null) => {
+    const available = playableAdsRef.current;
+    if (available.length === 0) return null;
+    const index = ad ? available.findIndex(item => item._id === ad._id) : -1;
+    return available[(index + 1) % available.length];
   }, []);
 
   useEffect(() => {
     setFailedAdIds([]);
-  }, [eligibleKey]);
+    prepared.current.clear();
+    preparing.current.clear();
+    setCurrent(null);
+  }, [eligibleKey, setCurrent]);
 
   useEffect(() => {
-    if (!requestComplete || playableAds.length === 0) {
-      setRemoteSlots([null, null]);
-      setReadySlots([false, false]);
-      preferredSlotRef.current = null;
-      setActiveSlot(null);
+    if (!requestComplete || playableAds.length === 0) return;
+    prepareAd(playableAds[0]);
+  }, [playableAds, prepareAd, requestComplete]);
+
+  useEffect(() => {
+    if (!current) return;
+    const next = nextAdAfter(current.ad);
+    if (next && next._id !== current.ad._id) prepareAd(next);
+  }, [current, nextAdAfter, prepareAd]);
+
+  const activatePrepared = useCallback((ad: IAdsData | null) => {
+    if (!ad) return false;
+    const value = prepared.current.get(ad._id);
+    if (!value || cacheIdentity(value.ad) !== cacheIdentity(ad)) return false;
+    setCurrent(value);
+    return true;
+  }, [setCurrent]);
+
+  const handleEnd = useCallback(() => {
+    const completed = currentRef.current;
+    if (completed) trackOnce(completed.ad._id, 'house_ad_video_complete');
+
+    const next = nextAdAfter(completed?.ad ?? null);
+    if (completed && next?._id === completed.ad._id) return;
+    if (activatePrepared(next)) return;
+
+    if (completed && next) {
+      // Keep the completed ad's final frame on the single native surface until
+      // the next MP4 is fully prepared, then change only that surface's source.
+      prepareAd(next).then(value => {
+        if (!mounted.current || currentRef.current?.ad._id !== completed.ad._id) return;
+        setCurrent(value);
+      });
       return;
     }
 
-    setRemoteSlots([
-      playableAds[0],
-      playableAds.length > 1 ? playableAds[1] : null,
-    ]);
-    setReadySlots([false, false]);
-    durations.current = [0, 0];
-    preferredSlotRef.current = 0;
-    setActiveSlot(null);
-  }, [
-    playableAds,
-    playableKey,
-    requestComplete,
-    setActiveSlot,
-    setReadySlots,
-    setRemoteSlots,
-  ]);
+    // The bundled MP4 loops when there is no usable remote campaign.
+    setCurrent(null);
+    if (next) prepareAd(next);
+  }, [activatePrepared, nextAdAfter, prepareAd, setCurrent, trackOnce]);
 
-  useEffect(() => {
-    if (paused) return;
-    const timers = remoteSlots.map((ad, index) => {
-      if (!ad || readySlots[index]) return undefined;
-      return setTimeout(() => markAdFailed(ad._id), REMOTE_READY_TIMEOUT_MS);
-    });
-    return () => timers.forEach(timer => timer && clearTimeout(timer));
-  }, [markAdFailed, paused, readySlots, remoteSlots]);
-
-  const activateReadySlot = useCallback(
-    (slot: RemoteSlotIndex) => {
-      if (!introFinishedRef.current || !readySlotsRef.current[slot]) return;
-      if (!remoteSlotsRef.current[slot]) return;
-      setActiveSlot(slot);
-    },
-    [setActiveSlot],
-  );
-
-  const handleRemoteReady = useCallback(
-    (slot: RemoteSlotIndex) => {
-      const ready: ReadySlots = [...readySlotsRef.current] as ReadySlots;
-      ready[slot] = true;
-      setReadySlots(ready);
-
-      if (
-        activeSlotRef.current === null &&
-        (preferredSlotRef.current === null || preferredSlotRef.current === slot)
-      ) {
-        activateReadySlot(slot);
-      }
-    },
-    [activateReadySlot, setReadySlots],
-  );
-
-  const handleLocalEnd = useCallback(() => {
-    if (introFinishedRef.current) return;
-    introFinishedRef.current = true;
-    setIntroFinished(true);
-    localRef.current?.seek(0);
-
-    const preferred = preferredSlotRef.current ?? 0;
-    if (readySlotsRef.current[preferred]) {
-      activateReadySlot(preferred);
-      return;
-    }
-    const alternate: RemoteSlotIndex = preferred === 0 ? 1 : 0;
-    if (readySlotsRef.current[alternate]) activateReadySlot(alternate);
-  }, [activateReadySlot]);
-
-  const nextAdAfter = useCallback(
-    (ad: IAdsData | null) => {
-      if (playableAds.length === 0) return null;
-      const currentIndex = ad
-        ? playableAds.findIndex(item => item._id === ad._id)
-        : -1;
-      return playableAds[(currentIndex + 1) % playableAds.length];
-    },
-    [playableAds],
-  );
-
-  const handleRemoteEnd = useCallback(
-    (slot: RemoteSlotIndex) => {
-      if (activeSlotRef.current !== slot) return;
-      const completedAd = remoteSlotsRef.current[slot];
-      if (!completedAd) return;
-      trackOnce(completedAd._id, 'house_ad_video_complete');
-
-      if (playableAds.length === 1) {
-        remoteRefs.current[slot]?.seek(0);
-        return;
-      }
-
-      const nextSlot: RemoteSlotIndex = slot === 0 ? 1 : 0;
-      const nextAd = remoteSlotsRef.current[nextSlot];
-      preferredSlotRef.current = nextSlot;
-
-      if (nextAd && readySlotsRef.current[nextSlot]) {
-        setActiveSlot(nextSlot);
-      } else {
-        // Reveal the already-playing bundled video immediately. The preferred
-        // remote slot continues preparing without a poster or black frame.
-        setActiveSlot(null);
-      }
-
-      const slots: RemoteSlots = [...remoteSlotsRef.current] as RemoteSlots;
-      const ready: ReadySlots = [...readySlotsRef.current] as ReadySlots;
-      slots[slot] = nextAdAfter(nextAd ?? completedAd);
-      ready[slot] = false;
-      durations.current[slot] = 0;
-      setRemoteSlots(slots);
-      setReadySlots(ready);
-    },
-    [nextAdAfter, playableAds.length, setActiveSlot, setReadySlots, setRemoteSlots, trackOnce],
-  );
-
-  const handleRemoteError = useCallback(
-    (slot: RemoteSlotIndex) => {
-      const ad = remoteSlotsRef.current[slot];
-      if (ad) markAdFailed(ad._id);
-    },
-    [markAdFailed],
-  );
-
-  const handleRemoteProgress = useCallback(
-    (slot: RemoteSlotIndex, currentTime: number) => {
-      if (activeSlotRef.current !== slot || currentTime <= 0) return;
-      const ad = remoteSlotsRef.current[slot];
-      if (!ad) return;
-      trackOnce(ad._id, 'house_ad_impression');
-      trackOnce(ad._id, 'house_ad_video_start');
-      const duration = durations.current[slot];
-      if (!duration) return;
-      const percent = (currentTime / duration) * 100;
-      if (percent >= 25) trackOnce(ad._id, 'house_ad_video_25');
-      if (percent >= 50) trackOnce(ad._id, 'house_ad_video_50');
-      if (percent >= 75) trackOnce(ad._id, 'house_ad_video_75');
-    },
-    [trackOnce],
-  );
+  const handleProgress = useCallback((currentTime: number) => {
+    const active = currentRef.current;
+    if (!active || currentTime <= 0) return;
+    trackOnce(active.ad._id, 'house_ad_impression');
+    trackOnce(active.ad._id, 'house_ad_video_start');
+    if (!duration.current) return;
+    const percent = (currentTime / duration.current) * 100;
+    if (percent >= 25) trackOnce(active.ad._id, 'house_ad_video_25');
+    if (percent >= 50) trackOnce(active.ad._id, 'house_ad_video_50');
+    if (percent >= 75) trackOnce(active.ad._id, 'house_ad_video_75');
+  }, [trackOnce]);
 
   const localSource: ReactVideoProps['source'] = useEmergencyFallback
     ? emergencyFallbackVideo
     : bundledAuthVideo;
+  const source: ReactVideoProps['source'] = current ? {uri: current.uri} : localSource;
 
   return (
     <View style={styles.container}>
       <AppVideo
-        key={useEmergencyFallback ? 'welcome-emergency' : 'welcome-local'}
-        videoRef={localRef}
-        source={localSource}
-        containerStyle={styles.localLayer}
+        source={source}
+        containerStyle={styles.videoLayer}
         style={styles.video}
         resizeMode="cover"
-        muted={muted || activeSlot !== null}
+        muted={muted}
         paused={paused}
         controls={false}
         viewType={ViewType.TEXTURE}
-        repeat={introFinished}
+        repeat={!current || playableAds.length === 1}
         hideShutterView
         shutterColor="transparent"
         onReadyForDisplay={() => setLocalReady(true)}
-        onEnd={handleLocalEnd}
+        onLoad={data => {
+          duration.current = data.duration;
+        }}
+        onProgress={data => handleProgress(data.currentTime)}
+        onEnd={handleEnd}
         onError={() => {
-          if (!useEmergencyFallback) {
+          if (currentRef.current) {
+            markAdFailed(currentRef.current.ad._id);
+            setCurrent(null);
+          } else if (!useEmergencyFallback) {
             setUseEmergencyFallback(true);
             setLocalReady(false);
           }
         }}
       />
 
-      {remoteSlots.map((ad, index) => {
-        if (!ad) return null;
-        const slot = index as RemoteSlotIndex;
-        const isActive = activeSlot === slot;
-        return (
-          <AppVideo
-            key={`${slot}:${ad._id}:${ad.videoUrl}`}
-            videoRef={ref => {
-              remoteRefs.current[slot] = ref;
-            }}
-            source={{uri: ad.videoUrl}}
-            containerStyle={isActive ? styles.remoteVisible : styles.remoteHidden}
-            style={styles.video}
-            resizeMode="cover"
-            maxBitRate={AUTH_AD_MAX_BIT_RATE}
-            muted={muted || !isActive}
-            paused={paused || !isActive}
-            controls={false}
-            viewType={ViewType.TEXTURE}
-            repeat={false}
-            hideShutterView
-            shutterColor="transparent"
-            onLoadStart={() => {
-              const ready: ReadySlots = [...readySlotsRef.current] as ReadySlots;
-              ready[slot] = false;
-              setReadySlots(ready);
-            }}
-            onReadyForDisplay={() => handleRemoteReady(slot)}
-            onLoad={data => {
-              durations.current[slot] = data.duration;
-            }}
-            onProgress={data => handleRemoteProgress(slot, data.currentTime)}
-            onEnd={() => handleRemoteEnd(slot)}
-            onError={() => handleRemoteError(slot)}
-          />
-        );
-      })}
-
       {!localReady ? (
         <View pointerEvents="none" style={styles.initialPosterLayer}>
-          <AppImage
-            source={bundledAuthPoster}
-            resizeMode="cover"
-            style={styles.video}
-          />
+          <AppImage source={bundledAuthPoster} resizeMode="cover" style={styles.video} />
         </View>
       ) : null}
     </View>
@@ -331,26 +253,14 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#050505',
   },
-  localLayer: {
+  videoLayer: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#050505',
-    zIndex: 0,
-  },
-  remoteVisible: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#050505',
-    opacity: 1,
-    zIndex: 2,
-  },
-  remoteHidden: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0,
-    zIndex: 1,
   },
   initialPosterLayer: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#050505',
-    zIndex: 3,
+    zIndex: 1,
   },
   video: {
     width: '100%',

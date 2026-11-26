@@ -13,10 +13,8 @@ import { Provider } from 'react-redux';
 import store from '@/store/app.store';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
-  ActivityIndicator,
   AppState,
   BackHandler,
-  Image,
   Linking,
   Platform,
   StyleSheet,
@@ -91,12 +89,6 @@ const STARTUP_REQUEST_TIMEOUT_MS = 5000;
 const StartupScreen = () => (
   <View style={startupStyles.container}>
     <StatusBar barStyle="light-content" backgroundColor="#000" />
-    <Image
-      source={require('@/assets/images/authLogo.png')}
-      resizeMode="contain"
-      style={startupStyles.logo}
-    />
-    <ActivityIndicator color="#FF1313" size="small" />
   </View>
 );
 
@@ -634,9 +626,5 @@ const startupStyles = StyleSheet.create({
     justifyContent: 'center',
     gap: 24,
     backgroundColor: '#000',
-  },
-  logo: {
-    width: 112,
-    height: 76,
   },
 });

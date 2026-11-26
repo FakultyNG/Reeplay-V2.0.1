@@ -52,6 +52,7 @@ import {
   maxBitRateForQuality,
   normalizeCastImageUrl,
   shouldAttachGoogleAd,
+  shouldLoadSubtitles,
   shouldTreatPlaybackEndAsContentEnd,
 } from './playbackConfig';
 import {buildSampleEnglishCues} from '@/assets/subtitles/sampleEnglish';
@@ -128,6 +129,7 @@ type RenderVideoProps = Pick<
   minimalUi?: boolean;
   showQualityControl?: boolean;
   maxBitRateOverride?: number;
+  playbackRole?: 'main' | 'trailer' | 'upcoming';
   // videoRef: React.RefObject<VideoRef | null>
 };
 
@@ -186,6 +188,7 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
     props.maxBitRateOverride ?? maxBitRateForQuality(videoQuality);
   const showLoadingOverlay =
     !isAdPlaying && (!isReadyForDisplay || isBuffering);
+  const subtitlesEnabled = shouldLoadSubtitles(props.playbackRole, props.type);
 
   const posterUri = (() => {
     const thumb = props.thumbnail;
@@ -626,7 +629,7 @@ export const RenderVideo = forwardRef<VideoInternalRef, RenderVideoProps>(
     setSelectedSubtitleIndex(-1);
     setActiveCueText('');
 
-    if (props.type === 'live') {
+    if (!subtitlesEnabled || props.type === 'live') {
       return;
     }
 
@@ -1036,7 +1039,7 @@ useEffect(() =>{
       subtitleLoadGenerationRef.current += 1;
     }
   };
-}, [props.contentData._id, props.type]);
+}, [props.contentData._id, props.type, props.playbackRole]);
 
   useEffect(() => {
     analyticsSessionRef.current = analyticsId('play');
@@ -1074,7 +1077,7 @@ useEffect(() =>{
             source?.bufferConfig ?? getBufferConfigForMode(playbackMode),
           minLoadRetryCount: source?.minLoadRetryCount ?? 5,
           textTracks:
-            subtitle.length > 0
+            subtitlesEnabled && subtitle.length > 0
               ? subtitle
                   .filter(t => !!t.uri)
                   .map(({title, language, type, uri}) => ({
@@ -1167,7 +1170,7 @@ useEffect(() =>{
               setIsPlaying={setIsPlaying}
               showControls={showControls}
               handleGoBackFunc={rest.handleGoBackFunc}
-              subtitleTracks={subtitle}
+              subtitleTracks={subtitlesEnabled ? subtitle : []}
               selectedSubtitleIndex={selectedSubtitleIndex}
               onSelectSubtitle={handleSelectSubtitle}
               onSubtitlePickerOpenChange={handleSubtitlePickerOpenChange}
@@ -1176,7 +1179,7 @@ useEffect(() =>{
             />
           </View>
 
-          {!!activeCueText && (
+          {subtitlesEnabled && !!activeCueText && (
             <View
               pointerEvents="none"
               style={[

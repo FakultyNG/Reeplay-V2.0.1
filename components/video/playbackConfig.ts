@@ -3,6 +3,15 @@ import convertToProxyURL from 'react-native-video-cache';
 import type {BufferConfig, ReactVideoSource} from 'react-native-video';
 
 export type PlaybackMode = 'vod' | 'live';
+export type PlaybackRole = 'main' | 'trailer' | 'upcoming';
+
+/** Trailers intentionally have no subtitle track or subtitle controls. */
+export function shouldLoadSubtitles(
+  role: PlaybackRole | undefined,
+  contentType?: string,
+): boolean {
+  return role !== 'trailer' && contentType !== 'live';
+}
 
 /** Google IMA is reserved for free main-content playback, never previews/trailers. */
 export function shouldAttachGoogleAd(

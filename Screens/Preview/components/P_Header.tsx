@@ -88,6 +88,7 @@ const P_Header = ({
         maxBitRateOverride={
           isTrailerPlayback ? maxBitRateForQuality('720p') : undefined
         }
+        playbackRole={isTrailerPlayback ? 'trailer' : 'main'}
         onError={e => console.log(e)}
         showDuration={true}
         isFullscreen={isFullscreen}

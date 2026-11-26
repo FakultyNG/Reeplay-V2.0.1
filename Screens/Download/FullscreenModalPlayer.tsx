@@ -79,6 +79,9 @@ const DownloadFullscreenModalPlayer = ({
           isTime={false}
           isSaveProgress={!isDownloadScreen}
           enableMainContentAds={enableMainContentAds}
+          playbackRole={
+            content.playbackRole === 'trailer' ? 'trailer' : 'main'
+          }
           seekTo={content.seekTo}
           handleNEXT={nextEpisode && onChangeContent ? playNextEpisode : undefined}
           minimalUi={minimalUi}

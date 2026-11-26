@@ -24,7 +24,9 @@ const emergencyFallbackVideo = require('@/assets/videos/getStartedVideo.mp4');
 const bundledAuthPoster = require('@/assets/images/AuthVideoPoster.jpg');
 
 const cacheIdentity = (ad: IAdsData) => {
-  const sourcePath = ad.videoUrl.split('?')[0];
+  // Playback tokens rotate whenever ads are fetched. The ad's updatedAt value
+  // changes only when its actual media changes, so it is a stable cache key.
+  const sourcePath = `${ad._id}:${ad.updatedAt || ad.createdAt}`;
   let hash = 0;
   for (let index = 0; index < sourcePath.length; index += 1) {
     hash = (hash * 31 + sourcePath.charCodeAt(index)) % 2147483647;
@@ -34,7 +36,9 @@ const cacheIdentity = (ad: IAdsData) => {
 
 export default function WelcomeAdPlayer({ads, muted, paused, requestComplete}: Props) {
   const eligibleAds = useMemo(() => getEligibleWelcomeAds(ads), [ads]);
-  const eligibleKey = eligibleAds.map(ad => `${ad._id}:${ad.videoUrl}`).join('|');
+  const eligibleKey = eligibleAds
+    .map(ad => `${ad._id}:${ad.updatedAt || ad.createdAt}`)
+    .join('|');
   const [failedAdIds, setFailedAdIds] = useState<string[]>([]);
   const [current, setCurrentState] = useState<PreparedAd | null>(null);
   const [localReady, setLocalReady] = useState(false);
@@ -44,6 +48,7 @@ export default function WelcomeAdPlayer({ads, muted, paused, requestComplete}: P
   const playableAdsRef = useRef<IAdsData[]>([]);
   const prepared = useRef<Map<string, PreparedAd>>(new Map());
   const preparing = useRef<Map<string, Promise<PreparedAd | null>>>(new Map());
+  const pendingAdRef = useRef<IAdsData | null>(null);
   const duration = useRef(0);
   const trackedEvents = useRef<Set<string>>(new Set());
   const mounted = useRef(true);
@@ -106,7 +111,12 @@ export default function WelcomeAdPlayer({ads, muted, paused, requestComplete}: P
       const destination = `${RNFS.CachesDirectoryPath}/reeplay-welcome-${identity}.mp4`;
       const temporary = `${destination}.part`;
       try {
-        if (!(await RNFS.exists(destination))) {
+        const destinationExists = await RNFS.exists(destination);
+        const destinationIsUsable = destinationExists
+          ? Number((await RNFS.stat(destination)).size) > 1024
+          : false;
+        if (!destinationIsUsable) {
+          if (destinationExists) await RNFS.unlink(destination);
           if (await RNFS.exists(temporary)) await RNFS.unlink(temporary);
           const result = await RNFS.downloadFile({
             fromUrl: ad.videoUrl,
@@ -138,14 +148,18 @@ export default function WelcomeAdPlayer({ads, muted, paused, requestComplete}: P
   const nextAdAfter = useCallback((ad: IAdsData | null) => {
     const available = playableAdsRef.current;
     if (available.length === 0) return null;
-    const index = ad ? available.findIndex(item => item._id === ad._id) : -1;
-    return available[(index + 1) % available.length];
+    if (!ad) return available[0];
+    const index = available.findIndex(item => item._id === ad._id);
+    return index >= 0 && index + 1 < available.length
+      ? available[index + 1]
+      : null;
   }, []);
 
   useEffect(() => {
     setFailedAdIds([]);
     prepared.current.clear();
     preparing.current.clear();
+    pendingAdRef.current = null;
     setCurrent(null);
   }, [eligibleKey, setCurrent]);
 
@@ -170,25 +184,29 @@ export default function WelcomeAdPlayer({ads, muted, paused, requestComplete}: P
 
   const handleEnd = useCallback(() => {
     const completed = currentRef.current;
-    if (completed) trackOnce(completed.ad._id, 'house_ad_video_complete');
+    if (completed) {
+      trackOnce(completed.ad._id, 'house_ad_video_complete');
+      const nextRemote = nextAdAfter(completed.ad);
+      pendingAdRef.current = nextRemote;
+      if (activatePrepared(nextRemote)) {
+        pendingAdRef.current = null;
+        return;
+      }
 
-    const next = nextAdAfter(completed?.ad ?? null);
-    if (completed && next?._id === completed.ad._id) return;
-    if (activatePrepared(next)) return;
-
-    if (completed && next) {
-      // Keep the completed ad's final frame on the single native surface until
-      // the next MP4 is fully prepared, then change only that surface's source.
-      prepareAd(next).then(value => {
-        if (!mounted.current || currentRef.current?.ad._id !== completed.ad._id) return;
-        setCurrent(value);
-      });
+      // The bundled video is a real playlist item and the instant fallback
+      // between remote ads. It covers preparation without showing a poster or
+      // holding the previous ad's final frame.
+      setCurrent(null);
+      if (nextRemote) void prepareAd(nextRemote);
       return;
     }
 
-    // The bundled MP4 loops when there is no usable remote campaign.
-    setCurrent(null);
-    if (next) prepareAd(next);
+    const nextRemote = pendingAdRef.current ?? nextAdAfter(null);
+    if (activatePrepared(nextRemote)) {
+      pendingAdRef.current = null;
+      return;
+    }
+    if (nextRemote) void prepareAd(nextRemote);
   }, [activatePrepared, nextAdAfter, prepareAd, setCurrent, trackOnce]);
 
   const handleProgress = useCallback((currentTime: number) => {
@@ -219,7 +237,7 @@ export default function WelcomeAdPlayer({ads, muted, paused, requestComplete}: P
         paused={paused}
         controls={false}
         viewType={ViewType.TEXTURE}
-        repeat={!current || playableAds.length === 1}
+        repeat={!current}
         hideShutterView
         shutterColor="transparent"
         onReadyForDisplay={() => setLocalReady(true)}
@@ -230,7 +248,9 @@ export default function WelcomeAdPlayer({ads, muted, paused, requestComplete}: P
         onEnd={handleEnd}
         onError={() => {
           if (currentRef.current) {
-            markAdFailed(currentRef.current.ad._id);
+            const failed = currentRef.current.ad;
+            pendingAdRef.current = nextAdAfter(failed);
+            markAdFailed(failed._id);
             setCurrent(null);
           } else if (!useEmergencyFallback) {
             setUseEmergencyFallback(true);

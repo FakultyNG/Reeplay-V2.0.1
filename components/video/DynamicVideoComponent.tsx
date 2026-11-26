@@ -132,6 +132,8 @@ export interface VideoPlayerProps extends ReactVideoProps {
   showQualityControl?: boolean;
   /** Force a playback ceiling for specialized surfaces such as trailers. */
   maxBitRateOverride?: number;
+  /** Controls content-specific behavior such as subtitle availability. */
+  playbackRole?: 'main' | 'trailer' | 'upcoming';
 }
 
 /** Pre–quarter-flash-fix layout: onLayout width → 16:9 sizeStyles. */

@@ -5,6 +5,7 @@ import {
   getYouTubeVideoId,
   resolvePlaybackSource,
   shouldAttachGoogleAd,
+  shouldLoadSubtitles,
   shouldTreatPlaybackEndAsContentEnd,
 } from '../components/video/playbackConfig';
 
@@ -63,6 +64,20 @@ describe('Google ad placement', () => {
   it('does not attach ads to paid main content', () => {
     expect(shouldAttachGoogleAd('premium', true)).toBe(false);
     expect(shouldAttachGoogleAd('exclusive', true)).toBe(false);
+  });
+});
+
+describe('subtitle placement', () => {
+  it('loads subtitles for main VOD playback', () => {
+    expect(shouldLoadSubtitles('main', 'movie')).toBe(true);
+  });
+
+  it('never loads subtitle tracks or controls for trailers', () => {
+    expect(shouldLoadSubtitles('trailer', 'movie')).toBe(false);
+  });
+
+  it('does not load VOD subtitle tracks for live playback', () => {
+    expect(shouldLoadSubtitles('main', 'live')).toBe(false);
   });
 });
 

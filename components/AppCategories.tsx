@@ -153,6 +153,12 @@ export const ContentItem = ({
     return null;
   }
 
+  const normalizedType = (item.type ?? '').trim().toLowerCase();
+  const isMusicVideo =
+    normalizedType === 'music-video' || normalizedType === 'music video';
+  const artistName = item.artistName?.trim();
+  const showMusicDetails = video || isMusicVideo;
+
   return (
     <View className="relative">
       {loading && (
@@ -202,21 +208,27 @@ export const ContentItem = ({
             }${index + 1}`}</AppText>
           </AppView>
         )}
-        {video && (
+        {showMusicDetails && (
           <View style={styles.playBtn}>
             <PlayVideoIcon />
           </View>
         )}
-        {video && (
+        {showMusicDetails && (
           <AppView
-            style={{alignSelf: 'center'}}
+            style={styles.musicDetails}
             className="absolute z-30 bottom-1.5">
-            <AppText className="font-MANROPE_400 text-[10px] text-white uppercase ml-1">
+            <AppText
+              numberOfLines={1}
+              className="font-MANROPE_700 text-xs text-white text-center">
               {item.title}
             </AppText>
-            <AppText className="font-MANROPE_700 text-xs text-white">
-              {item.subtitle}
-            </AppText>
+            {isMusicVideo && artistName ? (
+              <AppText
+                numberOfLines={1}
+                className="font-MANROPE_400 text-[10px] text-white/80 text-center mt-0.5">
+                {artistName}
+              </AppText>
+            ) : null}
           </AppView>
         )}
         {linearGradient && (
@@ -249,5 +261,9 @@ const styles = StyleSheet.create({
   },
   playBtn: {
     position: 'absolute',
+  },
+  musicDetails: {
+    alignSelf: 'center',
+    width: '92%',
   },
 });

@@ -4,7 +4,9 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
+  StyleSheet,
   StatusBar,
+  View,
 } from 'react-native';
 import React, {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {AppScreen, AppText} from '@/components';
@@ -32,6 +34,7 @@ import {useTabBarCompactOnScroll} from '@/navigation/useTabBarCompactOnScroll';
 import {getUpcomingCache, setUpcomingCache} from '@/Utils/contentMmkv';
 import {useLiveFeatureStore} from '@/store/liveFeature.store';
 import {isMusicVideoContent} from '@/Utils/contentVisibility';
+import SurfaceAdCard from '@/components/SurfaceAdCard';
 
 const excludeMusicVideos = (items: (IVODContent | ILiveContent)[]) =>
   items.filter(item => !('adminId' in item) || !isMusicVideoContent(item));
@@ -167,9 +170,6 @@ const UpcomingScreen = ({
               paddingHorizontal: 0,
               paddingBottom: Platform.OS === 'ios' ? 120 : 80,
             }}>
-            <AppText className="pl-5 font-LEXEND_700 text-[17px] text-grey_100 my-4">
-              COMING SOON
-            </AppText>
             <ScrollView
               onScroll={Animated.event(
                 [{nativeEvent: {contentOffset: {y: scrollY}}}],
@@ -190,6 +190,27 @@ const UpcomingScreen = ({
                 flexGrow: 1,
                 paddingBottom: Size.hp(24),
               }}>
+              <View style={styles.header}>
+                <AppText style={styles.eyebrow}>DISCOVER WHAT’S NEXT</AppText>
+                <View style={styles.titleRow}>
+                  <AppText style={styles.title}>Coming Soon</AppText>
+                  {!isLoading && upcomingEvents.length > 0 && (
+                    <View style={styles.countPill}>
+                      <AppText style={styles.countText}>{upcomingEvents.length}</AppText>
+                    </View>
+                  )}
+                </View>
+                <AppText style={styles.subtitle}>
+                  Preview upcoming releases and add reminders for the titles you don’t want to miss.
+                </AppText>
+              </View>
+
+              <SurfaceAdCard sourceScreen="Upcoming" style={styles.adCard} />
+
+              <View style={styles.sectionHeader}>
+                <AppText style={styles.sectionTitle}>Upcoming releases</AppText>
+                <AppText style={styles.sectionMeta}>Earliest first</AppText>
+              </View>
               {isLoading || upcomingEvents.length === 0 ? (
                 <LiveEmptyState
                   loading={isLoading}
@@ -237,3 +258,17 @@ const UpcomingScreen = ({
 };
 
 export default UpcomingScreen;
+
+const styles = StyleSheet.create({
+  header: {paddingHorizontal: 20, paddingTop: 18},
+  eyebrow: {color: '#FF4B4F', fontFamily: 'MANROPE_700', fontSize: 10, letterSpacing: 1.4},
+  titleRow: {flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 5},
+  title: {color: '#FFFFFF', fontFamily: 'LEXEND_700', fontSize: 27},
+  countPill: {minWidth: 26, height: 26, borderRadius: 13, paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: '#26282F'},
+  countText: {color: '#D9DBDF', fontFamily: 'MANROPE_700', fontSize: 11},
+  subtitle: {color: '#8E929C', fontFamily: 'MANROPE_400', fontSize: 13, lineHeight: 19, marginTop: 8},
+  adCard: {marginHorizontal: 20, marginTop: 22},
+  sectionHeader: {paddingHorizontal: 20, marginTop: 27, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
+  sectionTitle: {color: '#F3F3F4', fontFamily: 'MANROPE_700', fontSize: 15},
+  sectionMeta: {color: '#777B85', fontFamily: 'MANROPE_500', fontSize: 11},
+});

@@ -4,7 +4,7 @@ import axios from 'axios'
 
 
 
-export const suggestionApi = async (data: {message: string}) =>
+export const suggestionApi = async (data: {message: string; email?: string}) =>
   await apiCall<IGeneric>(extraApi =>
     extraApi.post<IGeneric>('/customers/suggestion/create', data),
   );

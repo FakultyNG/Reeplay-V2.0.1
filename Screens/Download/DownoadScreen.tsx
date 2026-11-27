@@ -1,5 +1,5 @@
-import {Alert, FlatList, Linking, StyleSheet, Text, View} from 'react-native';
-import React, {useEffect, useState} from 'react';
+import {FlatList, StyleSheet} from 'react-native';
+import React, {useCallback, useEffect, useState} from 'react';
 import {
   AppHeader,
   AppImage,
@@ -8,35 +8,18 @@ import {
   AppView,
   TouchableOpacity,
 } from '@/components';
-import {DownloadsData, TrendingNow} from '@/configs/data';
 import {DeleteIcon} from '@/assets/icons';
 import {useNavigation} from '@react-navigation/native';
-import {DownloadScreenNav} from '@/types/typings';
-import routes from '@/navigation/routes';
-import {previewContentType} from '@/navigation/AppNavigator';
-import {MovieVideo} from '../Home/homeShared';
 import AppModal from '@/components/AppModal';
 import DownloadModal from '../Preview/components/DownloadModal';
 import useToggle from '@/Hooks/useToggle';
-import InAppBrowser from 'react-native-inappbrowser-reborn';
-import { useAppSelector } from '@/Hooks/reduxHook';
-import { selectAdsContent } from '@/store/slices/adsSlice.slice';
-import FastImage from 'react-native-fast-image';
 import { useAppPersistStore } from '@/store/zustand.store';
 import { IDownloadData } from '@/types/api/content.types';
-import { decryptFile, encryptFile, getAESKeys } from '../Preview/utils/downloadUtils';
+import {decryptFile, getAESKeys} from '../Preview/utils/downloadUtils';
 import ToastNotification from '@/components/ToastNotifications';
 import DownloadFullscreenModalPlayer from './FullscreenModalPlayer';
 import { OrientationInjectedProps } from '@/components/OrientationWrapper';
-
-interface Download {
-  _id: number;
-  title: string;
-  image: any;
-  subscription: string;
-  viewersDiscretion: string;
-  size: string;
-}
+import SurfaceAdCard from '@/components/SurfaceAdCard';
 
 const DownoadScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedProps) => {
   const {canGoBack} = useNavigation()
@@ -45,12 +28,6 @@ const DownoadScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInj
   const [isDeleteIndex, setIsDeleteIndex] = useState<IDownloadData|null>(null);
   const {downloadedList, removeDownloadById} = useAppPersistStore();
   const [isFullscreenContent, setFullscreenContent] = useState<IDownloadData|null>(null)
-    const ads = useAppSelector(selectAdsContent).ads;
-
-  const url = ads.length > 0 ? ads[0].link : '';
-  const handleLink = async () => {
-    await InAppBrowser.open(url);
-  };
 
   function handleDelete(id: string) {
     removeDownloadById(id)
@@ -76,38 +53,7 @@ const DownoadScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInj
       {!isFullscreen && <AppScreen containerStyle={{paddingTop: 15}}>
         {canGoBack() && <AppHeader />}
 
-        {ads.length > 0 && <AppView className="mt-6 bg-red pt-3 px-1 rounded-[15px]">
-          <AppView className="flex-row items-center justify-between px-3 pb-2">
-            <AppView>
-              <AppText className="font-LEXEND_400 text-base text-white ">
-                REEPLAY
-              </AppText>
-              <AppText className="font-MANROPE_500 text-white text-xs">
-                Ads that meet your interest
-              </AppText>
-            </AppView>
-            <TouchableOpacity
-              onPress={handleLink}
-              className="bg-white py-2 px-3 rounded-[40px]">
-              <AppText className="font-MANROPE_600 text-red text-xs">
-                {ads[0].cta ?? 'CLICK HERE'}
-              </AppText>
-            </TouchableOpacity>
-          </AppView>
-
-          <AppView className="h-[191px] mb-1 rounded-b-[15px] overflow-hidden border-[2px] border-black">
-            <AppImage
-              source={{uri: ads[0].photoUrl, priority:FastImage.priority.high}}
-              style={{
-                width: '100%',
-                height: '100%',
-                borderBottomLeftRadius:15,
-                borderBottomRightRadius:15
-              }}
-              resizeMode='contain'
-            />
-          </AppView>
-        </AppView>}
+        <SurfaceAdCard sourceScreen="Downloads" style={styles.adCard} />
 
         <AppView className="mt-6 mb-6 flex-row items-center justify-between">
           <AppView className="w-fit ml-4">
@@ -127,7 +73,7 @@ const DownoadScreen = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInj
           keyExtractor={(item) => item._id}
           showsVerticalScrollIndicator={false}
           // bounces={false}
-          renderItem={({item, index}) => {
+          renderItem={({item}) => {
             return (
               <DownloadItem 
                 item={item} 
@@ -174,7 +120,7 @@ interface Props{
 }
 export const DownloadItem = ({item, handleFullscreenContent, handleDelete}:Props) =>{
   const [url, setUrl] = useState<string>('')
-  async function handleDecyptionURL(){
+  const handleDecyptionURL = useCallback(async () => {
     const keys = await getAESKeys();
     if (!keys) {
       ToastNotification('error', 'This download can’t be opened right now.');
@@ -184,11 +130,11 @@ export const DownloadItem = ({item, handleFullscreenContent, handleDelete}:Props
 
     const path = await decryptFile(item.video, key, iv);
       setUrl(path);
-  }
+  }, [item.video]);
 
   useEffect(() =>{
     handleDecyptionURL();
-  }, [item._id])
+  }, [handleDecyptionURL])
 
   return(
     <AppView className="pb-2 flex-row items-center mb-2 border-b border-grey_200/10">
@@ -225,4 +171,6 @@ export const DownloadItem = ({item, handleFullscreenContent, handleDelete}:Props
   )
 }
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  adCard: {marginTop: 22},
+});

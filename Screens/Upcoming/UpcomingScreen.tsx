@@ -173,7 +173,12 @@ const UpcomingScreen = ({
             <ScrollView
               onScroll={Animated.event(
                 [{nativeEvent: {contentOffset: {y: scrollY}}}],
-                {useNativeDriver: false},
+                {
+                  useNativeDriver: false,
+                  listener: () => {
+                    if (playingIndexes.length > 0) setPlayingIndexes([]);
+                  },
+                },
               )}
               scrollEventThrottle={16}
               showsVerticalScrollIndicator={false}
@@ -226,7 +231,6 @@ const UpcomingScreen = ({
                         key={`${'start' in item ? 'live' : 'vod'}:${item._id}`}
                         items={item}
                         index={i}
-                        scrollY={scrollY}
                         playingIndexes={playingIndexes}
                         setPlayingIndexes={setPlayingIndexes}
                         setFullscreenContent={setFullscreenContent}

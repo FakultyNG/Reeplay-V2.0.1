@@ -1,4 +1,4 @@
-import { Alert, Animated as Ani, StyleSheet } from 'react-native';
+import {ActivityIndicator, Alert, Pressable, StyleSheet, useWindowDimensions, View} from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AppText,
@@ -16,18 +16,17 @@ import {
 } from '@/assets/icons';
 import { OnLoadData, VideoRef } from 'react-native-video';
 import LinearGradient from 'react-native-linear-gradient';
-import LottieView from 'lottie-react-native';
 import FastImage from 'react-native-fast-image';
 import { upcomingEventDate } from '@/Utils/formatTime';
-import Size from '@/Utils/useResponsiveSize';
 import {
   getReminderStatus,
   subscribeReminderStatus,
   unsubscribeReminderStatus,
 } from '@/api/upcomingEvents.api';
-import Animated, { FadeInLeft } from 'react-native-reanimated';
 import { IDownloadData, ILiveContent, IVODContent } from '@/types/api/content.types';
 import { resolvePlaybackSource } from '@/components/video/playbackConfig';
+import {requireRegisteredUser} from '@/Utils/guestAccess';
+import {useGuestAccessStore} from '@/store/guestAccess.store';
 
 
 interface Props {
@@ -35,7 +34,6 @@ interface Props {
   index: number;
   playingIndexes: number[];
   setPlayingIndexes: React.Dispatch<React.SetStateAction<number[]>>;
-  scrollY: Ani.Value;
   setFullscreenContent: React.Dispatch<React.SetStateAction<IDownloadData | null>>
   makeFullscreen:() => void
 }
@@ -47,17 +45,17 @@ const UpcomingView = ({
   setPlayingIndexes,
   setFullscreenContent,
   makeFullscreen,
-  scrollY,
 }: Props) => {
+  const {width} = useWindowDimensions();
+  const isGuest = useGuestAccessStore(state => state.isGuest);
+  const cardWidth = Math.min(width - 40, 680);
+  const mediaHeight = Math.round(cardWidth * 9 / 16);
   const isPlaying = playingIndexes.includes(index);
   const videoRefs = useRef<Record<number, VideoRef | null>>({});
   const [muteVideo, setMuteVideo] = useState(true);
   const [remindMe, setRemindMe] = useState<boolean>(false);
   const [isReminderUpdating, setIsReminderUpdating] = useState(false);
   const reminderActionVersion = useRef(0);
-  const [verticalScrollState, setVerticalScrollState] = useState<number | null>(
-    null,
-  );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isBufferingLoad, setIsBufferingLoad] = useState(false);
   const [videoURL, setVideoURL] = useState<string>('');
@@ -90,16 +88,16 @@ const UpcomingView = ({
     if (playingIndexes.includes(query)) {
       // Pause the video
       setPlayingIndexes(prevIndexes => prevIndexes.filter(i => i !== query));
-      setVerticalScrollState(null);
     } else {
+      if (!videoURL) return;
       // Play the video
       setPlayingIndexes([query]);
-      setVerticalScrollState(Number(scrollY));
     }
   }
 
   const handleSubscribe = async () => {
     if (isReminderUpdating) return;
+    if (!requireRegisteredUser()) return;
 
     const previousValue = remindMe;
     const nextValue = !previousValue;
@@ -113,44 +111,32 @@ const UpcomingView = ({
         : await subscribeReminderStatus(items._id, contentType);
       if (!res.ok) {
         Alert.alert(
-          'Reminder not set',
-          'We couldn’t set a reminder for this event. Please try again.',
+          'Reminder not updated',
+          'We couldn’t update this reminder. Please try again.',
         );
         setRemindMe(previousValue);
       }
     } catch (error) {
       console.log(error);
       setRemindMe(previousValue);
+      Alert.alert(
+        'Reminder not updated',
+        'Check your connection and try again.',
+      );
     } finally {
       setIsReminderUpdating(false);
     }
   };
 
   useEffect(() => {
-    const handleScroll = () => {
-      if (playingIndexes.length === 0) return;
-      if (
-        verticalScrollState !== null &&
-        verticalScrollState !== Number(scrollY)
-      ) {
-        setPlayingIndexes([]);
-        setVerticalScrollState(null);
-      }
-    };
-
-    scrollY.addListener(handleScroll);
-
-    return () => {
-      // Remove the listener when the component unmounts
-      scrollY.removeAllListeners();
-    };
-  }, [scrollY, playingIndexes, setPlayingIndexes, verticalScrollState]);
-
-  useEffect(() => {
     setVideoURL('start' in items ? items.previewVideo ?? '' : items.trailer);
   }, [items]);
 
   useEffect(() => {
+    if (isGuest) {
+      setRemindMe(false);
+      return;
+    }
     let cancelled = false;
     const requestVersion = reminderActionVersion.current;
     setRemindMe(false);
@@ -170,7 +156,7 @@ const UpcomingView = ({
     return () => {
       cancelled = true;
     };
-  }, [contentType, items._id]);
+  }, [contentType, isGuest, items._id]);
 
   useEffect(() => {
     setPosterUrl(primaryPosterUrl);
@@ -178,10 +164,8 @@ const UpcomingView = ({
 
 
   return (
-    <Animated.View
-      entering={FadeInLeft.delay(index * 200).springify()}
-      className="items-center mt-1.5">
-      <AppView className="relative max-w-[400px] h-[196px] items-center justify-center">
+    <View style={styles.container}>
+      <AppView style={[styles.media, {width: cardWidth, height: mediaHeight}]}>
         {!isPlaying ? (
           <>
             <FastImage
@@ -195,11 +179,7 @@ const UpcomingView = ({
                   setPosterUrl(fallbackPosterUrl);
                 }
               }}
-              style={{
-                width: Size.wp(92),
-                height: 190,
-                borderRadius: 20,
-              }}
+              style={styles.poster}
             />
             {/* <AppImage
               source={{uri: items.landscape_photo}}
@@ -207,27 +187,25 @@ const UpcomingView = ({
             /> */}
             <TouchableOpacity
               onPress={() => handlePlayVideo(index)}
-              style={styles.shadow}
-              className="absolute">
+              style={styles.playButton}
+              disabled={!videoURL}
+              accessibilityRole="button"
+              accessibilityLabel={videoURL ? `Play preview for ${items.title}` : 'Preview unavailable'}>
               <UpcomingPlay />
             </TouchableOpacity>
+            {!videoURL && (
+              <View style={styles.unavailablePill}>
+                <AppText style={styles.unavailableText}>Preview unavailable</AppText>
+              </View>
+            )}
           </>
         ) : (
           <>
-            {isBufferingLoad ||
-              (isLoading && (
-                <AppView className="absolute z-20 pb-3">
-                  <LottieView
-                    source={require('@/assets/icons/RPlay.json')}
-                    style={{
-                      width: 200,
-                      height: 200,
-                    }}
-                    autoPlay
-                    loop
-                  />
-                </AppView>
-              ))}
+            {(isBufferingLoad || isLoading) && (
+              <AppView style={styles.loadingOverlay}>
+                <ActivityIndicator color="#FFFFFF" size="large" />
+              </AppView>
+            )}
           </>
         )}
 
@@ -235,17 +213,12 @@ const UpcomingView = ({
           <>
             <LinearGradient
               colors={['transparent', '#000000']}
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                height: 70,
-                width: '100%',
-                zIndex: 20,
-              }}
+              style={styles.playerGradient}
             />
-            <AppView className="absolute w-[90%] bottom-3 mb-1 px-2 flex-row items-center justify-between z-30">
+            <AppView style={styles.playerActions}>
               <TouchableOpacity
-                style={{ height: 17, marginBottom: 3 }}
+                disabled={!videoURL}
+                style={styles.volumeButton}
                 onPress={() => setMuteVideo(!muteVideo)}>
                 {muteVideo ? (
                   <AppView className="mt-[3px]">
@@ -274,12 +247,7 @@ const UpcomingView = ({
             videoRef={(ref: VideoRef | null) => {
               videoRefs.current[index] = ref;
             }}
-            style={{
-              width: 353,
-              height: 186,
-              borderTopRightRadius: 20,
-              borderTopLeftRadius: 20,
-            }}
+            style={styles.video}
             resizeMode="cover"
             muted={muteVideo}
             onEnd={() => setPlayingIndexes([])}
@@ -292,51 +260,76 @@ const UpcomingView = ({
         )}
       </AppView>
 
-      <AppView className="w-full items-center mt-1 mb-1 pt-1 pb-1.5 border-y border-grey_200/10">
-        <AppView className="flex-row items-center gap-x-2">
-          <AppText className="bg-red font-ROBOTO_700 text-white text-[8px] pt-[3px] pb-1 px-2 text-center max-w-[43px]">
+      <AppView style={[styles.details, {width: cardWidth}]}>
+        <AppView style={styles.titleLine}>
+          <AppText style={styles.typePill}>
             {items.type}
           </AppText>
-          <AppText className="font-LEXEND_700 text-2xl text-white">
+          <AppText numberOfLines={2} style={styles.contentTitle}>
             {items.title}
           </AppText>
         </AppView>
-        <AppView className="flex-row items-center">
-          <AppText className="uppercase mr-2 font-MANROPE_700 text-[10px] text-grey_200">
+        <AppView style={styles.reminderRow}>
+          <AppText style={styles.releaseDate}>
             coming {upcomingEventDate('start' in items ? items.start : items.releaseDate)}
           </AppText>
-          <TouchableOpacity
+          <Pressable
             onPress={handleSubscribe}
-            activeOpacity={1}
             disabled={isReminderUpdating}
             accessibilityRole="switch"
-            accessibilityState={{checked: remindMe, disabled: isReminderUpdating}}>
+            accessibilityLabel={remindMe ? 'Remove reminder' : 'Add reminder'}
+            accessibilityState={{checked: remindMe, disabled: isReminderUpdating}}
+            style={({pressed}) => [
+              styles.reminderButton,
+              remindMe && styles.reminderButtonSelected,
+              pressed && styles.pressed,
+            ]}>
             {remindMe ? <RemindMe /> : <UnRemindMe />}
-          </TouchableOpacity>
-          <AppText className="text-white ml-1.5 font-MANROPE_400 text-[10px]">
-            Remind me
-          </AppText>
+            <AppText style={[styles.reminderText, remindMe && styles.reminderTextSelected]}>
+              {isReminderUpdating ? 'Saving…' : remindMe ? 'Reminder set' : 'Remind me'}
+            </AppText>
+          </Pressable>
         </AppView>
 
-        <AppText className="font-MANROPE_400 text-white text-[13px] text-center max-w-[286px] mt-2">
+        <AppText numberOfLines={3} style={styles.description}>
           {items.description}
         </AppText>
       </AppView>
-    </Animated.View>
+    </View>
   );
 };
 
 export default UpcomingView;
 
 const styles = StyleSheet.create({
-  shadow: {
+  container: {alignItems: 'center', marginBottom: 18},
+  media: {position: 'relative', overflow: 'hidden', borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#17191E'},
+  poster: {width: '100%', height: '100%'},
+  video: {width: '100%', height: '100%'},
+  playButton: {
+    position: 'absolute',
     shadowColor: '#818181',
-    shadowOffset: {
-      width: 1,
-      height: 2,
-    },
+    shadowOffset: {width: 1, height: 2},
     shadowOpacity: 0.74,
     shadowRadius: 6.27,
     elevation: 10,
   },
+  unavailablePill: {position: 'absolute', bottom: 13, borderRadius: 13, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(0,0,0,0.72)'},
+  unavailableText: {color: '#C6C8CD', fontFamily: 'MANROPE_600', fontSize: 10},
+  loadingOverlay: {...StyleSheet.absoluteFillObject, zIndex: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.28)'},
+  playerGradient: {position: 'absolute', bottom: 0, height: 70, width: '100%', zIndex: 20},
+  playerActions: {position: 'absolute', left: 14, right: 14, bottom: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', zIndex: 30},
+  volumeButton: {height: 17, marginBottom: 3},
+  details: {paddingTop: 13, paddingHorizontal: 2},
+  titleLine: {flexDirection: 'row', alignItems: 'flex-start', gap: 9},
+  typePill: {marginTop: 3, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 4, overflow: 'hidden', color: '#FFFFFF', backgroundColor: '#E6363C', fontFamily: 'MANROPE_700', fontSize: 8, textTransform: 'uppercase'},
+  contentTitle: {flex: 1, color: '#FFFFFF', fontFamily: 'LEXEND_700', fontSize: 20, lineHeight: 25},
+  reminderRow: {marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10},
+  releaseDate: {flex: 1, color: '#8E929C', fontFamily: 'MANROPE_700', fontSize: 10, textTransform: 'uppercase'},
+  reminderButton: {minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 11, borderRadius: 18, borderWidth: 1, borderColor: '#383B43', backgroundColor: '#181A1F'},
+  reminderButtonSelected: {borderColor: '#B22429', backgroundColor: '#321719'},
+  reminderText: {color: '#D5D7DB', fontFamily: 'MANROPE_600', fontSize: 10},
+  reminderTextSelected: {color: '#FFFFFF'},
+  description: {maxWidth: 560, color: '#A5A8AF', fontFamily: 'MANROPE_400', fontSize: 12, lineHeight: 18, marginTop: 10},
+  pressed: {opacity: 0.72},
 });

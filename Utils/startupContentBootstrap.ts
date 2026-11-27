@@ -15,6 +15,7 @@ import {
   setVodRowCache,
   UpcomingContent,
 } from '@/Utils/contentMmkv';
+import {filterGeneralVodContent} from '@/Utils/contentVisibility';
 
 const STARTUP_REFRESH_TTL_MS = 60_000;
 const FIRST_ROW_LIMIT = 12;
@@ -106,7 +107,7 @@ export function preloadStartupContent(force = false): Promise<void> {
       if (data) {
         const upcomingItems = sortUpcoming([
           ...(data.lives ?? []),
-          ...(data.vods ?? []),
+          ...filterGeneralVodContent(data.vods ?? []),
         ]);
         setUpcomingCache(upcomingItems);
         preloadImages(
@@ -124,6 +125,7 @@ export function preloadStartupContent(force = false): Promise<void> {
       const row = await getVODbyEnumID({
         enumId: firstCategory._id,
         pagination: {page: 1, limit: FIRST_ROW_LIMIT},
+        musicVideoCategory: /music/i.test(firstCategory.name),
       });
       if (row.ok && row.data?.data) {
         setVodRowCache(firstCategory._id, row.data.data);

@@ -150,10 +150,30 @@ export default function WelcomeAdPlayer({ads, muted, paused, requestComplete}: P
     if (available.length === 0) return null;
     if (!ad) return available[0];
     const index = available.findIndex(item => item._id === ad._id);
-    return index >= 0 && index + 1 < available.length
-      ? available[index + 1]
-      : null;
+    return index >= 0
+      ? available[(index + 1) % available.length]
+      : available[0];
   }, []);
+
+  const prepareAndActivateFromFallback = useCallback(
+    (ad: IAdsData | null) => {
+      pendingAdRef.current = ad;
+      if (!ad) return;
+      void prepareAd(ad).then(value => {
+        if (
+          !mounted.current ||
+          !value ||
+          currentRef.current ||
+          pendingAdRef.current?._id !== ad._id
+        ) {
+          return;
+        }
+        pendingAdRef.current = null;
+        setCurrent(value);
+      });
+    },
+    [prepareAd, setCurrent],
+  );
 
   useEffect(() => {
     setFailedAdIds([]);
@@ -165,8 +185,8 @@ export default function WelcomeAdPlayer({ads, muted, paused, requestComplete}: P
 
   useEffect(() => {
     if (!requestComplete || playableAds.length === 0) return;
-    prepareAd(playableAds[0]);
-  }, [playableAds, prepareAd, requestComplete]);
+    prepareAndActivateFromFallback(playableAds[0]);
+  }, [playableAds, prepareAndActivateFromFallback, requestComplete]);
 
   useEffect(() => {
     if (!current) return;
@@ -193,11 +213,10 @@ export default function WelcomeAdPlayer({ads, muted, paused, requestComplete}: P
         return;
       }
 
-      // The bundled video is a real playlist item and the instant fallback
-      // between remote ads. It covers preparation without showing a poster or
-      // holding the previous ad's final frame.
+      // Use the bundled video only while the next advertiser video is not
+      // ready. As soon as preparation succeeds, switch to that ad immediately.
       setCurrent(null);
-      if (nextRemote) void prepareAd(nextRemote);
+      prepareAndActivateFromFallback(nextRemote);
       return;
     }
 
@@ -206,8 +225,14 @@ export default function WelcomeAdPlayer({ads, muted, paused, requestComplete}: P
       pendingAdRef.current = null;
       return;
     }
-    if (nextRemote) void prepareAd(nextRemote);
-  }, [activatePrepared, nextAdAfter, prepareAd, setCurrent, trackOnce]);
+    prepareAndActivateFromFallback(nextRemote);
+  }, [
+    activatePrepared,
+    nextAdAfter,
+    prepareAndActivateFromFallback,
+    setCurrent,
+    trackOnce,
+  ]);
 
   const handleProgress = useCallback((currentTime: number) => {
     const active = currentRef.current;
@@ -237,7 +262,7 @@ export default function WelcomeAdPlayer({ads, muted, paused, requestComplete}: P
         paused={paused}
         controls={false}
         viewType={ViewType.TEXTURE}
-        repeat={!current}
+        repeat={!current || playableAds.length === 1}
         hideShutterView
         shutterColor="transparent"
         onReadyForDisplay={() => setLocalReady(true)}
@@ -249,7 +274,7 @@ export default function WelcomeAdPlayer({ads, muted, paused, requestComplete}: P
         onError={() => {
           if (currentRef.current) {
             const failed = currentRef.current.ad;
-            pendingAdRef.current = nextAdAfter(failed);
+            pendingAdRef.current = null;
             markAdFailed(failed._id);
             setCurrent(null);
           } else if (!useEmergencyFallback) {

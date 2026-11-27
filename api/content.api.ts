@@ -5,6 +5,11 @@ import {ApiResponse, create} from 'apisauce';
 import {BASE_URL} from '@env';
 import {useGuestAccessStore} from '@/store/guestAccess.store';
 import {getGuestInterestPreferences} from '@/Utils/interestPreferences';
+import {
+    filterCategoryVodContent,
+    filterGeneralVodContent,
+    filterMusicVideoContent,
+} from '@/Utils/contentVisibility';
 
 interface IVideoSourceResponse extends IGeneric {
     data: {source: string};
@@ -53,6 +58,19 @@ async function getMergedVodList(path: string) {
         publishingCatalogGet<IVODbyEnumIDResponse>(path),
     ]);
     return mergeArrayResponses(primary, publishing);
+}
+
+function filterVodResponse(
+    response: ApiResponse<IVODbyEnumIDResponse>,
+    musicVideoCategory: boolean,
+) {
+    if (response.ok && response.data) {
+        response.data.data = filterCategoryVodContent(
+            response.data.data ?? [],
+            musicVideoCategory,
+        );
+    }
+    return response;
 }
 
 export const bannerApi = async () => {
@@ -104,16 +122,25 @@ export const registerContinueWatching = async (data?: IRegisteredContinueWatchin
 export const deleteContinueWatchingById = async (_id:string) =>
     await apiCall<IGeneric>(baseApi => baseApi.delete<IGeneric>(`/customers/watched/${_id}`))
 
-export const getVODbyEnumID = async ({pagination, enumId}:{pagination?: IPagination, enumId:string}) =>
-    await getMergedVodList(`/customers/shared/vods/category/${enumId}${pagination ? `?page=${pagination.page}&limit=${pagination.limit}`:''}`)
+export const getVODbyEnumID = async ({pagination, enumId, musicVideoCategory = false}:{pagination?: IPagination, enumId:string, musicVideoCategory?:boolean}) =>
+    filterVodResponse(
+        await getMergedVodList(`/customers/shared/vods/category/${enumId}${pagination ? `?page=${pagination.page}&limit=${pagination.limit}`:''}`),
+        musicVideoCategory,
+    )
 
 export const getTopTenVODs = async () =>
-    await apiCall<IVODbyEnumIDResponse>(baseApi =>
-        baseApi.get<IVODbyEnumIDResponse>('/customers/shared/vods/top-10'),
+    filterVodResponse(
+        await apiCall<IVODbyEnumIDResponse>(baseApi =>
+            baseApi.get<IVODbyEnumIDResponse>('/customers/shared/vods/top-10'),
+        ),
+        false,
     )
 
 export const getVODbyGenreID = async ({pagination, enumId, vodId}:{pagination: IPagination, enumId:string, vodId?:string}) =>
-    await getMergedVodList(`/customers/shared/vods/similar-by-genre/${enumId}?page=${pagination.page}&limit=${pagination.limit}${vodId ?`&vodId=${vodId}`:''}`)
+    filterVodResponse(
+        await getMergedVodList(`/customers/shared/vods/similar-by-genre/${enumId}?page=${pagination.page}&limit=${pagination.limit}${vodId ?`&vodId=${vodId}`:''}`),
+        false,
+    )
 
 export const getVODbyCastID = async ({pagination, enumId, vodId}:{pagination: IPagination, enumId:string, vodId?:string}) =>
     await getMergedVodList(`/customers/shared/vods/similar-by-cast/${enumId}?page=${pagination.page}&limit=${pagination.limit}${vodId ?`&vodId=${vodId}`:''}`)
@@ -235,9 +262,15 @@ export const getDefaultLibrary = async ({pagination, filters = {}}:{pagination:I
         filters.sort ? `sort=${encodeURIComponent(filters.sort)}` : '',
     ].filter(Boolean).join('&');
     const query = [preferenceQuery, filterQuery].filter(Boolean).join('&');
-    return await getMergedVodList(
+    const response = await getMergedVodList(
         `/customers/shared/vods/default-library?page=${pagination.page}&limit=${pagination.limit}${query ? `&${query}` : ''}`,
     );
+    if (response.ok && response.data) {
+        response.data.data = filters.type === 'music-video'
+            ? filterMusicVideoContent(response.data.data ?? [])
+            : filterGeneralVodContent(response.data.data ?? []);
+    }
+    return response;
 }
 
 export const getPersonalizedContent = async ({
@@ -255,7 +288,13 @@ export const getPersonalizedContent = async ({
         ...(genreIds.length ? [`genreIds=${encodeURIComponent(genreIds.join(','))}`] : []),
         ...(categoryIds.length ? [`categoryIds=${encodeURIComponent(categoryIds.join(','))}`] : []),
     ].join('&');
-    return getMergedVodList(`/customers/shared/vods/personalized?${params}`);
+    const response = await getMergedVodList(
+        `/customers/shared/vods/personalized?${params}`,
+    );
+    if (response.ok && response.data) {
+        response.data.data = filterGeneralVodContent(response.data.data ?? []);
+    }
+    return response;
 }
 
 export const updateViewsCount = async (data:{content:string,contentType:'vod'|'episode'|'live'}) =>

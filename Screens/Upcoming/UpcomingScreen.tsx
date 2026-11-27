@@ -31,6 +31,10 @@ import Size from '@/Utils/useResponsiveSize';
 import {useTabBarCompactOnScroll} from '@/navigation/useTabBarCompactOnScroll';
 import {getUpcomingCache, setUpcomingCache} from '@/Utils/contentMmkv';
 import {useLiveFeatureStore} from '@/store/liveFeature.store';
+import {isMusicVideoContent} from '@/Utils/contentVisibility';
+
+const excludeMusicVideos = (items: (IVODContent | ILiveContent)[]) =>
+  items.filter(item => !('adminId' in item) || !isMusicVideoContent(item));
 
 const UpcomingScreen = ({
   isFullscreen,
@@ -45,7 +49,9 @@ const UpcomingScreen = ({
   const [upcomingEvents, setUpcomingEvents] = useState<
     (IVODContent | ILiveContent)[]
   >(() =>
-    getUpcomingCache().filter(item => liveEnabled || 'adminId' in item),
+    excludeMusicVideos(
+      getUpcomingCache().filter(item => liveEnabled || 'adminId' in item),
+    ),
   );
   const [pagination] = useState<IPagination>({page: 1, limit: 100});
   const [isFullscreenContent, setFullscreenContent] =
@@ -86,7 +92,7 @@ const UpcomingScreen = ({
           return dateA.getTime() - dateB.getTime();
         });
 
-        const nextUpcoming = sortedData.slice(0, 100);
+        const nextUpcoming = excludeMusicVideos(sortedData).slice(0, 100);
         setUpcomingEvents(nextUpcoming);
         setUpcomingCache(nextUpcoming);
       } else {

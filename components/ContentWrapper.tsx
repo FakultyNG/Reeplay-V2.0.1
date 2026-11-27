@@ -7,6 +7,7 @@ import Size from '@/Utils/useResponsiveSize';
 import FastImage, {ImageStyle} from 'react-native-fast-image';
 import {getVodRowCache, setVodRowCache} from '@/Utils/contentMmkv';
 import InfinityPaginationDots from './InfinityPaginationDots';
+import {filterCategoryVodContent} from '@/Utils/contentVisibility';
 
 interface Props {
   enums: ICategoryData;
@@ -38,7 +39,10 @@ const ContentWrapper = ({
   onContentAvailabilityChange,
 }: Props) => {
   const [content, setContent] = useState<IVODContent[]>(() => {
-    const cached = getVodRowCache(enums._id) ?? [];
+    const cached = filterCategoryVodContent(
+      getVodRowCache(enums._id) ?? [],
+      !!isMusic,
+    );
     return topTen ? cached.slice(0, TOP_TEN_LIMIT) : cached;
   });
   const [loading, setLoading] = useState<boolean>(content.length === 0);
@@ -48,7 +52,10 @@ const ContentWrapper = ({
     if (!enabled) {
       return;
     }
-    const cached = getVodRowCache(enums._id);
+    const cached = filterCategoryVodContent(
+      getVodRowCache(enums._id) ?? [],
+      !!isMusic,
+    );
     if (cached?.length) {
       setContent(topTen ? cached.slice(0, TOP_TEN_LIMIT) : cached);
       setLoading(false);
@@ -62,6 +69,7 @@ const ContentWrapper = ({
           : await getVODbyEnumID({
               enumId: enums._id,
               pagination: {page: 1, limit: INITIAL_ROW_LIMIT},
+              musicVideoCategory: !!isMusic,
             });
         if (res.ok && res.data) {
           const rowContent = topTen
@@ -88,7 +96,7 @@ const ContentWrapper = ({
     };
 
     fetchVODContent();
-  }, [enums._id, enabled, topTen]);
+  }, [enums._id, enabled, isMusic, topTen]);
 
   useEffect(() => {
     setCurrentIndex(0);

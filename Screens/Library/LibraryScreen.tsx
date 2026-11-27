@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -14,6 +13,7 @@ import FastImage from 'react-native-fast-image';
 import {useNavigation} from '@react-navigation/native';
 import {SearchIcon} from '@/assets/icons';
 import {AppImage, AppScreen, AppText} from '@/components';
+import ContentAccessBadge from '@/components/ContentAccessBadge';
 import Placeholder from '@/components/SkeletonLoader';
 import {useAppDispatch, useAppSelector} from '@/Hooks/reduxHook';
 import {previewContentType, RootNav} from '@/navigation/AppNavigator';
@@ -70,8 +70,6 @@ const LibraryScreen = () => {
   const [filters, setFilters] = useState<AppliedFilters>(DEFAULT_FILTERS);
   const [draftFilters, setDraftFilters] = useState(DEFAULT_FILTERS);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [contents, setContents] = useState<IVODContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -88,19 +86,13 @@ const LibraryScreen = () => {
     (width - horizontalInset - columnGap * (columnCount - 1)) / columnCount,
   );
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 350);
-    return () => clearTimeout(timer);
-  }, [search]);
-
   const apiFilters = useMemo<LibraryFilters>(() => ({
-    search: debouncedSearch || undefined,
     type: contentType === 'all' ? undefined : contentType,
     access: filters.access === 'all' ? undefined : filters.access,
     genreId: filters.genreId || undefined,
     categoryId: filters.categoryId || undefined,
     sort: filters.sort,
-  }), [contentType, debouncedSearch, filters]);
+  }), [contentType, filters]);
 
   const fetchPage = useCallback(async (targetPage: number, replace: boolean) => {
     if (!replace && loadingMoreRef.current) return;
@@ -160,34 +152,23 @@ const LibraryScreen = () => {
     Boolean(filters.categoryId),
     filters.sort !== 'recommended',
   ].filter(Boolean).length;
+  const {navigate} = useNavigation<RootNav>();
 
   return (
     <AppScreen containerStyle={styles.screen} edges={['top', 'left', 'right']}>
       <View style={styles.heading}>
-        <AppText style={styles.eyebrow}>EXPLORE</AppText>
-        <AppText style={styles.headingTitle}>Library</AppText>
-        <AppText style={styles.headingCopy}>Movies, series, music videos and more—all in one place.</AppText>
-      </View>
-
-      <View style={styles.searchRow}>
-        <View style={styles.searchBox}>
-          <SearchIcon width={18} height={18} />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search titles"
-            placeholderTextColor="#777C87"
-            returnKeyType="search"
-            autoCorrect={false}
-            style={styles.searchInput}
-            accessibilityLabel="Search library titles"
-          />
-          {search ? (
-            <Pressable accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={10} onPress={() => setSearch('')}>
-              <AppText style={styles.clearSearch}>×</AppText>
-            </Pressable>
-          ) : null}
+        <View>
+          <AppText style={styles.eyebrow}>EXPLORE</AppText>
+          <AppText style={styles.headingTitle}>Library</AppText>
         </View>
+        <View style={styles.headingActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Search"
+            onPress={() => navigate(routes.SEARCH_SCREEN)}
+            style={({pressed}) => [styles.iconButton, pressed && styles.pressed]}>
+            <SearchIcon width={20} height={20} />
+          </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Open filters${activeFilterCount ? `, ${activeFilterCount} active` : ''}`}
@@ -196,13 +177,14 @@ const LibraryScreen = () => {
             setFilterOpen(true);
           }}
           style={({pressed}) => [styles.filterButton, pressed && styles.pressed]}>
-          <AppText style={styles.filterButtonText}>Filters</AppText>
+          <AppText style={styles.filterButtonText}>Filter</AppText>
           {activeFilterCount ? (
             <View style={styles.filterCount}>
               <AppText style={styles.filterCountText}>{activeFilterCount}</AppText>
             </View>
           ) : null}
         </Pressable>
+        </View>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeTabs}>
@@ -213,9 +195,8 @@ const LibraryScreen = () => {
 
       <View style={styles.resultsRow}>
         <AppText style={styles.resultsText}>{loading ? 'Loading titles…' : `${contents.length} title${contents.length === 1 ? '' : 's'}`}</AppText>
-        {(debouncedSearch || activeFilterCount || contentType !== 'all') ? (
+        {(activeFilterCount || contentType !== 'all') ? (
           <Pressable onPress={() => {
-            setSearch('');
             setContentType('all');
             setFilters(DEFAULT_FILTERS);
           }}>
@@ -278,10 +259,14 @@ const FilterChip = ({label, selected, onPress}: {label: string; selected: boolea
   </Pressable>
 );
 
-const FilterSection = ({title, children}: {title: string; children: React.ReactNode}) => (
+const FilterSection = ({title, children, horizontal = false}: {title: string; children: React.ReactNode; horizontal?: boolean}) => (
   <View style={styles.filterSection}>
     <AppText style={styles.filterSectionTitle}>{title}</AppText>
-    <View style={styles.filterChoices}>{children}</View>
+    {horizontal ? (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalChoices}>
+        {children}
+      </ScrollView>
+    ) : <View style={styles.filterChoices}>{children}</View>}
   </View>
 );
 
@@ -302,7 +287,7 @@ const FilterSheet = ({visible, filters, genres, categories, onChange, onClose, o
         <View style={styles.sheetHeader}>
           <View>
             <AppText style={styles.sheetTitle}>Filter library</AppText>
-            <AppText style={styles.sheetSubtitle}>Narrow titles to what you want to watch.</AppText>
+            <AppText style={styles.sheetSubtitle}>Choose access, order and discovery options.</AppText>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Close filters" onPress={onClose} hitSlop={12}>
             <AppText style={styles.sheetClose}>×</AppText>
@@ -319,13 +304,13 @@ const FilterSheet = ({visible, filters, genres, categories, onChange, onClose, o
               <FilterChip key={option.value} label={option.label} selected={filters.sort === option.value} onPress={() => onChange({...filters, sort: option.value})} />
             ))}
           </FilterSection>
-          <FilterSection title="Genre">
+          <FilterSection title="Genre" horizontal>
             <FilterChip label="All genres" selected={!filters.genreId} onPress={() => onChange({...filters, genreId: ''})} />
             {genres.map(item => (
               <FilterChip key={item._id} label={item.name} selected={filters.genreId === item._id} onPress={() => onChange({...filters, genreId: item._id})} />
             ))}
           </FilterSection>
-          <FilterSection title="Category">
+          <FilterSection title="Category" horizontal>
             <FilterChip label="All categories" selected={!filters.categoryId} onPress={() => onChange({...filters, categoryId: ''})} />
             {categories.map(item => (
               <FilterChip key={item._id} label={item.name} selected={filters.categoryId === item._id} onPress={() => onChange({...filters, categoryId: item._id})} />
@@ -365,7 +350,6 @@ export const ContentItem = ({item, width}: {item: IVODContent; width: number}) =
     item.isReeplayOriginal ||
     item.vidClass === 'original' ||
     item.vidClass === 'exclusive';
-  const accessLabel = isOriginal ? 'ORIGINAL' : item.vidClass === 'premium' ? 'PREMIUM' : 'FREE';
 
   return (
     <Pressable
@@ -404,24 +388,12 @@ export const ContentItem = ({item, width}: {item: IVODContent; width: number}) =
             }}
           />
         )}
-        <View
-          style={[
-            styles.accessBadge,
-            isOriginal
-              ? styles.originalBadge
-              : item.vidClass === 'premium'
-                ? styles.premiumBadge
-                : styles.freeBadge,
-          ]}>
-          <AppText
-            style={[
-              styles.accessBadgeText,
-              !isOriginal && item.vidClass === 'premium'
-                ? styles.premiumBadgeText
-                : null,
-            ]}>
-            {accessLabel}
-          </AppText>
+        <View style={styles.accessIcon}>
+          <ContentAccessBadge
+            contentType={isOriginal ? 'original' : item.vidClass}
+            isReeplayOriginal={Boolean(isOriginal)}
+            iconOnly
+          />
         </View>
       </View>
       <AppText numberOfLines={2} style={styles.cardTitle}>{item.title}</AppText>
@@ -433,7 +405,7 @@ export const ContentItem = ({item, width}: {item: IVODContent; width: number}) =
 const EmptyLibrary = ({error, onRetry}: {error: string; onRetry: () => void}) => (
   <View style={styles.emptyState}>
     <AppText style={styles.emptyTitle}>{error ? 'Library unavailable' : 'No titles found'}</AppText>
-    <AppText style={styles.emptyCopy}>{error || 'Try removing a filter or searching with a different title.'}</AppText>
+    <AppText style={styles.emptyCopy}>{error || 'Try removing a filter or choosing another content type.'}</AppText>
     <Pressable onPress={onRetry} style={styles.emptyButton}>
       <AppText style={styles.emptyButtonText}>{error ? 'Try again' : 'Refresh'}</AppText>
     </Pressable>
@@ -444,15 +416,12 @@ export default LibraryScreen;
 
 const styles = StyleSheet.create({
   screen: {paddingTop: 4},
-  heading: {paddingTop: 8, paddingBottom: 18},
+  heading: {paddingTop: 8, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   eyebrow: {color: '#FF4B4F', fontSize: 11, fontWeight: '700', letterSpacing: 1.7},
   headingTitle: {color: '#FFFFFF', fontSize: 30, fontWeight: '700', marginTop: 3},
-  headingCopy: {color: '#9297A2', fontSize: 13, marginTop: 5},
-  searchRow: {flexDirection: 'row', alignItems: 'center', gap: 10},
-  searchBox: {height: 48, flex: 1, borderRadius: 14, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#14161B', borderWidth: 1, borderColor: '#242730'},
-  searchInput: {flex: 1, height: '100%', padding: 0, color: '#FFFFFF', fontSize: 14},
-  clearSearch: {color: '#A4A8B1', fontSize: 24, lineHeight: 26},
-  filterButton: {height: 48, paddingHorizontal: 14, borderRadius: 14, backgroundColor: '#1B1D23', borderWidth: 1, borderColor: '#30333C', flexDirection: 'row', alignItems: 'center', gap: 7},
+  headingActions: {flexDirection: 'row', alignItems: 'center', gap: 9},
+  iconButton: {width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: '#17191E', borderWidth: 1, borderColor: '#2B2E36'},
+  filterButton: {height: 42, paddingHorizontal: 13, borderRadius: 21, backgroundColor: '#17191E', borderWidth: 1, borderColor: '#2B2E36', flexDirection: 'row', alignItems: 'center', gap: 7},
   filterButtonText: {color: '#FFFFFF', fontSize: 13, fontWeight: '600'},
   filterCount: {minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, backgroundColor: '#FF3438', alignItems: 'center', justifyContent: 'center'},
   filterCountText: {color: '#FFFFFF', fontSize: 10, fontWeight: '700'},
@@ -474,12 +443,7 @@ const styles = StyleSheet.create({
   skeletonTitle: {width: '72%', height: 14, marginTop: 10, borderRadius: 7},
   imageFallback: {height: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: '#20232A'},
   imageFallbackText: {color: '#4A4F5A', fontSize: 42, fontWeight: '700'},
-  accessBadge: {position: 'absolute', top: 7, left: 7, minHeight: 21, paddingHorizontal: 7, borderRadius: 6, alignItems: 'center', justifyContent: 'center'},
-  originalBadge: {backgroundColor: '#FF1313'},
-  premiumBadge: {backgroundColor: '#06D097'},
-  freeBadge: {backgroundColor: 'rgba(16,18,22,0.88)'},
-  accessBadgeText: {color: '#FFFFFF', fontSize: 9, fontWeight: '800', letterSpacing: 0.5},
-  premiumBadgeText: {color: '#071A14'},
+  accessIcon: {position: 'absolute', top: 8, left: 8, width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(8,9,12,0.78)'},
   cardTitle: {color: '#F6F6F7', fontSize: 14, lineHeight: 19, fontWeight: '600', marginTop: 9},
   cardMeta: {color: '#7E838E', fontSize: 11, marginTop: 4},
   footerLoader: {height: 70, alignItems: 'center', justifyContent: 'center'},
@@ -500,6 +464,7 @@ const styles = StyleSheet.create({
   filterSection: {paddingTop: 20},
   filterSectionTitle: {color: '#FFFFFF', fontSize: 13, fontWeight: '700', marginBottom: 11},
   filterChoices: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
+  horizontalChoices: {flexDirection: 'row', gap: 8, paddingRight: 20},
   sheetActions: {flexDirection: 'row', gap: 10, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#24272E'},
   resetButton: {height: 48, paddingHorizontal: 24, borderRadius: 14, borderWidth: 1, borderColor: '#343741', alignItems: 'center', justifyContent: 'center'},
   resetButtonText: {color: '#D4D6DB', fontSize: 14, fontWeight: '700'},

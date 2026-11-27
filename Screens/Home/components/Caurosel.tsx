@@ -292,6 +292,9 @@ handleVODTrailer
             maxWidth: ITEM_WIDTH - Size.calcWidth(24),
             fontSize: Math.min(40, Math.max(26, Size.calcWidth(40))),
             lineHeight: Math.min(49, Math.max(32, Size.calcWidth(49))),
+            textShadowColor: 'rgba(0, 0, 0, 0.9)',
+            textShadowOffset: {width: 0, height: 2},
+            textShadowRadius: 7,
           }}
           className="font-LEXEND_700 text-white mb-1 text-center">
           {title}

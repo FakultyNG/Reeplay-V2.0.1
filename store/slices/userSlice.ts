@@ -126,6 +126,33 @@ const userSlice = createSlice({
         state.notifications[index] = {...state.notifications[index], ...action.payload.data};
       }
     },
+    markAllNotificationsRead: state => {
+      state.notifications = state.notifications.map(notification => ({
+        ...notification,
+        hasSeen: true,
+      }));
+      state.unreadNotificationCount = 0;
+    },
+    removeNotificationById: (state, action: PayloadAction<string>) => {
+      const notification = state.notifications.find(item => item._id === action.payload);
+      state.notifications = state.notifications.filter(item => item._id !== action.payload);
+      if (notification && !notification.hasSeen) {
+        state.unreadNotificationCount = Math.max(0, state.unreadNotificationCount - 1);
+      }
+    },
+    restoreNotification: (
+      state,
+      action: PayloadAction<{notification: INotification; index: number}>,
+    ) => {
+      if (state.notifications.some(item => item._id === action.payload.notification._id)) return;
+      const index = Math.min(Math.max(action.payload.index, 0), state.notifications.length);
+      state.notifications.splice(index, 0, action.payload.notification);
+      if (!action.payload.notification.hasSeen) state.unreadNotificationCount += 1;
+    },
+    clearNotifications: state => {
+      state.notifications = [];
+      state.unreadNotificationCount = 0;
+    },
     logout: () => {
       return initialState;
     },
@@ -135,7 +162,7 @@ const userSlice = createSlice({
   },
 });
 
-export const {setCredentials, setHideTabBar, deleteWatchlistById, clearWatchlist, setNoticationsList, setUnreadNotificationCount, updateNotificationById, setWatchListContents, setWalletInfo, setCredentialsEmail, logout} = userSlice.actions;
+export const {setCredentials, setHideTabBar, deleteWatchlistById, clearWatchlist, setNoticationsList, setUnreadNotificationCount, updateNotificationById, markAllNotificationsRead, removeNotificationById, restoreNotification, clearNotifications, setWatchListContents, setWalletInfo, setCredentialsEmail, logout} = userSlice.actions;
 // Other code such as selectors can use the imported `RootState` type
 export const selectUser = (state: RootState) =>
   state.user?.userInfo?.profile ?? initialState.userInfo.profile;

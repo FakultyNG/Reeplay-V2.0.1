@@ -23,3 +23,21 @@ export const markNotificationSeen = async (notificationId:string) =>
         notificationId,
         hasSeenStatus: true,
     }))
+
+export const setNotificationSeen = async (notificationId:string, hasSeenStatus:boolean) =>
+    await apiCall<IGeneric>(baseApi => baseApi.put<IGeneric>(`/customers/notifications`, {
+        notificationId,
+        hasSeenStatus,
+    }))
+
+export const markAllNotificationsSeen = async () =>
+    await apiCall<IGeneric>(baseApi =>
+        baseApi.put<IGeneric>('/customers/notifications/mark-all-read'))
+
+export const deleteNotification = async (notificationId:string) =>
+    await apiCall<IGeneric>(baseApi =>
+        baseApi.delete<IGeneric>(`/customers/notifications/${notificationId}`))
+
+export const clearAllNotifications = async () =>
+    await apiCall<IGeneric>(baseApi =>
+        baseApi.delete<IGeneric>('/customers/notifications/clear'))

@@ -18,6 +18,7 @@ type Props = {
   style?: StyleProp<ViewStyle>;
   labelStyle?: StyleProp<TextStyle>;
   isReeplayOriginal?: boolean;
+  iconOnly?: boolean;
 };
 
 const BADGE_CONFIG = {
@@ -67,6 +68,7 @@ const ContentAccessBadge = ({
   style,
   labelStyle,
   isReeplayOriginal = false,
+  iconOnly = false,
 }: Props) => {
   const normalizedType = isReeplayOriginal ? 'original' : contentType?.trim().toLowerCase();
   const config = BADGE_CONFIG[normalizedType as keyof typeof BADGE_CONFIG];
@@ -74,7 +76,7 @@ const ContentAccessBadge = ({
   if (!config) return null;
 
   const regular = size === 'regular';
-  const iconSize = regular ? 18 : 15;
+  const iconSize = iconOnly ? 20 : regular ? 18 : 15;
 
   return (
     <View
@@ -86,7 +88,7 @@ const ContentAccessBadge = ({
       ) : (
         <UnlockedIcon color={config.color} size={iconSize} />
       )}
-      <AppText
+      {!iconOnly && <AppText
         style={[
           styles.label,
           regular && styles.regularLabel,
@@ -94,7 +96,7 @@ const ContentAccessBadge = ({
           labelStyle,
         ]}>
         {config.label}
-      </AppText>
+      </AppText>}
     </View>
   );
 };

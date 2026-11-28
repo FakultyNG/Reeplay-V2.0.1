@@ -31,6 +31,7 @@ class SceneDelegate: RCTDefaultReactNativeFactoryDelegate, UIWindowSceneDelegate
     let factory = RCTReactNativeFactory(delegate: self)
     reactNativeFactory = factory
     window = UIWindow(windowScene: windowScene)
+    (UIApplication.shared.delegate as? AppDelegate)?.window = window
 
     factory.startReactNative(
       withModuleName: "Reeplay",

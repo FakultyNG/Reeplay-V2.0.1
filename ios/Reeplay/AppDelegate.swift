@@ -5,6 +5,11 @@ import GoogleCast
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
+  // RNFirebase Messaging 22.x still reads UIApplication.delegate.window while
+  // handling the did-finish-launching notification. Keep this compatibility
+  // property even though SceneDelegate owns the window on iOS 15+.
+  var window: UIWindow?
+
   func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil

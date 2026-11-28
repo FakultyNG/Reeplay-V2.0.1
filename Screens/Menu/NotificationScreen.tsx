@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {ActivityIndicator, Alert, Pressable, RefreshControl, SectionList, StyleSheet, View} from 'react-native';
-import {Swipeable} from 'react-native-gesture-handler';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import {useFocusEffect} from '@react-navigation/native';
 import notifee from '@notifee/react-native';
 
@@ -204,7 +204,7 @@ const NotificationScreen = () => {
 interface RowProps {item: INotification; onOpen: () => void; onToggleSeen: () => void; onDelete: () => void}
 
 const NotificationRow = ({item, onOpen, onToggleSeen, onDelete}: RowProps) => (
-  <Swipeable overshootRight={false} renderRightActions={() => <View style={styles.swipeActions}>
+  <ReanimatedSwipeable overshootRight={false} renderRightActions={() => <View style={styles.swipeActions}>
     <Pressable style={styles.readAction} onPress={onToggleSeen}><AppText style={styles.swipeLabel}>{item.hasSeen ? 'Unread' : 'Read'}</AppText></Pressable>
     <Pressable style={styles.deleteAction} onPress={onDelete}><AppText style={styles.swipeLabel}>Delete</AppText></Pressable>
   </View>}>
@@ -221,7 +221,7 @@ const NotificationRow = ({item, onOpen, onToggleSeen, onDelete}: RowProps) => (
         <AppText style={styles.time}>{getNotificationTime(item.createdAt)}</AppText>
       </View>
     </Pressable>
-  </Swipeable>
+  </ReanimatedSwipeable>
 );
 
 export default NotificationScreen;

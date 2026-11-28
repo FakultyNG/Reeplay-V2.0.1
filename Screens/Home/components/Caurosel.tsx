@@ -1,18 +1,15 @@
 import {
   View,
   Text,
-  ImageSourcePropType,
   Animated,
-  Platform,
   Dimensions,
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
-import React, { Fragment, useEffect, useState } from 'react';
+import React, { Fragment, useCallback, useEffect, useState } from 'react';
 import FastImage from 'react-native-fast-image';
 import {
   AppButton,
-  AppImage,
   AppText,
   AppView,
   ContentAccessBadge,
@@ -25,7 +22,6 @@ import routes from '@/navigation/routes';
 import { previewContentType, RootNav } from '@/navigation/AppNavigator';
 import LinearGradient from 'react-native-linear-gradient';
 import { AnimatedLin } from '../homeShared';
-import { checkTimeStatus } from '@/Utils/timeStatus';
 import { FadeIn, FadeOut } from 'react-native-reanimated';
 import { ILiveContent, IVODContent } from '@/types/api/content.types';
 import getSymbolFromCurrency from 'currency-symbol-map';
@@ -57,28 +53,23 @@ interface Props {
 const Caurosel = ({
   item,
   colors: colorsArr,
-  translate,
   currentIndex,
   live,
   watchLive,
-handleVODTrailer
+  handleVODTrailer
 }: Props) => {
   const { navigate } = useNavigation<RootNav>();
-  const [videoURL, setVideoURL] = useState<string>('');
-  const [imgLoad, setImgLoad] = useState<boolean>(true);
+  const [imgLoad, setImgLoad] = useState<boolean>(false);
   const [posterUri, setPosterUri] = useState(
     'adminId' in item ? item.portraitPhoto || item.landscapePhoto : '',
   );
   const [modal, setModal] = useState<string|null>(null);
   const isFocused = useIsFocused();
-  const startTime = item && 'start' in item ? item.start : item?.releaseDate;
-  const endTime = item && 'start' in item ? item.expiry : item?.expiryDate
-  const isTime = checkTimeStatus(startTime ?? '', endTime ?? '');
   const dispatch = useAppDispatch()
   const [contentIsPaid, setContentIsPaid] = useState<boolean>(item && 'adminId' in item ? false : !!(item as ILiveContent)?.canView)
   const data = useAppSelector(selectUserPremiumCost)
 
-  async function handleContentStatusUpdate(){
+  const handleContentStatusUpdate = useCallback(async () => {
             if (!item?._id) {
               setContentIsPaid(false);
               return;
@@ -94,37 +85,39 @@ handleVODTrailer
                 setContentIsPaid(false);
               }
             }
-          }
+          }, [item, live]);
 
    useEffect(() => {
      if (!item) {
        setImgLoad(false);
        return;
      }
-     function preloadMedia() {
-      try {
-        // Do not FastImage.preload trailers/preview videos — that saturates
-        // the image pipeline with huge files on a cold cache.
-        if (live && 'start' in item) setVideoURL(item.previewVideo ?? '');
-        if ('adminId' in item) setVideoURL(item.trailer ?? '');
-      } catch (err) {
-        console.log('Error preloading media:', err);
-        setImgLoad(false);
-      }
-    }
-
     if (isFocused) {
-      preloadMedia();
       handleContentStatusUpdate();
     }
-  }, [isFocused, item?._id]);
+  }, [handleContentStatusUpdate, isFocused, item]);
 
   useEffect(() => {
     if ('adminId' in item) {
       setPosterUri(item.portraitPhoto || item.landscapePhoto);
-      setImgLoad(true);
     }
   }, [item]);
+
+  const displayImageUri =
+    item && live && 'start' in item ? item.coverPhoto ?? '' : posterUri;
+
+  useEffect(() => {
+    if (!displayImageUri) {
+      setImgLoad(false);
+      return;
+    }
+
+    setImgLoad(true);
+    // A failed native image callback must never leave an endless loader over
+    // otherwise usable featured controls.
+    const timeout = setTimeout(() => setImgLoad(false), 6000);
+    return () => clearTimeout(timeout);
+  }, [displayImageUri]);
 
   if (!item) {
     return <View style={{width: WIDTH, height: 410}} />;

@@ -262,13 +262,25 @@ export const getDefaultLibrary = async ({pagination, filters = {}}:{pagination:I
         filters.sort ? `sort=${encodeURIComponent(filters.sort)}` : '',
     ].filter(Boolean).join('&');
     const query = [preferenceQuery, filterQuery].filter(Boolean).join('&');
-    const response = await getMergedVodList(
-        `/customers/shared/vods/default-library?page=${pagination.page}&limit=${pagination.limit}${query ? `&${query}` : ''}`,
-    );
+    const path = `/customers/shared/vods/default-library?page=${pagination.page}&limit=${pagination.limit}${query ? `&${query}` : ''}`;
+    const response = filters.type
+        ? await getMergedVodList(path)
+        : await Promise.all([
+            getMergedVodList(path),
+            getMergedVodList(`${path}&type=music-video`),
+        ]).then(([general, musicVideos]) =>
+            mergeArrayResponses(general, musicVideos),
+        );
     if (response.ok && response.data) {
+        const items = response.data.data ?? [];
+        // The unfiltered Library is the complete catalogue. Only isolate music
+        // videos when that tab is explicitly selected; other screens keep music
+        // videos out through their own category-specific helpers.
         response.data.data = filters.type === 'music-video'
-            ? filterMusicVideoContent(response.data.data ?? [])
-            : filterGeneralVodContent(response.data.data ?? []);
+            ? filterMusicVideoContent(items)
+            : filters.type
+                ? filterGeneralVodContent(items)
+                : items;
     }
     return response;
 }

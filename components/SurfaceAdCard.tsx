@@ -1,5 +1,6 @@
-import React, {useCallback, useEffect, useRef} from 'react';
+import React, {useCallback, useEffect} from 'react';
 import {Linking, Pressable, StyleProp, StyleSheet, View, ViewStyle} from 'react-native';
+import {useIsFocused} from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 
@@ -15,13 +16,12 @@ type Props = {
 
 const SurfaceAdCard = ({sourceScreen, style}: Props) => {
   const ad = useAppSelector(selectAdsContent).ads[0];
-  const impressionTracked = useRef('');
+  const isFocused = useIsFocused();
 
   useEffect(() => {
-    if (!ad || impressionTracked.current === ad._id) return;
-    impressionTracked.current = ad._id;
+    if (!ad || !isFocused) return;
     trackHouseAd('house_ad_impression', ad._id, sourceScreen);
-  }, [ad, sourceScreen]);
+  }, [ad, isFocused, sourceScreen]);
 
   const openAd = useCallback(async () => {
     if (!ad || !/^https?:\/\//i.test(ad.link)) return;
@@ -55,23 +55,25 @@ const SurfaceAdCard = ({sourceScreen, style}: Props) => {
       accessibilityLabel={`Open advertisement from ${ad.brand || ad.title}`}
       onPress={openAd}
       style={({pressed}) => [styles.card, style, pressed && styles.pressed]}>
-      <FastImage
-        source={{
-          uri: ad.photoUrl,
-          priority: FastImage.priority.high,
-          cache: FastImage.cacheControl.web,
-        }}
-        resizeMode={FastImage.resizeMode.cover}
-        style={styles.image}
-      />
-      <View style={styles.footer}>
+      <View style={styles.header}>
         <View style={styles.copy}>
-          <AppText numberOfLines={1} style={styles.sponsored}>SPONSORED · {ad.brand || 'REEPLAY'}</AppText>
-          <AppText numberOfLines={1} style={styles.title}>{ad.title}</AppText>
+          <AppText numberOfLines={1} style={styles.brand}>{ad.brand || 'REEPLAY'}</AppText>
+          <AppText numberOfLines={1} style={styles.sponsored}>SPONSORED · {ad.title}</AppText>
         </View>
         <View style={styles.cta}>
           <AppText numberOfLines={1} style={styles.ctaText}>{ad.cta || 'Learn more'}</AppText>
         </View>
+      </View>
+      <View style={styles.mediaFrame}>
+        <FastImage
+          source={{
+            uri: ad.photoUrl,
+            priority: FastImage.priority.high,
+            cache: FastImage.cacheControl.web,
+          }}
+          resizeMode={FastImage.resizeMode.cover}
+          style={styles.image}
+        />
       </View>
     </Pressable>
   );
@@ -80,13 +82,14 @@ const SurfaceAdCard = ({sourceScreen, style}: Props) => {
 export default SurfaceAdCard;
 
 const styles = StyleSheet.create({
-  card: {overflow: 'hidden', borderRadius: 16, backgroundColor: '#17191E', borderWidth: 1, borderColor: '#292C33'},
+  card: {overflow: 'hidden', padding: 4, borderRadius: 18, backgroundColor: '#17191E', borderWidth: 1, borderColor: '#343740'},
   pressed: {opacity: 0.84},
-  image: {width: '100%', aspectRatio: 16 / 9, backgroundColor: '#202228'},
-  footer: {minHeight: 64, paddingHorizontal: 13, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12},
+  header: {minHeight: 64, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12},
   copy: {flex: 1},
-  sponsored: {color: '#777C87', fontFamily: 'MANROPE_600', fontSize: 9, letterSpacing: 0.65},
-  title: {color: '#FFFFFF', fontFamily: 'MANROPE_600', fontSize: 13, marginTop: 3},
-  cta: {maxWidth: 110, minHeight: 34, paddingHorizontal: 13, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF'},
-  ctaText: {color: '#D7282F', fontFamily: 'MANROPE_700', fontSize: 11},
+  brand: {color: '#FFFFFF', fontFamily: 'LEXEND_600', fontSize: 13},
+  sponsored: {color: '#777C87', fontFamily: 'MANROPE_600', fontSize: 9, letterSpacing: 0.65, marginTop: 4},
+  cta: {maxWidth: 112, minHeight: 32, paddingHorizontal: 12, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E63B40'},
+  ctaText: {color: '#FFFFFF', fontFamily: 'MANROPE_700', fontSize: 10},
+  mediaFrame: {overflow: 'hidden', borderRadius: 14, borderWidth: 1, borderColor: '#08090B', backgroundColor: '#202228'},
+  image: {width: '100%', aspectRatio: 16 / 9, backgroundColor: '#202228'},
 });

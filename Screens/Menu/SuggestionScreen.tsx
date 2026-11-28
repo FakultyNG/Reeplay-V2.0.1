@@ -2,7 +2,6 @@ import React, {useState} from 'react';
 import {KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View} from 'react-native';
 
 import {AppHeader, AppScreen, AppText} from '@/components';
-import SurfaceAdCard from '@/components/SurfaceAdCard';
 import ToastNotification from '@/components/ToastNotifications';
 import {useAppSelector} from '@/Hooks/reduxHook';
 import {selectUser} from '@/store/slices/userSlice';
@@ -42,14 +41,9 @@ const SuggestionScreen = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <SurfaceAdCard sourceScreen="Suggestions" style={styles.adCard} />
-
           <View style={styles.intro}>
             <AppText style={styles.eyebrow}>HELP SHAPE REEPLAY</AppText>
             <AppText style={styles.title}>Tell us what would make your experience better.</AppText>
-            <AppText style={styles.description}>
-              Share a feature request, content idea, or something you think we should improve.
-            </AppText>
           </View>
 
           <View style={styles.fieldGroup}>
@@ -57,27 +51,21 @@ const SuggestionScreen = () => {
             <View style={styles.emailField}>
               <AppText numberOfLines={1} style={styles.emailText}>{email || 'Email unavailable'}</AppText>
             </View>
-            <AppText style={styles.helper}>
-              This email comes from your profile and will be sent with your suggestion so the team can follow up.
-            </AppText>
           </View>
 
           <View style={styles.fieldGroup}>
-            <View style={styles.labelRow}>
-              <AppText style={styles.label}>Your suggestion</AppText>
-              <AppText style={styles.count}>{message.length}/{MAX_LENGTH}</AppText>
-            </View>
             <TextInput
               value={message}
               onChangeText={setMessage}
               maxLength={MAX_LENGTH}
               multiline
               textAlignVertical="top"
-              placeholder="What should we add, change, or improve?"
+              placeholder="Share a feature request, content idea, or something you think we should improve."
               placeholderTextColor="#666B75"
               style={styles.input}
               accessibilityLabel="Your suggestion"
             />
+            <AppText style={styles.count}>{message.length}/{MAX_LENGTH}</AppText>
           </View>
 
           <Pressable
@@ -90,7 +78,7 @@ const SuggestionScreen = () => {
               (!trimmedMessage || loading) && styles.submitDisabled,
               pressed && styles.pressed,
             ]}>
-            <AppText style={styles.submitText}>{loading ? 'Sending…' : 'Send suggestion'}</AppText>
+            <AppText style={styles.submitText}>{loading ? 'Sending…' : 'Send suggestion  →'}</AppText>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -103,21 +91,17 @@ export default SuggestionScreen;
 const styles = StyleSheet.create({
   screen: {paddingTop: 10},
   flex: {flex: 1},
-  content: {paddingBottom: 80},
-  adCard: {marginTop: 22},
-  intro: {marginTop: 30},
+  content: {paddingBottom: 80, paddingTop: 26},
+  intro: {marginTop: 8},
   eyebrow: {color: '#FF4B4F', fontFamily: 'MANROPE_700', fontSize: 10, letterSpacing: 1.4},
   title: {color: '#FFFFFF', fontFamily: 'LEXEND_700', fontSize: 22, lineHeight: 29, marginTop: 7},
-  description: {color: '#979BA4', fontFamily: 'MANROPE_400', fontSize: 13, lineHeight: 20, marginTop: 9},
-  fieldGroup: {marginTop: 25},
-  labelRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
+  fieldGroup: {marginTop: 24},
   label: {color: '#E7E8EA', fontFamily: 'MANROPE_600', fontSize: 13, marginBottom: 9},
-  count: {color: '#747984', fontFamily: 'MANROPE_500', fontSize: 10, marginBottom: 9},
+  count: {alignSelf: 'flex-end', color: '#747984', fontFamily: 'MANROPE_500', fontSize: 10, marginTop: 7},
   emailField: {height: 48, borderRadius: 13, justifyContent: 'center', paddingHorizontal: 14, backgroundColor: '#15171B', borderWidth: 1, borderColor: '#292C33'},
   emailText: {color: '#888D97', fontFamily: 'MANROPE_500', fontSize: 13},
-  helper: {color: '#686D77', fontFamily: 'MANROPE_400', fontSize: 11, lineHeight: 16, marginTop: 7},
   input: {minHeight: 170, borderRadius: 14, padding: 14, color: '#FFFFFF', fontFamily: 'MANROPE_400', fontSize: 14, lineHeight: 21, backgroundColor: '#121419', borderWidth: 1, borderColor: '#30333B'},
-  submit: {height: 50, borderRadius: 14, marginTop: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F54343'},
+  submit: {height: 48, borderRadius: 24, marginTop: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F54343'},
   submitDisabled: {opacity: 0.4},
   submitText: {color: '#FFFFFF', fontFamily: 'MANROPE_700', fontSize: 14},
   pressed: {opacity: 0.78},

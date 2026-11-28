@@ -161,14 +161,25 @@ const LibraryScreen = () => {
           <AppText style={styles.eyebrow}>EXPLORE</AppText>
           <AppText style={styles.headingTitle}>Library</AppText>
         </View>
-        <View style={styles.headingActions}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Search"
-            onPress={() => navigate(routes.SEARCH_SCREEN)}
-            style={({pressed}) => [styles.iconButton, pressed && styles.pressed]}>
-            <SearchIcon width={20} height={20} />
-          </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Search"
+          onPress={() => navigate(routes.SEARCH_SCREEN)}
+          style={({pressed}) => [styles.searchButton, pressed && styles.pressed]}>
+          <SearchIcon width={20} height={20} />
+        </Pressable>
+      </View>
+
+      <View style={styles.discoveryRow}>
+        <ScrollView
+          horizontal
+          style={styles.typeTabsScroll}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.typeTabs}>
+          {TYPE_OPTIONS.map(option => (
+            <FilterChip key={option.value} label={option.label} selected={contentType === option.value} onPress={() => setContentType(option.value)} />
+          ))}
+        </ScrollView>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Open filters${activeFilterCount ? `, ${activeFilterCount} active` : ''}`}
@@ -184,14 +195,7 @@ const LibraryScreen = () => {
             </View>
           ) : null}
         </Pressable>
-        </View>
       </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeTabs}>
-        {TYPE_OPTIONS.map(option => (
-          <FilterChip key={option.value} label={option.label} selected={contentType === option.value} onPress={() => setContentType(option.value)} />
-        ))}
-      </ScrollView>
 
       <View style={styles.resultsRow}>
         <AppText style={styles.resultsText}>{loading ? 'Loading titles…' : `${contents.length} title${contents.length === 1 ? '' : 's'}`}</AppText>
@@ -211,6 +215,7 @@ const LibraryScreen = () => {
         key={`library-grid-${columnCount}`}
         numColumns={columnCount}
         columnWrapperStyle={styles.gridRow}
+        style={styles.list}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         onScroll={event => reportScrollOffset(event.nativeEvent.contentOffset.y)}
@@ -221,12 +226,9 @@ const LibraryScreen = () => {
         }}
         refreshing={refreshing}
         onRefresh={refresh}
-        renderItem={({item}) => loading ? (
-          <View style={{width: cardWidth}}>
-            <Placeholder style={{...styles.poster, width: cardWidth}} />
-            <Placeholder style={styles.skeletonTitle} />
-          </View>
-        ) : <ContentItem item={item} width={cardWidth} />}
+        renderItem={({item}) => loading
+          ? <LibrarySkeletonItem width={cardWidth} />
+          : <ContentItem item={item} width={cardWidth} />}
         ListEmptyComponent={!loading ? <EmptyLibrary error={error} onRetry={() => fetchPage(1, true).catch(() => undefined)} /> : null}
         ListFooterComponent={loadingMore ? (
           <View style={styles.footerLoader}><ActivityIndicator color="#FF3B3F" /></View>
@@ -336,6 +338,14 @@ const contentPreviewType = (type: string) => {
   return previewContentType.film;
 };
 
+const LibrarySkeletonItem = ({width}: {width: number}) => (
+  <View style={[styles.card, {width}]}>
+    <Placeholder style={{...styles.skeletonPoster, width, height: width / 0.68}} />
+    <Placeholder style={styles.skeletonTitle} />
+    <Placeholder style={styles.skeletonMeta} />
+  </View>
+);
+
 export const ContentItem = ({item, width}: {item: IVODContent; width: number}) => {
   const {navigate} = useNavigation<RootNav>();
   const dispatch = useAppDispatch();
@@ -419,13 +429,14 @@ const styles = StyleSheet.create({
   heading: {paddingTop: 8, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   eyebrow: {color: '#FF4B4F', fontSize: 11, fontWeight: '700', letterSpacing: 1.7},
   headingTitle: {color: '#FFFFFF', fontSize: 30, fontWeight: '700', marginTop: 3},
-  headingActions: {flexDirection: 'row', alignItems: 'center', gap: 9},
-  iconButton: {width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: '#17191E', borderWidth: 1, borderColor: '#2B2E36'},
+  searchButton: {width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E63B40', borderWidth: 1, borderColor: '#FF5559'},
+  discoveryRow: {flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 10, paddingBottom: 10},
+  typeTabsScroll: {flex: 1},
   filterButton: {height: 42, paddingHorizontal: 13, borderRadius: 21, backgroundColor: '#17191E', borderWidth: 1, borderColor: '#2B2E36', flexDirection: 'row', alignItems: 'center', gap: 7},
   filterButtonText: {color: '#FFFFFF', fontSize: 13, fontWeight: '600'},
   filterCount: {minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, backgroundColor: '#FF3438', alignItems: 'center', justifyContent: 'center'},
   filterCountText: {color: '#FFFFFF', fontSize: 10, fontWeight: '700'},
-  typeTabs: {gap: 8, paddingVertical: 14, paddingRight: 20},
+  typeTabs: {gap: 8, paddingRight: 6},
   chip: {minHeight: 38, paddingHorizontal: 14, borderRadius: 19, borderWidth: 1, borderColor: '#2D3038', backgroundColor: '#121419', alignItems: 'center', justifyContent: 'center'},
   chipSelected: {borderColor: '#FF3438', backgroundColor: '#FF3438'},
   chipText: {color: '#A7ABB4', fontSize: 12, fontWeight: '600'},
@@ -434,13 +445,16 @@ const styles = StyleSheet.create({
   resultsRow: {height: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   resultsText: {color: '#7E838E', fontSize: 12},
   resetInline: {color: '#FF5559', fontSize: 12, fontWeight: '600'},
-  listContent: {paddingTop: 8, paddingBottom: 120, flexGrow: 1},
+  list: {flex: 1},
+  listContent: {paddingTop: 8, paddingBottom: 120},
   gridRow: {justifyContent: 'flex-start', gap: 10, marginBottom: 20},
   card: {minWidth: 0},
   cardPressed: {opacity: 0.78, transform: [{scale: 0.985}]},
   posterWrap: {aspectRatio: 0.68, overflow: 'hidden', borderRadius: 14, backgroundColor: '#15171C'},
   poster: {height: '100%', borderRadius: 14, backgroundColor: '#15171C'},
+  skeletonPoster: {borderRadius: 14, backgroundColor: '#15171C'},
   skeletonTitle: {width: '72%', height: 14, marginTop: 10, borderRadius: 7},
+  skeletonMeta: {width: '48%', height: 10, marginTop: 7, borderRadius: 5},
   imageFallback: {height: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: '#20232A'},
   imageFallbackText: {color: '#4A4F5A', fontSize: 42, fontWeight: '700'},
   accessIcon: {position: 'absolute', top: 8, left: 8, width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(8,9,12,0.78)'},

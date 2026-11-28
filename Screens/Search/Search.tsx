@@ -1,21 +1,17 @@
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Keyboard,
   KeyboardEvent,
-  Linking,
   Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
-import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {
-  AppButton,
   AppHeader,
   AppImage,
   AppScreen,
@@ -25,12 +21,10 @@ import {
 } from '@/components';
 import colors from '@/configs/colors';
 import Size from '@/Utils/useResponsiveSize';
-import {LibraryData, RecentSearch} from '@/configs/data';
 import {CloseBtn_S, SearchIcon_S} from '@/assets/icons';
 import fonts from '@/configs/fonts';
 import BlurView from 'react-native-blur-effect';
 import {BlurView as Blur} from '@react-native-community/blur';
-import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
 import { selectAdsContent, setAdsContent } from '@/store/slices/adsSlice.slice';
 import { ILiveContent, IVODContent } from '@/types/api/content.types';
@@ -50,8 +44,9 @@ import ToastNotification from '@/components/ToastNotifications';
 import { isAndroid } from '@/configs/constant';
 import {useGuestAccessStore} from '@/store/guestAccess.store';
 import {rankSearchResults} from '@/Utils/searchRelevance';
-import {queueAnalyticsEvent, trackHouseAd} from '@/api/analytics.api';
+import {queueAnalyticsEvent} from '@/api/analytics.api';
 import {useLiveFeatureStore} from '@/store/liveFeature.store';
+import SurfaceAdCard from '@/components/SurfaceAdCard';
 
 const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedProps) => {
   const {navigate} = useNavigation<RootNav>()
@@ -72,13 +67,6 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
         const isFocused = useIsFocused();
   
 
-  const url = (ads && ads.length>0) ? ads[0].link : '';
-
-  const handleLink = async () => {
-    if (ads?.[0]?._id) trackHouseAd('house_ad_click', ads[0]._id, 'Search');
-    await InAppBrowser.open(url);
-  };
-
   async function handleContentClick(item:(IVODContent|ILiveContent), canView?:boolean){
     queueAnalyticsEvent({
       eventType: 'content_select',
@@ -91,11 +79,11 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
     }
     // HANDLING NAVIGATION
     if('adminId' in item){
-      dispatch(setPreviewContent(item)),
-        navigate(routes.PREVIEW_SCREEN, {
+      dispatch(setPreviewContent(item));
+      navigate(routes.PREVIEW_SCREEN, {
         content: item.type.includes('series') ? previewContentType['tv series'] : item.type.includes('video') ? previewContentType['music video'] : previewContentType.film,
         videoURL: 'adminId' in item ? item.trailer :'',
-      })
+      });
     }else{
       //CAN VIEW ISSUE
       if(canView){
@@ -108,15 +96,16 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
   }
 
 
-  async function handleSuggestions(){
+  const handleSuggestions = useCallback(async () => {
     const resSug = await fetchContentSuggestions();
     if(resSug.ok && resSug.data){
       const data = resSug.data.data
       const items = data.items ?? [...data.vods, ...data.lives];
       setSuggestions(items.filter(item => liveEnabled || 'adminId' in item));
     }
-  }
-  async function handleRecentSearches(){
+  }, [liveEnabled]);
+
+  const handleRecentSearches = useCallback(async () => {
     if (isGuest) {
       setRecentSearches([]);
       return;
@@ -129,14 +118,14 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
         ...(liveEnabled ? data.lives : []),
       ]);
     }
-  }
-  async function handleGetAds(){
+  }, [isGuest, liveEnabled]);
+
+  const handleGetAds = useCallback(async () => {
     const resAds = await randomAds();
     if(resAds.ok && resAds.data) dispatch(setAdsContent(resAds.data.data))
-   
-  }
+  }, [dispatch]);
 
-  async function handleSearchContent(key:string, requestId:number){
+  const handleSearchContent = useCallback(async (key:string, requestId:number) => {
     try {
       setLoading(true);
 
@@ -162,7 +151,7 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
     }finally{
       if (requestId === searchRequestId.current) setLoading(false);
     }
-  }
+  }, [liveEnabled]);
 
   useEffect(() => {
     const query = text.trim();
@@ -179,7 +168,7 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [text]);
+  }, [handleSearchContent, text]);
 
   useEffect(() => {
     const showKeyboard = Keyboard.addListener(
@@ -199,27 +188,21 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
       showKeyboard.remove();
       hideKeyboard.remove();
     };
-  }, [Keyboard]);
+  }, []);
 
   useLayoutEffect(() =>{
     handleGetAds();
     handleRecentSearches();
     handleSuggestions();
-  }, [isGuest]);
-
-  useEffect(() => {
-    if (isFocused && ads?.[0]?._id) {
-      trackHouseAd('house_ad_impression', ads[0]._id, 'Search');
-    }
-  }, [ads, isFocused]);
+  }, [handleGetAds, handleRecentSearches, handleSuggestions]);
 
    useEffect(() =>{
       if(!currentContentState) setContentState(isFullscreenContent)
-    }, [isFullscreenContent])
+    }, [currentContentState, isFullscreenContent])
 
     useEffect(() =>{
       if(isFocused && !isFullscreen) dispatch(resetFullVideo())
-    },[isFullscreen])
+    },[dispatch, isFocused, isFullscreen])
 
   useEffect(() =>{
       if(!isFullscreenContent) return;
@@ -227,7 +210,7 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
         setContentState(isFullscreenContent)
         makeFullscreen();
       } 
-    }, [isFocused]);
+    }, [currentContentState, isFocused, isFullscreenContent, makeFullscreen]);
 
   return (
     <>
@@ -259,50 +242,9 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
       {text === '' ? (
         <ScrollView style={[{height: Size.getHeight() - 300}]}>
           <AppView className="px-5 pb-20">
-           {(ads && ads.length>0) && <>
-            <AppView className="mt-6 bg-red pt-3 px-1 rounded-[15px]">
-              <AppView className="flex-row items-center justify-between px-3 pb-2">
-                <AppView>
-                  <AppText className="font-LEXEND_400 text-base text-white ">
-                    REEPLAY
-                  </AppText>
-                  <AppText className="font-MANROPE_500 text-white text-xs">
-                    Ads that meet your interest
-                  </AppText>
-                </AppView>
-              </AppView>
-
-              <AppView className="h-[191px] mb-1 rounded-b-[15px] overflow-hidden border-[2px] border-black">
-                <AppImage
-                  source={{uri: ads[0].photoUrl}}
-                  style={{
-                    height:'100%',
-                    width:'100%',
-                    borderBottomLeftRadius:15,
-                    borderBottomRightRadius:15
-                  }}
-                  resizeMode='cover'
-                />
-              </AppView>
-            </AppView>
-
-            <AppButton
-              title={ads[0].cta}
-              bgColor={colors.RED}
-              onPress={() => handleLink()}
-              style={{
-                borderRadius: 5,
-                width: '100%',
-                marginTop: 15,
-                paddingVertical: Size.calcHeight(15),
-              }}
-              labelStyle={{
-                fontFamily: fonts.MANROPE_500,
-                fontSize: 14.5,
-                color: '#ffffff',
-              }}
-            />
-            </>}
+            {(ads && ads.length > 0) ? (
+              <SurfaceAdCard sourceScreen="Search" style={styles.adCard} />
+            ) : null}
 
           {recentSearch.length > 0 &&  <AppView className="mt-6 rounded-[15px] overflow-hidden bg-[#1A1A1A]">
               <AppView className="bg-[#1A1A1A] rounded-t-[15px] pt-5 pb-4 px-[18px]">
@@ -319,7 +261,7 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
                   keyExtractor={(item) => item._id}
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  renderItem={({item, index}) => {
+                  renderItem={({item}) => {
                     return (
                       <TouchableOpacity onPress={() => handleContentClick(item)} className="overflow-hidden w-[101px] h-[131px] mr-2 rounded-[10px]">
                         <AppImage
@@ -346,7 +288,7 @@ const Search = ({isFullscreen,makeFullscreen,makePortrait}:OrientationInjectedPr
                   keyExtractor={(item) => item._id}
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  renderItem={({item, index}) => {
+                  renderItem={({item}) => {
                     return (
                       <TouchableOpacity onPress={() => handleContentClick(item)} className="overflow-hidden w-[101px] h-[131px] mr-2 rounded-[10px]">
                         <AppImage
@@ -454,18 +396,18 @@ interface Props{
 export const ContentItem = ({lib, handleContentClick}:Props) =>{
   const [loading, setLoading] = useState<boolean>(true)
   const [contentIsPaid, setContentIsPaid] = useState<boolean>(false)
-   async function handleContentStatusUpdate(){
+   const handleContentStatusUpdate = useCallback(async () => {
             if(lib.vidClass === 'free'){
               setContentIsPaid(true);
             }else{
               const res = await hasPaidContentStatus({contentType: 'coverPhoto' in lib ?'live':'vod', _id:lib._id})
               if(res.ok && res.data) setContentIsPaid(res.data.data.canView)
             }
-          }
+          }, [lib])
 
           useEffect(() =>{
               handleContentStatusUpdate()
-          }, [lib._id])
+          }, [handleContentStatusUpdate])
           
   return(
     <View className='relative'>
@@ -510,5 +452,8 @@ const styles = StyleSheet.create({
     rowGap: Size.calcHeight(10),
     paddingHorizontal: 20,
     paddingBottom: 100,
+  },
+  adCard: {
+    marginTop: 24,
   },
 });

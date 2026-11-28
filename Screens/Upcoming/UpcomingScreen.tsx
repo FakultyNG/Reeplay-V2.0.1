@@ -34,7 +34,6 @@ import {useTabBarCompactOnScroll} from '@/navigation/useTabBarCompactOnScroll';
 import {getUpcomingCache, setUpcomingCache} from '@/Utils/contentMmkv';
 import {useLiveFeatureStore} from '@/store/liveFeature.store';
 import {isMusicVideoContent} from '@/Utils/contentVisibility';
-import SurfaceAdCard from '@/components/SurfaceAdCard';
 
 const excludeMusicVideos = (items: (IVODContent | ILiveContent)[]) =>
   items.filter(item => !('adminId' in item) || !isMusicVideoContent(item));
@@ -210,8 +209,6 @@ const UpcomingScreen = ({
                 </AppText>
               </View>
 
-              <SurfaceAdCard sourceScreen="Upcoming" style={styles.adCard} />
-
               <View style={styles.sectionHeader}>
                 <AppText style={styles.sectionTitle}>Upcoming releases</AppText>
                 <AppText style={styles.sectionMeta}>Earliest first</AppText>
@@ -271,7 +268,6 @@ const styles = StyleSheet.create({
   countPill: {minWidth: 26, height: 26, borderRadius: 13, paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: '#26282F'},
   countText: {color: '#D9DBDF', fontFamily: 'MANROPE_700', fontSize: 11},
   subtitle: {color: '#8E929C', fontFamily: 'MANROPE_400', fontSize: 13, lineHeight: 19, marginTop: 8},
-  adCard: {marginHorizontal: 20, marginTop: 22},
   sectionHeader: {paddingHorizontal: 20, marginTop: 27, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
   sectionTitle: {color: '#F3F3F4', fontFamily: 'MANROPE_700', fontSize: 15},
   sectionMeta: {color: '#777B85', fontFamily: 'MANROPE_500', fontSize: 11},

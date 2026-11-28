@@ -1,9 +1,10 @@
 import {
+  Image,
   SafeAreaView,
   StatusBar,
   StyleSheet,
 } from 'react-native';
-import React, {useCallback, useEffect, useRef} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useNavigation} from '@react-navigation/native';
 import {SplashScreenProps} from '@/types/typings';
 import routes from '@/navigation/routes';
@@ -24,6 +25,7 @@ const Splashscreen = () => {
   const dispatch = useAppDispatch();
   const setIsSessionExpired = useAppPersistStore(s => s.setIsSessionExpired);
   const hasNavigated = useRef(false);
+  const [animationLoaded, setAnimationLoaded] = useState(false);
 
   const handleNav = useCallback(async () => {
     if (hasNavigated.current) return;
@@ -88,6 +90,13 @@ const Splashscreen = () => {
   return (
     <SafeAreaView style={[styles.center, styles.container]}>
       <StatusBar hidden />
+      {!animationLoaded && (
+        <Image
+          source={require('@/assets/images/smallLogo.png')}
+          resizeMode="contain"
+          style={styles.fallbackLogo}
+        />
+      )}
       <LottieView
         source={require('@/assets/lottie/ReeplaySplash.lottie')}
         autoPlay
@@ -95,6 +104,7 @@ const Splashscreen = () => {
         speed={1}
         resizeMode="contain"
         style={styles.animation}
+        onAnimationLoaded={() => setAnimationLoaded(true)}
         onAnimationFinish={() => void handleNav()}
         onAnimationFailure={() => void handleNav()}
       />
@@ -118,5 +128,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
+  },
+  fallbackLogo: {
+    width: 140,
+    height: 140,
   },
 });

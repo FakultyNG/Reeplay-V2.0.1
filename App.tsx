@@ -157,8 +157,9 @@ function App(): React.JSX.Element {
     let isMounted = true;
 
     const migrateBackendEnvironment = async () => {
+      let hasSkipped = false;
       try {
-        let hasSkipped = (await authGet(AUTH_MMKV_KEYS.HAS_SKIPPED)) === 'true';
+        hasSkipped = (await authGet(AUTH_MMKV_KEYS.HAS_SKIPPED)) === 'true';
         setGuest(hasSkipped);
         const previousBaseUrl = await authGet(API_ENVIRONMENT_KEY);
         if (previousBaseUrl !== BASE_URL) {
@@ -182,9 +183,17 @@ function App(): React.JSX.Element {
           await authSet(API_ENVIRONMENT_KEY, BASE_URL);
           hasSkipped = false;
         }
+      } catch (error) {
+        console.warn('[startup] local environment initialization failed', error);
+      } finally {
+        // Local migration is the only work that must finish before navigation.
+        // Never hide the splash behind Railway, DNS, or a captive network.
+        if (isMounted) {
+          setIsBackendEnvironmentReady(true);
+        }
+      }
 
-        // Startup must never wait indefinitely for Railway, DNS, or a captive
-        // network. The setting can be refreshed after navigation is mounted.
+      try {
         const [guestSetting] = await Promise.all([
           Promise.race([
             getGuestAccessSetting(),
@@ -212,11 +221,7 @@ function App(): React.JSX.Element {
           }
         }
       } catch (error) {
-        console.warn('[startup] environment initialization failed', error);
-      } finally {
-        if (isMounted) {
-          setIsBackendEnvironmentReady(true);
-        }
+        console.warn('[startup] remote settings refresh failed', error);
       }
     };
 

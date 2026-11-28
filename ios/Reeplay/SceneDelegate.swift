@@ -1,23 +1,22 @@
 import UIKit
 import React
+import React_RCTAppDelegate
+import ReactAppDependencyProvider
 
-class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+class SceneDelegate: RCTDefaultReactNativeFactoryDelegate, UIWindowSceneDelegate {
   var window: UIWindow?
+  var reactNativeFactory: RCTReactNativeFactory?
 
   func scene(
     _ scene: UIScene,
     willConnectTo session: UISceneSession,
     options connectionOptions: UIScene.ConnectionOptions
   ) {
-    guard
-      let windowScene = scene as? UIWindowScene,
-      let appDelegate = UIApplication.shared.delegate as? AppDelegate,
-      let factory = appDelegate.reactNativeFactory
-    else {
+    guard let windowScene = scene as? UIWindowScene else {
       return
     }
 
-    var launchOptions = appDelegate.launchOptions ?? [:]
+    var launchOptions: [UIApplication.LaunchOptionsKey: Any] = [:]
     if let urlContext = connectionOptions.urlContexts.first {
       launchOptions[.url] = urlContext.url
       if let sourceApplication = urlContext.options.sourceApplication {
@@ -28,9 +27,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
       }
     }
 
-    let window = UIWindow(windowScene: windowScene)
-    self.window = window
-    appDelegate.window = window
+    dependencyProvider = RCTAppDependencyProvider()
+    let factory = RCTReactNativeFactory(delegate: self)
+    reactNativeFactory = factory
+    window = UIWindow(windowScene: windowScene)
 
     factory.startReactNative(
       withModuleName: "Reeplay",
@@ -65,5 +65,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
       continue: userActivity,
       restorationHandler: { _ in }
     )
+  }
+
+  override func sourceURL(for bridge: RCTBridge) -> URL? {
+    bundleURL()
+  }
+
+  override func bundleURL() -> URL? {
+#if DEBUG
+    RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
+#else
+    Bundle.main.url(forResource: "main", withExtension: "jsbundle")
+#endif
   }
 }

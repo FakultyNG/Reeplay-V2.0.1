@@ -23,8 +23,8 @@ type Props = {
 
 const BADGE_CONFIG = {
   premium: {label: 'Premium', color: '#06D097', icon: 'verified'},
-  exclusive: {label: 'Reeplay Original', color: '#FF1313', icon: 'verified'},
-  original: {label: 'Reeplay Original', color: '#FF1313', icon: 'verified'},
+  exclusive: {label: 'Original', color: '#FF1313', icon: 'verified'},
+  original: {label: 'Original', color: '#FF1313', icon: 'verified'},
   free: {label: 'Free', color: '#FFCC00', icon: 'unlocked'},
 } as const;
 

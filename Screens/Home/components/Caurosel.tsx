@@ -1,6 +1,5 @@
 import {
   View,
-  Text,
   Animated,
   Dimensions,
   ActivityIndicator,
@@ -24,13 +23,10 @@ import LinearGradient from 'react-native-linear-gradient';
 import { AnimatedLin } from '../homeShared';
 import { FadeIn, FadeOut } from 'react-native-reanimated';
 import { ILiveContent, IVODContent } from '@/types/api/content.types';
-import getSymbolFromCurrency from 'currency-symbol-map';
-import { formatAmount } from '@/Utils/formatAmount';
 import AppModal from '@/components/AppModal';
 import LiveInfoModal from '@/Screens/Live/components/LiveInfoModal';
-import { useAppDispatch, useAppSelector } from '@/Hooks/reduxHook';
+import { useAppDispatch } from '@/Hooks/reduxHook';
 import { setPreviewContent } from '@/store/slices/previewContentSlice';
-import { selectUserPremiumCost } from '@/store/slices/bannerSlice.slice';
 import { hasPaidContentStatus } from '@/api/content.api';
 import { getWatchTag } from '@/Utils/contentUtils';
 import { setFullVideoProps } from '@/store/slices/fullScreenVideo.slice';
@@ -67,7 +63,6 @@ const Caurosel = ({
   const isFocused = useIsFocused();
   const dispatch = useAppDispatch()
   const [contentIsPaid, setContentIsPaid] = useState<boolean>(item && 'adminId' in item ? false : !!(item as ILiveContent)?.canView)
-  const data = useAppSelector(selectUserPremiumCost)
 
   const handleContentStatusUpdate = useCallback(async () => {
             if (!item?._id) {
@@ -156,13 +151,8 @@ const Caurosel = ({
       screen: routes.SUBSCRIPTION_SCREEN,
       params: {
         tab: getWatchTag(item.vidClass, live ?? false),
-        currency:
-          item.vidClass === 'premium' && data
-            ? data.currencyCode
-            : item.currency,
-        amount: `${
-          item.vidClass === 'premium' && data ? data.amount : item.amount
-        }`,
+        currency: item.currency,
+        amount: `${item.amount}`,
         stage: 'paymentSummary',
         metadata: live ? {liveId: item._id} : {videoId: item._id},
       },
@@ -347,23 +337,18 @@ const Caurosel = ({
             }}
             replaceDefaultContent={
               <AppView className="flex-row items-center justify-center">
-                {!contentIsPaid ?
-                (item.vidClass === 'premium'&& data && data.currencyCode && data.amount) ? <Text className="text-[15px] text-white font-ROBOTO_700 text-center -ml-1">
-                  {getSymbolFromCurrency(data.currencyCode)}{formatAmount(data.amount, data.currencyCode)}
-                  </Text>  : 
-                (item.amount && item.currency) ? <Text className="text-[15px] text-white font-ROBOTO_700 text-center -ml-1">
-                  {getSymbolFromCurrency(item.currency)}{formatAmount(item.amount, item.currency)}
-                  </Text> : <>
-                <SmPlayIcon />
-                <AppText className="text-[15px] text-white font-ROBOTO_700 ml-[10px]">
-                  {live ? 'Watch' : 'Play'}
-                </AppText>
-                </>: <>
-                <SmPlayIcon />
-                <AppText className="text-[15px] text-white font-ROBOTO_700 ml-[10px]">
-                  {live ? 'Watch' : 'Play'}
-                </AppText>
-                </>}
+                {!contentIsPaid ? (
+                  <AppText className="text-[15px] text-white font-ROBOTO_700">
+                    Unlock
+                  </AppText>
+                ) : (
+                  <>
+                    <SmPlayIcon />
+                    <AppText className="text-[15px] text-white font-ROBOTO_700 ml-[10px]">
+                      {live ? 'Watch' : 'Play'}
+                    </AppText>
+                  </>
+                )}
               </AppView>
             }
           />

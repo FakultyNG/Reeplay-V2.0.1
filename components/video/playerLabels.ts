@@ -41,7 +41,7 @@ export function getPlayerLabels(
     ? String(content.releaseYear).slice(0, 4)
     : '';
   const accessLabel = content.isReeplayOriginal
-    ? 'Reeplay Original'
+    ? 'Original'
     : content.vidClass?.toLowerCase() === 'premium'
       ? 'Premium'
       : content.vidClass?.toLowerCase() === 'free'

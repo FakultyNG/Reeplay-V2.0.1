@@ -40,7 +40,7 @@ const ACCESS_OPTIONS: {label: string; value: AccessType}[] = [
   {label: 'All access', value: 'all'},
   {label: 'Free', value: 'free'},
   {label: 'Premium', value: 'premium'},
-  {label: 'Reeplay Originals', value: 'original'},
+  {label: 'Original', value: 'original'},
 ];
 const SORT_OPTIONS: {label: string; value: SortType}[] = [
   {label: 'Recommended', value: 'recommended'},

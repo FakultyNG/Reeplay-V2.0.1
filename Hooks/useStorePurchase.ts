@@ -95,11 +95,20 @@ export const useStorePurchase = (onGranted?: () => void | Promise<void>) => {
     });
   }, [config, products, requestPurchase]);
 
+  const prepare = useCallback(
+    (target: Target) => load(target, false),
+    [load],
+  );
+  const purchase = useCallback(
+    (target: Target) => load(target, true),
+    [load],
+  );
+
   return {
     connected,
     busy,
     displayPrice,
-    prepare: (target: Target) => load(target, false),
-    purchase: (target: Target) => load(target, true),
+    prepare,
+    purchase,
   };
 };

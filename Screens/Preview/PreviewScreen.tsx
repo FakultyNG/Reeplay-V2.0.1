@@ -75,17 +75,28 @@ const PreviewScreen = ({
     usePreviewDownload(previewContent);
 
   const content = route.params.content;
-  const storePurchase = useStorePurchase(refreshAccess);
+  const {
+    connected: storeConnected,
+    displayPrice: storeDisplayPrice,
+    prepare: prepareStorePurchase,
+    purchase: purchaseFromStore,
+  } = useStorePurchase(refreshAccess);
 
   useEffect(() => {
     if (
-      storePurchase.connected &&
+      storeConnected &&
       previewContent.vidClass !== 'free' &&
       previewContent.type !== 'series'
     ) {
-      void storePurchase.prepare({videoId: previewContent._id});
+      void prepareStorePurchase({videoId: previewContent._id});
     }
-  }, [previewContent._id, previewContent.type, previewContent.vidClass, storePurchase.connected]);
+  }, [
+    prepareStorePurchase,
+    previewContent._id,
+    previewContent.type,
+    previewContent.vidClass,
+    storeConnected,
+  ]);
 
   const {addCommentFunc, loading: loadingComment} = useCommentHook({
     handleFinalFunc: () => getCommentCount(),
@@ -164,7 +175,7 @@ const PreviewScreen = ({
       ToastNotification('info', 'Choose a season below to unlock it.');
       return;
     }
-    await storePurchase.purchase({videoId: previewContent._id});
+    await purchaseFromStore({videoId: previewContent._id});
   };
 
   return (
@@ -267,7 +278,7 @@ const PreviewScreen = ({
                       contentType={contentType}
                       contentPrice={
                         !accessStatus && previewContent.type !== 'series'
-                          ? storePurchase.displayPrice || '$0.59'
+                          ? storeDisplayPrice || 'Checking price…'
                           : contentPrice
                       }
                       seeMore={seeMore}
